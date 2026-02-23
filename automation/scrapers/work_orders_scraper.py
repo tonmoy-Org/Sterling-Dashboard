@@ -3,6 +3,7 @@ Work Orders Scraper
 Scrapes work orders with complete status and extracts full addresses.
 Updated to include Add Column functionality for Completed Date.
 """
+
 import copy
 from typing import List, Dict, Optional
 import asyncio
@@ -14,30 +15,29 @@ class WorkOrdersScraper(BaseScraper):
     Scraper for complete work orders including address extraction.
     Opens individual work orders to fetch full address details.
     """
-    
+
     def __init__(self):
         """Initialize work orders scraper."""
         super().__init__()
-    
+
     async def scrape_work_orders_table(self):
         """
         Scrape work orders from the main table.
-        
+
         Returns:
             dict: Dictionary with rows list and count
         """
         try:
             await self.page.wait_for_selector(
-                'tbody.fixed-body tr',
-                state='attached',
-                timeout=60000
+                "tbody.fixed-body tr", state="attached", timeout=60000
             )
         except Exception as e:
             print(f"Error waiting for table rows: {e}")
-            return {'rows': []}
-        
+            return {"rows": []}
+
         try:
-            scraped_data = await self.page.evaluate(r"""() => {
+            scraped_data = await self.page.evaluate(
+                r"""() => {
                 const dataList = [];
                 
                 try {
@@ -78,39 +78,38 @@ class WorkOrdersScraper(BaseScraper):
                 }
                 
                 return { rows: dataList, count: dataList.length };
-            }""")
-            
-            row_count = len(scraped_data.get('rows', []))
+            }"""
+            )
+
+            row_count = len(scraped_data.get("rows", []))
             print(f"Scraped {row_count} work order(s) from table.")
             return scraped_data
-            
+
         except Exception as e:
             print(f"Error during table scraping: {e}")
-            return {'rows': []}
-    
-    
+            return {"rows": []}
+
     async def scrape_address_from_page(self, page):
         """
         Extract full address from work order detail page.
-        
+
         Args:
             page: Playwright page object for the work order detail
-            
+
         Returns:
             str: Full address or None if extraction fails
         """
         try:
             await page.wait_for_selector(
-                '[data-automation-id="address1"]',
-                state='attached',
-                timeout=60000
+                '[data-automation-id="address1"]', state="attached", timeout=60000
             )
         except Exception as e:
             print(f"Error waiting for address elements: {e}")
             return None
-        
+
         try:
-            full_address = await page.evaluate(r"""() => {
+            full_address = await page.evaluate(
+                r"""() => {
                 try {
                     const address1 = document.querySelector('[data-automation-id="address1"]').innerText.trim();
                     const address2 = document.querySelector('[data-automation-id="address2"]').innerText.trim();
@@ -119,154 +118,166 @@ class WorkOrdersScraper(BaseScraper):
                     console.error("Error extracting address:", err);
                     return null;
                 }
-            }""")
-            
+            }"""
+            )
+
             return full_address
-            
+
         except Exception as e:
             print(f"Error extracting address: {e}")
             return None
-    
+
     async def fetch_addresses_for_work_orders(self, work_orders):
         """
         Open each work order to extract full address.
         Only processes work orders with "Complete" status.
-        
+
         Args:
             work_orders: List of work order dictionaries
-            
+
         Returns:
             list: Work orders with full_address field added
         """
         result = []
-        base_xpath_config = self.rules.get('open_work_order_xpath', [])
-        
+        base_xpath_config = self.rules.get("open_work_order_xpath", [])
+
         while work_orders:
             work_order = work_orders.pop(0)
-            
+
             try:
-                wo_number = work_order.get('wo_number', '').strip()
-                status = work_order.get('status', '').strip()
-                retry_count = work_order.get('try_later', 0)
-                
+                wo_number = work_order.get("wo_number", "").strip()
+                status = work_order.get("status", "").strip()
+                retry_count = work_order.get("try_later", 0)
+
                 # Only process Complete work orders with retry limit
-                if not wo_number or status != "Complete" or retry_count >= 2:
-                    if wo_number and status != "Complete":
-                        print(f"⏭Skipping work order {wo_number}: Status is '{status}'")
-                    elif retry_count >= 2:
+                if not wo_number or retry_count >= 2:
+                    if retry_count >= 2:
                         print(f"Skipping work order {wo_number}: Retry limit reached")
                     continue
-                
+
                 if not base_xpath_config:
                     print("No XPath configured for opening work orders.")
                     continue
-                
+
                 # Prepare XPath with work order number
                 xpath_config = copy.deepcopy(base_xpath_config)
                 wo_xpath = xpath_config[0]["xpath"]
                 xpath_config[0]["xpath"] = wo_xpath.replace(
-                    '{work_order_number}',
-                    wo_number
+                    "{work_order_number}", wo_number
                 )
-                
+
                 # Open work order in new tab
                 try:
                     async with self.page.context.expect_page() as new_page_info:
                         await self.perform_actions_by_xpaths(action_list=xpath_config)
-                    
+
                     new_page = await new_page_info.value
                     await new_page.wait_for_load_state()
-                    
+
                     # Extract address
                     address = await self.scrape_address_from_page(page=new_page)
-                    
+
                     if address:
-                        work_order['full_address'] = address
+                        work_order["full_address"] = address
                         print(f"{wo_number}: {address}")
                         result.append(work_order)
                     else:
                         raise Exception("Address not found")
-                
+
                 except Exception as e:
                     print(f"Failed to scrape {wo_number}: {e}")
-                    work_order['try_later'] = retry_count + 1
+                    work_order["try_later"] = retry_count + 1
                     work_orders.append(work_order)
-                
+
                 finally:
                     try:
                         await new_page.close()
                     except:
                         pass
-            
+
             except Exception as e:
                 print(f"Error processing work order {wo_number}: {e}")
-                work_order['try_later'] = work_order.get("try_later", 0) + 1
+                work_order["try_later"] = work_order.get("try_later", 0) + 1
                 work_orders.append(work_order)
-        
+
         return result
-    
+
+    async def add_completed_date_column(self):
+        """
+        Click the Add Column (+) button, select Completed Date checkbox,
+        and click Save. Runs once before filters are applied.
+        """
+        try:
+            print("Adding 'Completed Date' column...")
+            await self.perform_actions_by_xpaths(name="add_column_xpath")
+            print("✅ 'Completed Date' column added successfully.")
+        except Exception as e:
+            print(f"⚠️ Add Column step failed (column may already be present): {e}")
+
     async def run(self):
         """
         Execute the complete work orders scraping workflow.
-        
+
         Returns:
             list: Work orders with full addresses, or None on error
         """
         try:
             await self.initialize()
-            
+
             # Navigate to dispatch board
-            dashboard_url = self.rules.get('dashboard_url')
-            await self.page.goto(dashboard_url, wait_until='domcontentloaded')
-            
+            dashboard_url = self.rules.get("dashboard_url")
+            await self.page.goto(dashboard_url, wait_until="domcontentloaded")
+
             # Login if necessary
             if "Login" in self.page.url:
                 await self.login_fieldedge()
-            
+
             # Navigate to work orders list if needed
-            work_order_url = self.rules.get('work_order_url', '')
+            work_order_url = self.rules.get("work_order_url", "")
             if work_order_url and work_order_url != self.page.url:
-                await self.page.goto(work_order_url, wait_until='networkidle')
-            
+                await self.page.goto(work_order_url, wait_until="networkidle")
+
             # Wait for table to load
             try:
                 wait_xpath = self.rules.get("wait_xpath")
                 await self.page.wait_for_selector(
-                    wait_xpath,
-                    state='visible',
-                    timeout=600000
+                    wait_xpath, state="visible", timeout=600000
                 )
             except Exception as e:
                 print(f"Error waiting for table: {e}")
                 return None
-            
 
-            # Apply filters
+            # Step 1: Add Completed Date column via Add Column modal
+            await self.add_completed_date_column()
+
+            # Wait for table to reflect new column
+            await self.page.wait_for_timeout(3000)
+
+            # Step 2: Apply filters
             await self.perform_actions_by_xpaths(name="edit_filter_xpath")
             await asyncio.sleep(3)  # Small delay to ensure filter UI is ready
             await self.perform_actions_by_xpaths(name="status_xpath")
-            await self.perform_actions_by_xpaths(name='completed_date_filter_xpath')
-            
-            # NOTE: Do NOT click Apply button here - as per requirement
-            # await self.perform_actions_by_xpaths(name='submit_filter')
-            print("Filters set but NOT applied (as per requirement)")
-            
-            
+            await self.perform_actions_by_xpaths(name="completed_date_filter_xpath")
+
+            await self.perform_actions_by_xpaths(name="submit_filter")
+
             # Wait for table to reload with new column
             await self.page.wait_for_timeout(3000)
-            
+
             # Scrape table data
             scraped = await self.scrape_work_orders_table()
-            work_orders = scraped.get('rows', [])
-            
+            work_orders = scraped.get("rows", [])
+
             # Fetch addresses for each work order
-            work_orders_with_addresses = await self.fetch_addresses_for_work_orders(work_orders)
-            
+            work_orders_with_addresses = await self.fetch_addresses_for_work_orders(
+                work_orders
+            )
+
             return work_orders_with_addresses
-            
+
         except Exception as e:
             print(f"Scraping error: {e}")
             return None
-            
+
         finally:
             await self.cleanup()

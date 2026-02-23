@@ -25,6 +25,32 @@
     "start_time": "",
     "apply_button_xpath": ".plot-map-button:has-text('Apply')",
     "locator_status_xpath": "//div[contains(@class, 'header-text')][last()]/div[last()]",
+    "add_column_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[contains(@class,'add-column-container')]"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='CompletedDatelabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//button[contains(@class,'confirm_hsagT') and .//span[normalize-space(text())='Save']]"
+      },
+      {
+        "action": "wait",
+        "timeout": 2000
+      }
+    ],
     "edit_filter_xpath": [
       {
         "action": "click",
@@ -72,7 +98,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[@id='vs3__option-2']"
+        "xpath": "//li[@id='vs3__option-7']"
       },
       {
         "action": "wait",

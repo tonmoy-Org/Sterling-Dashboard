@@ -67,27 +67,22 @@ async def run_online_rme_scraper():
     try:
         scraper = OnlineRMEScraper()
 
-        # Fetch non-deleted work orders
+        # Fetch non-deleted work orders, excluding already-finalized statuses
         work_orders = scraper.api_client.manage_work_orders(
             method_type="GET", params={"is_deleted": "false"}
         )
 
-        # Filter out LOCKED and DELETED statuses
-        work_orders_missing_urls = [
+        work_orders_to_process = [
             wo for wo in work_orders if wo.get("status") not in ["LOCKED", "DELETED"]
         ]
 
-        record_count = len(work_orders_missing_urls)
+        record_count = len(work_orders_to_process)
         print(f"RME records to process: {record_count}")
 
-        if work_orders_missing_urls:
-            updated_records = await scraper.run(work_orders_missing_urls)
-
-            del scraper
-            scraper = OnlineRMEScraper()
-
-            await scraper.workorder_address_check_and_get_form(updated_records)
-            print("RME data patching completed.")
+        if work_orders_to_process:
+            # Single pass: authenticate, search, scrape forms, update DB — all in one
+            await scraper.workorder_address_check_and_get_form(work_orders_to_process)
+            print("RME data processing completed.")
         else:
             print("No RME records found to update.")
 

@@ -87,6 +87,28 @@
         "xpath": "//div[@class='secondary-filter box undefined undefined  class-selected multiple']//button[@class='button_JdBxs confirm_hsagT base-button']"
       }
     ],
+    "scheduled_date_filter_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[@class='filter-name' and normalize-space(text())='Scheduled Date']"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//li[@id='vs2__option-0']"
+      },
+      {
+        "action": "wait",
+        "timeout": 1500
+      },
+      {
+        "action": "click",
+        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+      }
+    ],
     "completed_date_filter_xpath": [
       {
         "action": "click",

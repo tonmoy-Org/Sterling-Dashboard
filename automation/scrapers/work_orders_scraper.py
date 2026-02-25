@@ -257,6 +257,7 @@ class WorkOrdersScraper(BaseScraper):
             await self.perform_actions_by_xpaths(name="edit_filter_xpath")
             await asyncio.sleep(3)  # Small delay to ensure filter UI is ready
             await self.perform_actions_by_xpaths(name="status_xpath")
+            await self.perform_actions_by_xpaths(name='scheduled_date_filter_xpath')
             await self.perform_actions_by_xpaths(name="completed_date_filter_xpath")
 
             await self.perform_actions_by_xpaths(name="submit_filter")

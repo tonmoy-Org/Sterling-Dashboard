@@ -2,12 +2,17 @@
 Work Orders Scraper
 Scrapes work orders with complete status and extracts full addresses.
 Updated to include Add Column functionality for Completed Date.
+Updated to print all table data after filters are applied.
+Added debug logging for date comparison between environments.
 """
 
 import copy
 from typing import List, Dict, Optional
 import asyncio
 from automation.scrapers.base_scraper import BaseScraper
+import os
+import socket
+from datetime import datetime
 
 
 class WorkOrdersScraper(BaseScraper):
@@ -19,10 +24,28 @@ class WorkOrdersScraper(BaseScraper):
     def __init__(self):
         """Initialize work orders scraper."""
         super().__init__()
+        self.environment = self._detect_environment()
+
+    def _detect_environment(self):
+        """
+        Detect whether running locally or on RDP server.
+        
+        Returns:
+            str: 'local' or 'rdp'
+        """
+        hostname = socket.gethostname()
+        print(f"📋 Running on host: {hostname}")
+        
+        # Add your RDP server hostname detection logic here
+        # For example, check if hostname contains specific strings
+        if 'RDP' in hostname.upper() or 'SERVER' in hostname.upper():
+            return 'rdp'
+        else:
+            return 'local'
 
     async def scrape_work_orders_table(self):
         """
-        Scrape work orders from the main table.
+        Scrape work orders from the main table with enhanced debug logging.
 
         Returns:
             dict: Dictionary with rows list and count
@@ -36,6 +59,10 @@ class WorkOrdersScraper(BaseScraper):
             return {"rows": []}
 
         try:
+            # Get current timestamp for debug
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"\n📊 Scraping table at {current_time} ({self.environment} environment)")
+            
             scraped_data = await self.page.evaluate(
                 r"""() => {
                 const dataList = [];
@@ -82,12 +109,69 @@ class WorkOrdersScraper(BaseScraper):
             )
 
             row_count = len(scraped_data.get("rows", []))
-            print(f"Scraped {row_count} work order(s) from table.")
+            print(f"✅ Scraped {row_count} work order(s) from table.")
+            
+            # DEBUG: Print raw data with date comparison
+            print("\n" + "="*100)
+            print(f"🔍 RAW TABLE DATA - {self.environment.upper()} ENVIRONMENT")
+            print("="*100)
+            
+            rows = scraped_data.get("rows", [])
+            date_mismatches = 0
+            
+            for idx, wo in enumerate(rows, 1):
+                wo_num = wo.get('wo_number', 'N/A')
+                scheduled = wo.get('scheduled_date', 'N/A')
+                completed = wo.get('completed_date', 'N/A')
+                status = wo.get('status', 'N/A')
+                
+                # Check if dates are different
+                if scheduled != 'N/A' and completed != 'N/A' and scheduled != completed:
+                    date_mismatches += 1
+                    mismatch_indicator = "⚠️ MISMATCH"
+                else:
+                    mismatch_indicator = "✓ MATCH"
+                
+                print(f"{idx:2}. WO: {wo_num:6} | Status: {status:10} | "
+                      f"Scheduled: {scheduled:10} | Completed: {completed:10} | {mismatch_indicator}")
+            
+            print("="*100)
+            print(f"📊 Summary: {row_count} total rows, {date_mismatches} date mismatches")
+            
+            # Save debug info to file for comparison
+            self._save_debug_info(rows, date_mismatches)
+            
             return scraped_data
 
         except Exception as e:
-            print(f"Error during table scraping: {e}")
+            print(f"❌ Error during table scraping: {e}")
             return {"rows": []}
+
+    def _save_debug_info(self, rows, mismatch_count):
+        """
+        Save debug information to a file for later comparison.
+        """
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"debug_workorders_{self.environment}_{timestamp}.txt"
+            
+            with open(filename, 'w') as f:
+                f.write(f"Environment: {self.environment}\n")
+                f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Total Rows: {len(rows)}\n")
+                f.write(f"Date Mismatches: {mismatch_count}\n")
+                f.write("="*80 + "\n\n")
+                
+                for wo in rows:
+                    f.write(f"WO: {wo.get('wo_number')}\n")
+                    f.write(f"  Status: {wo.get('status')}\n")
+                    f.write(f"  Scheduled: {wo.get('scheduled_date')}\n")
+                    f.write(f"  Completed: {wo.get('completed_date')}\n")
+                    f.write("-"*40 + "\n")
+            
+            print(f"💾 Debug info saved to: {filename}")
+        except Exception as e:
+            print(f"⚠️ Could not save debug info: {e}")
 
     async def scrape_address_from_page(self, page):
         """
@@ -179,13 +263,13 @@ class WorkOrdersScraper(BaseScraper):
 
                     if address:
                         work_order["full_address"] = address
-                        print(f"{wo_number}: {address}")
+                        print(f"✅ {wo_number}: {address}")
                         result.append(work_order)
                     else:
                         raise Exception("Address not found")
 
                 except Exception as e:
-                    print(f"Failed to scrape {wo_number}: {e}")
+                    print(f"❌ Failed to scrape {wo_number}: {e}")
                     work_order["try_later"] = retry_count + 1
                     work_orders.append(work_order)
 
@@ -208,7 +292,7 @@ class WorkOrdersScraper(BaseScraper):
         and click Save. Runs once before filters are applied.
         """
         try:
-            print("Adding 'Completed Date' column...")
+            print("📅 Adding 'Completed Date' column...")
             await self.perform_actions_by_xpaths(name="add_column_xpath")
             print("✅ 'Completed Date' column added successfully.")
         except Exception as e:
@@ -223,6 +307,10 @@ class WorkOrdersScraper(BaseScraper):
         """
         try:
             await self.initialize()
+
+            print(f"\n{'='*80}")
+            print(f"🚀 STARTING WORK ORDERS SCRAPER - {self.environment.upper()} ENVIRONMENT")
+            print(f"{'='*80}\n")
 
             # Navigate to dispatch board
             dashboard_url = self.rules.get("dashboard_url")
@@ -254,6 +342,7 @@ class WorkOrdersScraper(BaseScraper):
             await self.page.wait_for_timeout(3000)
 
             # Step 2: Apply filters
+            print("\n🔧 Applying filters...")
             await self.perform_actions_by_xpaths(name="edit_filter_xpath")
             await asyncio.sleep(3)  # Small delay to ensure filter UI is ready
             await self.perform_actions_by_xpaths(name="status_xpath")
@@ -261,6 +350,7 @@ class WorkOrdersScraper(BaseScraper):
             await self.perform_actions_by_xpaths(name="completed_date_filter_xpath")
 
             await self.perform_actions_by_xpaths(name="submit_filter")
+            print("✅ Filters applied")
 
             # Wait for table to reload with new column
             await self.page.wait_for_timeout(3000)
@@ -269,15 +359,31 @@ class WorkOrdersScraper(BaseScraper):
             scraped = await self.scrape_work_orders_table()
             work_orders = scraped.get("rows", [])
 
+            # ✅ PRINT ALL TABLE DATA AFTER FILTERS
+            print("\n" + "="*80)
+            print("📋 FILTERED TABLE DATA")
+            print("="*80)
+            for wo in work_orders:
+                print(f"WO: {wo.get('wo_number'):6} | "
+                      f"Scheduled: {wo.get('scheduled_date'):10} | "
+                      f"Completed: {wo.get('completed_date'):10} | "
+                      f"Status: {wo.get('status')}")
+            print("="*80 + "\n")
+
             # Fetch addresses for each work order
+            print("\n🏠 Fetching addresses for work orders...")
             work_orders_with_addresses = await self.fetch_addresses_for_work_orders(
                 work_orders
             )
 
+            print(f"\n{'='*80}")
+            print(f"✅ SCRAPING COMPLETED - {len(work_orders_with_addresses)} work orders processed")
+            print(f"{'='*80}\n")
+
             return work_orders_with_addresses
 
         except Exception as e:
-            print(f"Scraping error: {e}")
+            print(f"❌ Scraping error: {e}")
             return None
 
         finally:

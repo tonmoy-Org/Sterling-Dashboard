@@ -6,9 +6,11 @@ Updated to print all table data after filters are applied.
 """
 
 import copy
-from typing import List, Dict, Optional
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import asyncio
 from automation.scrapers.base_scraper import BaseScraper
+
 
 
 class WorkOrdersScraper(BaseScraper):
@@ -64,8 +66,7 @@ class WorkOrdersScraper(BaseScraper):
                                     status: getText(6),
                                     appointment_date: getText(7),
                                     scheduled_date: getText(8),
-                                    technician: getText(9),
-                                    completed_date: getText(10)  // Added completed date column
+                                    technician: getText(9)
                                 };
                                 
                                 dataList.push(workOrder);
@@ -180,7 +181,10 @@ class WorkOrdersScraper(BaseScraper):
 
                     if address:
                         work_order["full_address"] = address
-                        print(f"{wo_number}: {address}")
+                        work_order['completed_date'] = datetime.now(
+                            ZoneInfo("America/Los_Angeles")
+                        ).strftime("%m/%d/%Y %I:%M:%S %p")
+                        print(f"{wo_number}: {address} : {work_order['completed_date']}")
                         result.append(work_order)
                     else:
                         raise Exception("Address not found")
@@ -203,17 +207,17 @@ class WorkOrdersScraper(BaseScraper):
 
         return result
 
-    async def add_completed_date_column(self):
-        """
-        Click the Add Column (+) button, select Completed Date checkbox,
-        and click Save. Runs once before filters are applied.
-        """
-        try:
-            print("Adding 'Completed Date' column...")
-            await self.perform_actions_by_xpaths(name="add_column_xpath")
-            print("✅ 'Completed Date' column added successfully.")
-        except Exception as e:
-            print(f"⚠️ Add Column step failed (column may already be present): {e}")
+    # async def add_completed_date_column(self):
+    #     """
+    #     Click the Add Column (+) button, select Completed Date checkbox,
+    #     and click Save. Runs once before filters are applied.
+    #     """
+    #     try:
+    #         print("Adding 'Completed Date' column...")
+    #         await self.perform_actions_by_xpaths(name="add_column_xpath")
+    #         print("✅ 'Completed Date' column added successfully.")
+    #     except Exception as e:
+    #         print(f"⚠️ Add Column step failed (column may already be present): {e}")
 
     async def run(self):
         """
@@ -249,7 +253,7 @@ class WorkOrdersScraper(BaseScraper):
                 return None
 
             # Step 1: Add Completed Date column via Add Column modal
-            await self.add_completed_date_column()
+            # await self.add_completed_date_column()
 
             # Wait for table to reflect new column
             await self.page.wait_for_timeout(3000)
@@ -270,13 +274,6 @@ class WorkOrdersScraper(BaseScraper):
             scraped = await self.scrape_work_orders_table()
             work_orders = scraped.get("rows", [])
 
-            # ✅ PRINT ALL TABLE DATA AFTER FILTERS
-            print("\n" + "="*80)
-            print("FILTERED TABLE DATA")
-            print("="*80)
-            for wo in work_orders:
-                print(wo)
-            print("="*80 + "\n")
 
             # Fetch addresses for each work order
             work_orders_with_addresses = await self.fetch_addresses_for_work_orders(

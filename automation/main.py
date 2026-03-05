@@ -109,14 +109,6 @@ def start_scraping():
     print("STERLING DASHBOARD SCRAPER - PROCESS INITIALIZED")
     print("=" * 50 + "\n")
 
-    # ✅ FIX: Use SelectorEventLoop instead of ProactorEventLoop
-    # Playwright on Windows requires SelectorEventLoop — Proactor causes browser crash
-    if sys.platform.startswith("win"):
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-        print("OS: Windows detected. Event loop policy set to Selector.\n")
-    else:
-        print(f"OS: {sys.platform} detected. Using default event loop.\n")
-
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

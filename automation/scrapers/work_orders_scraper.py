@@ -65,7 +65,7 @@ class WorkOrdersScraper(BaseScraper):
                                     appointment_date: getText(7),
                                     scheduled_date: getText(8),
                                     technician: getText(9),
-                                    completed_date: getText(10)  // Added completed date column
+                                    completed_date: getText(10)
                                 };
                                 
                                 dataList.push(workOrder);
@@ -90,15 +90,102 @@ class WorkOrdersScraper(BaseScraper):
             print(f"Error during table scraping: {e}")
             return {"rows": []}
 
+    async def extract_completed_elapsed_time(self, page):
+        """
+        Try to extract completed_elapsed_time from timeline.
+        If not found, click 'Show all activity' button and try again.
+
+        Args:
+            page: Playwright page object
+
+        Returns:
+            str: completed_elapsed_time like "March 6, 2026 12:23 AM" or None
+        """
+        async def find_completed_time():
+            return await page.evaluate(
+                r"""() => {
+                try {
+                    const notes = document.querySelectorAll('.note-container p');
+                    for (let note of notes) {
+                        if (note.innerText.includes('was completed for tech')) {
+                            const activityNote = note.closest('.timeline-activity-note');
+                            if (!activityNote) continue;
+
+                            // Get time from activity-note-time
+                            const timeEl = activityNote.querySelector('.activity-note-time');
+                            const timeParts = timeEl ? timeEl.innerText.split(' - ') : [];
+                            const time = timeParts[timeParts.length - 1].trim();
+
+                            // Get date from timeline-date-value (walk up to note-bundle, then find date)
+                            let date = null;
+                            let parent = activityNote.closest('.note-bundle');
+                            if (parent) {
+                                const dateEl = parent.querySelector('.timeline-date-value');
+                                if (dateEl) {
+                                    date = dateEl.innerText.trim();
+                                }
+                            }
+
+                            // Fallback: find nearest visible timeline-date-value
+                            if (!date) {
+                                const allDates = document.querySelectorAll('.timeline-date-value');
+                                for (let d of allDates) {
+                                    if (d.innerText.trim()) {
+                                        date = d.innerText.trim();
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (date && time) {
+                                return `${date} ${time}`;
+                            } else if (time) {
+                                return time;
+                            }
+                        }
+                    }
+                    return null;
+                } catch (err) {
+                    console.error("Error extracting completed_elapsed_time:", err);
+                    return null;
+                }
+            }"""
+            )
+
+        # First attempt
+        completed_elapsed_time = await find_completed_time()
+
+        if not completed_elapsed_time:
+            print("⚠️ completed_elapsed_time not found, clicking 'Show all activity'...")
+            try:
+                # Click the Show all activity button via XPath
+                show_all_btn = page.locator(
+                    'xpath=//*[@id="main-page-container"]/div[3]/div/div[2]/div[2]/div[2]/div[1]/div[2]/div/div[3]/div/div[7]/div/button'
+                )
+                await show_all_btn.wait_for(state="visible", timeout=10000)
+                await show_all_btn.click()
+                print("✅ Clicked 'Show all activity' button.")
+
+                # Wait for timeline to reload
+                await page.wait_for_timeout(3000)
+
+                # Second attempt
+                completed_elapsed_time = await find_completed_time()
+
+            except Exception as e:
+                print(f"⚠️ Could not click 'Show all activity' button: {e}")
+
+        return completed_elapsed_time
+
     async def scrape_address_from_page(self, page):
         """
-        Extract full address from work order detail page.
+        Extract full address and completed_elapsed_time from work order detail page.
 
         Args:
             page: Playwright page object for the work order detail
 
         Returns:
-            str: Full address or None if extraction fails
+            dict: { full_address, completed_elapsed_time } or None if extraction fails
         """
         try:
             await page.wait_for_selector(
@@ -109,6 +196,15 @@ class WorkOrdersScraper(BaseScraper):
             return None
 
         try:
+            # Wait for timeline to load
+            try:
+                await page.wait_for_selector(
+                    '.note-container p', state="attached", timeout=30000
+                )
+            except Exception as e:
+                print(f"⚠️ Timeline not loaded initially: {e}")
+
+            # Extract address
             full_address = await page.evaluate(
                 r"""() => {
                 try {
@@ -116,13 +212,20 @@ class WorkOrdersScraper(BaseScraper):
                     const address2 = document.querySelector('[data-automation-id="address2"]').innerText.trim();
                     return `${address1}, ${address2}`;
                 } catch (err) {
-                    console.error("Error extracting address:", err);
                     return null;
                 }
             }"""
             )
 
-            return full_address
+            # Extract completed_elapsed_time (with Show all activity fallback)
+            completed_elapsed_time = await self.extract_completed_elapsed_time(page)
+
+            print(f"✅ Address: {full_address} | completed_elapsed_time: {completed_elapsed_time}")
+
+            return {
+                "full_address": full_address,
+                "completed_elapsed_time": completed_elapsed_time
+            }
 
         except Exception as e:
             print(f"Error extracting address: {e}")
@@ -137,7 +240,7 @@ class WorkOrdersScraper(BaseScraper):
             work_orders: List of work order dictionaries
 
         Returns:
-            list: Work orders with full_address field added
+            list: Work orders with full_address and completed_elapsed_time fields added
         """
         result = []
         base_xpath_config = self.rules.get("open_work_order_xpath", [])
@@ -175,12 +278,13 @@ class WorkOrdersScraper(BaseScraper):
                     new_page = await new_page_info.value
                     await new_page.wait_for_load_state()
 
-                    # Extract address
-                    address = await self.scrape_address_from_page(page=new_page)
+                    # Extract address and completed_elapsed_time
+                    scraped = await self.scrape_address_from_page(page=new_page)
 
-                    if address:
-                        work_order["full_address"] = address
-                        print(f"{wo_number}: {address}")
+                    if scraped and scraped.get("full_address"):
+                        work_order["full_address"] = scraped["full_address"]
+                        work_order["completed_elapsed_time"] = scraped.get("completed_elapsed_time")
+                        print(f"{wo_number}: {scraped['full_address']} | completed_elapsed_time: {scraped.get('completed_elapsed_time')}")
                         result.append(work_order)
                     else:
                         raise Exception("Address not found")
@@ -256,7 +360,7 @@ class WorkOrdersScraper(BaseScraper):
 
             # Step 2: Apply filters
             await self.perform_actions_by_xpaths(name="edit_filter_xpath")
-            await asyncio.sleep(3)  # Small delay to ensure filter UI is ready
+            await asyncio.sleep(3)
             await self.perform_actions_by_xpaths(name="status_xpath")
             await self.perform_actions_by_xpaths(name="scheduled_date_filter_xpath")
             await self.perform_actions_by_xpaths(name="completed_date_filter_xpath")

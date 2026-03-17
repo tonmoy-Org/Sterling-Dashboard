@@ -36,3 +36,33 @@ urllib3==2.6.3
 python-dotenv==1.2.1
 pytz==2025.2
 beautifulsoup4==4.14.3
+
+
+[
+    {
+        "id": 4,
+        "tag": ["JOB NOT COMPLETED", ""],
+        "customerName": "Pinnacle Estates",
+        "workOrderAddress": "3302 Summit Dr, Auburn, CA 95602",
+        "workOrderSummary": "Pump replacement partial – needs follow-up visit",
+        "workOrderLink": "",
+        "quoteLink": "",
+        "technicianName": "Leila Morin",
+        "status": "In Progress",
+          "wo": "wo 14723"
+        "note": "Reschedule requested for Monday morning",
+        "completedNote": "",
+        "createdAt": "2025-03-12T11:15:00Z",
+        "viewedAt": "2025-03-12T12:00:00Z",
+        "deleted_by": "Admin User",
+        "deleted_by_email": "admin@example.com",
+        "deleted_date": "2025-03-13T09:30:00Z",
+        "is_deleted": true
+    }
+]
+
+
+
+create new django app and models based on this data. and add user seen models. appname work_order, model name WorkOrder, 
+
+create  CRUD oparation serializers, classbase videw, get opration add all field filter.

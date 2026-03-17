@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'accounts',
     'locates',
     'tank_repair',
+    'work_order',
 ]
 
 MIDDLEWARE = [

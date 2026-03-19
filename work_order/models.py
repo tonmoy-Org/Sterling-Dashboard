@@ -11,7 +11,7 @@ class WorkOrder(models.Model):
     quoteLink = models.URLField(max_length=500, blank=True, null=True)
     technicianName = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(max_length=100, blank=True, null=True)
-    wo = models.CharField(max_length=100, blank=True, null=True)
+    wo = models.CharField(max_length=100, unique=True)
     note = models.TextField(blank=True, null=True)
     completedNote = models.TextField(blank=True, null=True)
     createdAt = models.DateTimeField(blank=True, null=True)

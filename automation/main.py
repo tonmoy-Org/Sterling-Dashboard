@@ -7,6 +7,7 @@ import sys
 import asyncio
 from automation.scrapers.fieldedge_scraper import FieldEdgeScraper
 from automation.scrapers.work_orders_scraper import WorkOrdersScraper
+from automation.scrapers.work_orders_tags_scraper import WorkOrdersTagsScraper
 from automation.scrapers.online_rme_scraper import OnlineRMEScraper
 
 
@@ -58,6 +59,25 @@ async def run_work_orders_scraper():
             except:
                 pass
 
+async def run_work_orders_tags_scraper():
+    """Execute WorkOrders Tags scraping workflow."""
+    print("\n=== Starting WorkOrders Tags Scraper ===")
+    scraper = None
+
+    try:
+        scraper = WorkOrdersTagsScraper()
+        await scraper.run()
+        print("WorkOrders Tags scraping completed.")
+
+    except Exception as e:
+        print(f"Error during WorkOrders Tags execution: {e}")
+    finally:
+        if scraper:
+            try:
+                del scraper
+            except:
+                pass
+
 
 async def run_online_rme_scraper():
     """Execute Online RME scraping workflow."""
@@ -98,9 +118,10 @@ async def run_online_rme_scraper():
 
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
-    await run_fieldedge_scraper()
-    await run_work_orders_scraper()
-    await run_online_rme_scraper()
+    # await run_fieldedge_scraper()
+    # await run_work_orders_scraper()
+    # await run_online_rme_scraper()
+    await run_work_orders_tags_scraper()
 
 
 def start_scraping():

@@ -171,6 +171,88 @@
         "xpath": "//input[@id='ctl02_DataGridOMhistory_ctl03_btnViewOMreport']"
       }
     ],
+    "workorder_tags_status_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[@class='filter-name' and normalize-space(text())='Status']"
+      },
+      {
+        "action": "click",
+        "xpath": "(//span[@class='active-clear-selection-text'])[1]"
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='selected_0_3']"
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='selected_0_5']"
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='selected_0_7']"
+      },
+      {
+        "action": "click",
+        "xpath": "//div[@class='secondary-filter box undefined undefined  class-selected multiple']//button[@class='button_JdBxs confirm_hsagT base-button']"
+      }
+    ],
+    "workorder_tags_add_column_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[contains(@class,'add-column-container')]"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='CompletedDatelabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='Tagslabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//button[contains(@class,'confirm_hsagT') and .//span[normalize-space(text())='Save']]"
+      },
+      {
+        "action": "wait",
+        "timeout": 2000
+      }
+    ],
+    "test_scheduled_date_filter_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[@class='filter-name' and normalize-space(text())='Scheduled Date']"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//li[@id='vs2__option-19']"
+      },
+      {
+        "action": "wait",
+        "timeout": 1500
+      },
+      {
+        "action": "click",
+        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+      }
+    ],
     "save_edit_form_btn": "//input[@value='SAVE'] | //input[@id='btnSaveChanges2']",
     "work_history_table_xpath": "(//table[@id='ctl02_DataGridOMhistory']/tbody//tr)[position() > 1]",
     "wait_xpath": "//tbody[@class='fixed-body']",

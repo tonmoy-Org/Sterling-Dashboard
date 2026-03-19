@@ -16,6 +16,8 @@ class WorkOrder(models.Model):
     completedNote = models.TextField(blank=True, null=True)
     createdAt = models.DateTimeField(blank=True, null=True)
     viewedAt = models.DateTimeField(blank=True, null=True)
+    completedAt = models.DateTimeField(blank=True, null=True)
+    submittedAt = models.DateTimeField(blank=True, null=True)
     deleted_by = models.CharField(max_length=255, blank=True, null=True)
     deleted_by_email = models.EmailField(blank=True, null=True)
     deleted_date = models.DateTimeField(blank=True, null=True)

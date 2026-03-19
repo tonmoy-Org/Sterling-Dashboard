@@ -459,7 +459,7 @@ class WorkOrdersTagsScraper(BaseScraper):
 
             # # Fetch addresses for each work order
             work_orders_with_addresses = await self.fetch_addresses_for_work_orders(
-                work_orders[:2]
+                work_orders
             )
             await self.insert_data(work_orders_with_addresses)
             return work_orders_with_addresses

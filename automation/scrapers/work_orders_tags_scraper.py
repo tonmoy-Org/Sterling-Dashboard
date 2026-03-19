@@ -6,7 +6,11 @@ Updated to print all table data after filters are applied.
 """
 
 import copy
+from datetime import datetime
 from typing import List, Dict, Optional
+from asgiref.sync import sync_to_async
+from django.utils.timezone import make_aware
+from django.utils.timezone import get_current_timezone
 from work_order.models import WorkOrder
 from automation.scrapers.base_scraper import BaseScraper
 
@@ -207,8 +211,6 @@ class WorkOrdersTagsScraper(BaseScraper):
                     }
                 }"""
             )
-
-            print(f"✅ 2nd Textarea Value: {value}")
             return value
 
         except Exception as e:
@@ -239,8 +241,6 @@ class WorkOrdersTagsScraper(BaseScraper):
                     }
                 }"""
             )
-
-            print(f"✅ Tags: {tags}")
             return tags
 
         except Exception as e:
@@ -438,7 +438,7 @@ class WorkOrdersTagsScraper(BaseScraper):
             # await self.perform_actions_by_xpaths(name="workorder_tags_edit_filter_xpath")
             # await asyncio.sleep(3)
             await self.perform_actions_by_xpaths(name="workorder_tags_status_xpath")
-            await self.perform_actions_by_xpaths(name="test_scheduled_date_filter_xpath")
+            # await self.perform_actions_by_xpaths(name="test_scheduled_date_filter_xpath")
             await self.perform_actions_by_xpaths(name="submit_filter")
 
             # Wait for table to reload with new column
@@ -459,9 +459,9 @@ class WorkOrdersTagsScraper(BaseScraper):
 
             # # Fetch addresses for each work order
             work_orders_with_addresses = await self.fetch_addresses_for_work_orders(
-                work_orders
+                work_orders[:2]
             )
-            self.insert_data(work_orders_with_addresses)
+            await self.insert_data(work_orders_with_addresses)
             return work_orders_with_addresses
 
         except Exception as e:
@@ -471,9 +471,40 @@ class WorkOrdersTagsScraper(BaseScraper):
         finally:
             await self.cleanup()
 
-    def insert_data(self, datas):
+    def _parse_completed_at(self, completed_elapsed_time: Optional[str]):
+        """Parse timeline datetime text into a timezone-aware Python datetime when possible."""
+        if not completed_elapsed_time:
+            return None
+
+        try:
+            naive_dt = datetime.strptime(completed_elapsed_time, "%B %d, %Y %I:%M %p")
+            # Convert naive datetime to UTC timezone-aware
+            return make_aware(naive_dt, timezone=get_current_timezone())
+        except ValueError:
+            return None
+
+    def _build_work_order_payload(self, data: Dict):
+        """Map scraped keys to WorkOrder model fields."""
+        wo = (data.get("wo_number") or "").strip()
+        if not wo:
+            return None
+
+        return {
+            "wo": wo,
+            "defaults": {
+                "customerName": data.get("customer"),
+                "workOrderAddress": data.get("full_address"),
+                "workOrderSummary": data.get("workOrderSummary"),
+                "technicianName": data.get("technician"),
+                "status": data.get("status"),
+                "tag": data.get("tag") if isinstance(data.get("tag"), list) else [],
+                "completedAt": self._parse_completed_at(data.get("completed_elapsed_time")),
+            },
+        }
+
+    async def insert_data(self, datas):
         """
-        Insert scraped data via API.
+        Insert scraped data into database.
 
         Args:
             data: List of work orders with full addresses
@@ -484,7 +515,18 @@ class WorkOrdersTagsScraper(BaseScraper):
         try:
             for data in datas:
                 try:
-                    WorkOrder.objects.update_or_create(**data,)
+                    payload = self._build_work_order_payload(data)
+                    if not payload:
+                        print("Skipping insertion: missing wo_number")
+                        continue
+
+                    await sync_to_async(
+                        WorkOrder.objects.update_or_create,
+                        thread_sensitive=True,
+                    )(
+                        wo=payload["wo"],
+                        defaults=payload["defaults"],
+                    )
                 except Exception as e:
                     print(f"Database insertion error for {data.get('wo_number', 'N/A')}: {e}")
             print("✅ Data inserted successfully.")

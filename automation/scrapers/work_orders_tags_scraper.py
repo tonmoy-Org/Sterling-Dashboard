@@ -356,6 +356,9 @@ class WorkOrdersTagsScraper(BaseScraper):
                     tags = await self.get_all_tags(page=new_page)
                     work_order["tag"] = tags
                     work_order["workOrderSummary"] = workOrderSummary
+                    current_url = new_page.url
+                    work_order["workOrderLink"] = current_url
+
 
                     if scraped and scraped.get("full_address"):
                         work_order["full_address"] = scraped["full_address"]

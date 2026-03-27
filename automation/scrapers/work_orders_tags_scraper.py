@@ -302,7 +302,8 @@ class WorkOrdersTagsScraper(BaseScraper):
             )
 
             # Extract completed_elapsed_time (with Show all activity fallback)
-            completed_elapsed_time = await self.extract_completed_elapsed_time(page)
+            # completed_elapsed_time = await self.extract_completed_elapsed_time(page)
+            completed_elapsed_time = None
 
             print(f"✅ Address: {full_address} | completed_elapsed_time: {completed_elapsed_time}")
 
@@ -364,13 +365,23 @@ class WorkOrdersTagsScraper(BaseScraper):
                     new_page = await new_page_info.value
                     await new_page.wait_for_load_state()
 
+                    current_url = new_page.url
+                    if "https://login.fieldedge.com/Account/Login?ReturnUrl=" in current_url:
+                        print("Session expired, logging in again...")
+                        await self.login_fieldedge(page=new_page)
+                        await new_page.wait_for_load_state()
+                        work_orders.append(work_order)  # Re-queue for retry after login
+                        continue
+
                     # Extract address and completed_elapsed_time
                     scraped = await self.scrape_address_from_page(page=new_page)
                     workOrderSummary = await self.get_second_textarea_value(page=new_page)
                     tags = await self.get_all_tags(page=new_page)
+                    if not tags:
+                        print("Skipping work order without tags")
+                        continue
                     work_order["tag"] = tags
                     work_order["workOrderSummary"] = workOrderSummary
-                    current_url = new_page.url
                     if "QUOTE-CREATED" in tags:
                         work_order["quoteLink"] = current_url
                     work_order["workOrderLink"] = current_url
@@ -487,18 +498,6 @@ class WorkOrdersTagsScraper(BaseScraper):
         finally:
             await self.cleanup()
 
-    def _parse_completed_at(self, completed_elapsed_time: Optional[str]):
-        """Parse timeline datetime text into a timezone-aware Python datetime when possible."""
-        if not completed_elapsed_time:
-            return None
-
-        try:
-            naive_dt = datetime.strptime(completed_elapsed_time, "%B %d, %Y %I:%M %p")
-            # Convert naive datetime to UTC timezone-aware
-            return make_aware(naive_dt, timezone=get_current_timezone())
-        except ValueError:
-            return None
-
     def _build_work_order_payload(self, data: Dict):
         """Map scraped keys to WorkOrder model fields."""
         wo = (data.get("wo_number") or "").strip()
@@ -508,13 +507,14 @@ class WorkOrdersTagsScraper(BaseScraper):
         return {
             "wo": wo,
             "defaults": {
+                "tag": data.get("tag") if isinstance(data.get("tag"), list) else [],
                 "customerName": data.get("customer"),
                 "workOrderAddress": data.get("full_address"),
                 "workOrderSummary": data.get("workOrderSummary"),
+                "workOrderLink": data.get("workOrderLink", ''),
+                "quoteLink": data.get("quoteLink", ''),
                 "technicianName": data.get("technician"),
                 "status": data.get("status"),
-                "tag": data.get("tag") if isinstance(data.get("tag"), list) else [],
-                "completedAt": self._parse_completed_at(data.get("completed_elapsed_time")),
             },
         }
 

@@ -264,7 +264,7 @@
       },
       {
         "action": "js_code_run",
-        "js_code": "document.querySelectorAll(\".selection-collapse-conatiner input[type='checkbox'], .selection-collapse-container input[type='checkbox']\").forEach(cb => cb.click());"
+        "js_code": "(async () => { const sleep = (ms) => new Promise(r => setTimeout(r, ms)); const tagsFilter = Array.from(document.querySelectorAll(\".secondary-filter\")).find(el => (el.querySelector(\".filter-name\")?.textContent || \"\").trim() === \"Tags\"); if (!tagsFilter) return; const root = tagsFilter.querySelector(\".filter-popup\") || tagsFilter; const boxes = Array.from(root.querySelectorAll(\".filter-multiselect input[type='checkbox'][id]\")); for (const cb of boxes) { if (cb.checked) continue; const label = root.querySelector(`label[for=\"${cb.id}\"]`); const target = label || cb; target.scrollIntoView({ block: \"nearest\" }); [\"pointerdown\",\"mousedown\",\"pointerup\",\"mouseup\"].forEach(type => target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }))); target.click(); cb.dispatchEvent(new Event(\"input\", { bubbles: true })); cb.dispatchEvent(new Event(\"change\", { bubbles: true })); await sleep(120); } })();"
       },
       {
         "action": "wait",

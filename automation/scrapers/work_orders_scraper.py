@@ -277,6 +277,14 @@ class WorkOrdersScraper(BaseScraper):
 
                     new_page = await new_page_info.value
                     await new_page.wait_for_load_state()
+                    
+                    current_url = new_page.url
+                    if "https://login.fieldedge.com/Account/Login?ReturnUrl=" in current_url:
+                        print("Session expired, logging in again...")
+                        await self.login_fieldedge(page=new_page)
+                        await new_page.wait_for_load_state()
+                        work_orders.append(work_order)  # Re-queue for retry after login
+                        continue
 
                     # Extract address and completed_elapsed_time
                     scraped = await self.scrape_address_from_page(page=new_page)

@@ -7,7 +7,7 @@ import json
 import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Page
 import pytz
 
 from automation.services.api_client import APIClient
@@ -81,7 +81,7 @@ class BaseScraper:
             
             # Launch browser with visible UI and slight delay
             self.browser = await self.playwright.chromium.launch(
-                headless=False,
+                headless=True,
                 slow_mo=50
             )
             
@@ -94,19 +94,22 @@ class BaseScraper:
             print(f"Failed to initialize browser: {e}")
             raise
     
-    async def login_fieldedge(self):
+    async def login_fieldedge(self, page:Page=None):
         """Authenticate to FieldEdge dashboard."""
         try:
+            if not page:
+                page = self.page
+
             username_xpath = self.rules.get('username_xpath')
             password_xpath = self.rules.get('password_xpath')
             login_button_xpath = self.rules.get('login_button_xpath')
             
-            await self.page.fill(username_xpath, self.fieldedge_email)
-            await self.page.fill(password_xpath, self.fieldedge_password)
+            await page.fill(username_xpath, self.fieldedge_email)
+            await page.fill(password_xpath, self.fieldedge_password)
             
             # Wait for navigation and click submit simultaneously
-            async with self.page.expect_navigation(wait_until='domcontentloaded'):
-                await self.page.click(login_button_xpath)
+            async with page.expect_navigation(wait_until='domcontentloaded'):
+                await page.click(login_button_xpath)
             
             print("FieldEdge login successful.")
             

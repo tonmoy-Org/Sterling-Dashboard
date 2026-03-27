@@ -149,6 +149,28 @@ class BaseScraper:
         for item in xpaths:
             action = item.get("action", "")
             xpath = item.get("xpath", "")
+            js_code = item.get("js_code", "")
+            timeout = item.get("timeout", 2000)  # Default timeout for actions
+
+            # Wait action does not require a selector.
+            if action == "wait":
+                await asyncio.sleep(timeout / 1000)  # Convert ms to seconds
+                print(f"Waited for {timeout} ms")
+                continue
+
+            # JS action may come from dedicated key, or legacy xpath key.
+            if action == "js_code_run":
+                code_to_run = js_code or xpath
+                if not code_to_run:
+                    print("Warning: Empty js_code in action configuration")
+                    continue
+                try:
+                    await self.page.evaluate(code_to_run)
+                    print(f"Executed JS code: {code_to_run}")
+                    await asyncio.sleep(3)
+                except Exception as e:
+                    print(f"Action '{action}' failed for script '{code_to_run}': {e}")
+                continue
             
             if not xpath:
                 print("Warning: Empty xpath in action configuration")
@@ -174,6 +196,8 @@ class BaseScraper:
                             print(f"Input '{value}' into element: {xpath}")
                         else:
                             print(f"Warning: Action is 'input' but no value provided for: {xpath}")
+                    else:
+                        print(f"Unknown action '{action}' for xpath '{xpath}'")
                     
                     # Brief pause between actions for stability
                     await asyncio.sleep(3)

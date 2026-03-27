@@ -25,6 +25,20 @@ class WorkOrdersTagsScraper(BaseScraper):
         """Initialize work orders scraper."""
         super().__init__()
 
+    async def _goto_with_fallback(self, url: str, *, timeout_ms: int = 60000):
+        """Navigate reliably for pages that keep background requests alive."""
+        if not url:
+            return
+
+        try:
+            await self.page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+            return
+        except Exception as e:
+            print(f"⚠️ networkidle navigation failed for {url}: {e}")
+
+        # Fallback for SPA pages where network never becomes fully idle.
+        await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+
     async def scrape_work_orders_table(self):
         """
         Scrape work orders from the main table.
@@ -357,6 +371,8 @@ class WorkOrdersTagsScraper(BaseScraper):
                     work_order["tag"] = tags
                     work_order["workOrderSummary"] = workOrderSummary
                     current_url = new_page.url
+                    if "QUOTE-CREATED" in tags:
+                        work_order["quoteLink"] = current_url
                     work_order["workOrderLink"] = current_url
 
 
@@ -418,8 +434,11 @@ class WorkOrdersTagsScraper(BaseScraper):
 
             # Navigate to work orders list if needed
             work_order_url = self.rules.get("work_order_url", "")
-            if work_order_url and work_order_url != self.page.url:
-                await self.page.goto(work_order_url, wait_until="networkidle")
+            timeout_ms = int(self.rules.get("navigation_timeout_ms", 60000))
+            current_url = (self.page.url or "").rstrip("/")
+            target_url = work_order_url.rstrip("/")
+            if work_order_url and target_url != current_url:
+                await self._goto_with_fallback(work_order_url, timeout_ms=timeout_ms)
 
             # Wait for table to load
             try:
@@ -440,7 +459,9 @@ class WorkOrdersTagsScraper(BaseScraper):
             # Step 2: Apply filters
             # await self.perform_actions_by_xpaths(name="workorder_tags_edit_filter_xpath")
             # await asyncio.sleep(3)
+            await self.perform_actions_by_xpaths(name="tags_edit_filter_xpath")
             await self.perform_actions_by_xpaths(name="workorder_tags_status_xpath")
+            await self.perform_actions_by_xpaths(name="tags_select_all_xpath")
             # await self.perform_actions_by_xpaths(name="test_scheduled_date_filter_xpath")
             await self.perform_actions_by_xpaths(name="submit_filter")
 
@@ -451,14 +472,6 @@ class WorkOrdersTagsScraper(BaseScraper):
             scraped = await self.scrape_work_orders_table()
             work_orders = scraped.get("rows", [])
 
-            # ✅ PRINT ALL TABLE DATA AFTER FILTERS
-            print("\n" + "=" * 80)
-            print("FILTERED TABLE DATA")
-            print("=" * 80)
-            for wo in work_orders:
-                if wo.get("tags", ""):
-                    print(wo)
-            print("=" * 80 + "\n")
 
             # # Fetch addresses for each work order
             work_orders_with_addresses = await self.fetch_addresses_for_work_orders(

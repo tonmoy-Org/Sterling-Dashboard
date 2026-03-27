@@ -194,7 +194,7 @@
       },
       {
         "action": "click",
-        "xpath": "//div[@class='secondary-filter box undefined undefined  class-selected multiple']//button[@class='button_JdBxs confirm_hsagT base-button']"
+        "xpath": "//div[contains(@class,'secondary-filter') and ./div[@class='filter-name' and normalize-space()='Status']]//button[contains(@class,'confirm_hsagT')]"
       }
     ],
     "workorder_tags_add_column_xpath": [
@@ -231,10 +231,10 @@
         "timeout": 2000
       }
     ],
-    "test_scheduled_date_filter_xpath": [
+    "tags_edit_filter_xpath": [
       {
         "action": "click",
-        "xpath": "//div[@class='filter-name' and normalize-space(text())='Scheduled Date']"
+        "xpath": "//button[@class='bttn-with-icon add-filter-button']"
       },
       {
         "action": "wait",
@@ -242,15 +242,41 @@
       },
       {
         "action": "click",
-        "xpath": "//li[@id='vs2__option-19']"
+        "xpath": "//*[@id='Tagslabel']"
       },
       {
         "action": "wait",
-        "timeout": 1500
+        "timeout": 1000
       },
       {
         "action": "click",
-        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+        "xpath": "(//div[@class='add-filter-container']//button)[last()]"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      }
+    ],
+    "tags_select_all_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[@class='filter-name' and normalize-space(text())='Tags']"
+      },
+      {
+        "action": "wait",
+        "timeout": 2000
+      },
+      {
+        "action": "js_code_run",
+        "js_code": "document.querySelectorAll(\".selection-collapse-conatiner input[type='checkbox'], .selection-collapse-container input[type='checkbox']\").forEach(cb => cb.click());"
+      },
+      {
+        "action": "wait",
+        "timeout": 2000
+      },
+      {
+        "action": "click",
+        "xpath": "//div[contains(@class,'secondary-filter') and ./div[@class='filter-name' and normalize-space()='Tags']]//button[contains(@class,'confirm_hsagT')]"
       }
     ],
     "save_edit_form_btn": "//input[@value='SAVE'] | //input[@id='btnSaveChanges2']",

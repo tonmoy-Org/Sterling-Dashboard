@@ -9,7 +9,7 @@ from .views import AuthView, UserViewSet, TechUserView
 # --- Swagger Config ---
 schema_view = get_schema_view(
    openapi.Info(
-      title="User Management API",
+      title="Sterling Septic & Plumbing LLC API",
       default_version='v1',
       description="API documentation matching Node.js Logic",
    ),

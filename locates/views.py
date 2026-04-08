@@ -338,7 +338,7 @@ class LocatesViewSet(viewsets.ModelViewSet):
             
             if isinstance(data.get('workOrders'), list):
                 # Filter for EXCAVATOR priority
-                filtered = [w for w in data['workOrders'] if w.get('priorityName') == 'EXCAVATOR']
+                filtered = [w for w in data['workOrders'] if w.get('priorityName') == '[3] EXCAVATOR']
                 
                 # Deduplicate
                 seen = set()

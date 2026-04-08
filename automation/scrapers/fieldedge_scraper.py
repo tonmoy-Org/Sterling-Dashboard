@@ -168,7 +168,7 @@ class FieldEdgeScraper(BaseScraper):
                         const priorityName = getTextByClass(row, '.col1');
                         
                         // Only process EXCAVATOR items
-                        if (priorityName !== "EXCAVATOR") {
+                        if (priorityName !== "[3] EXCAVATOR") {
                             return;
                         }
                         

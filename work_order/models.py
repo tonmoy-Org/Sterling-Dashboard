@@ -1,5 +1,6 @@
 from django.db import models
 from accounts.models import User
+from django.utils import timezone
 
 
 class WorkOrder(models.Model):
@@ -14,7 +15,7 @@ class WorkOrder(models.Model):
     wo = models.CharField(max_length=100, unique=True)
     note = models.TextField(blank=True, null=True)
     completedNote = models.TextField(blank=True, null=True)
-    createdAt = models.DateTimeField(blank=True, null=True)
+    createdAt = models.DateTimeField(default=timezone.now)
     viewedAt = models.DateTimeField(blank=True, null=True)
     completedAt = models.DateTimeField(blank=True, null=True)
     submittedAt = models.DateTimeField(blank=True, null=True)

@@ -17,13 +17,14 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('accounts.urls')),
-    path('api/', include('locates.urls')),
-    path('api/', include('tank_repair.urls')),
-    path('api/', include('work_order.urls')),
+   path('admin/', admin.site.urls),
+   path('api/', include('accounts.urls')),
+   path('api/', include('locates.urls')),
+   path('api/', include('tank_repair.urls')),
+   path('api/', include('work_order.urls')),
+   path('api/', include('dispatcher_booked.urls')),
     
     # --- API Documentation URLs ---
-    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+   path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+   path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]

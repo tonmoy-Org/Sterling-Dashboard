@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'locates',
     'tank_repair',
     'work_order',
+    'dispatcher_booked',
 ]
 
 MIDDLEWARE = [

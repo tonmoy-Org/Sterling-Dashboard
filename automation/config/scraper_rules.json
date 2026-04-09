@@ -286,6 +286,13 @@
     "wait_rme_report_table": "//table[@id='ctl02_DataGridOMhistory']",
     "wait_work_history_table": "//table[@id='ctl02_DataGridOMhistory']",
     "wait_iframe": "//iframe",
-    "wait_lock_report_btn": "//input[@name='btnLock']"
+    "booked_urls": {
+      "cameron_booked": "https://login.fieldedge.com/#/List/10/1f31f1bb-382d-4a62-b402-6e6396c6c619",
+      "cameron_non_booked": "https://login.fieldedge.com/#/List/10/bc212460-a431-48ee-b87e-50e14d0fa6f1",
+      "eric_booked": "https://login.fieldedge.com/#/List/10/c2eaedcc-c725-4568-8b83-612aec705fb0",
+      "eric_non_booked": "https://login.fieldedge.com/#/List/10/931c6c6a-6c26-420e-83cf-4070f1854c64"
+    },
+    "booked_count_get_xpath": "//div[contains(@class, 'group-amount group-selected')]"
+    
   }
 ]

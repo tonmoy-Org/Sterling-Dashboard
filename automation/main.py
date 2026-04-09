@@ -9,7 +9,7 @@ from automation.scrapers.fieldedge_scraper import FieldEdgeScraper
 from automation.scrapers.work_orders_scraper import WorkOrdersScraper
 from automation.scrapers.work_orders_tags_scraper import WorkOrdersTagsScraper
 from automation.scrapers.online_rme_scraper import OnlineRMEScraper
-
+from automation.scrapers.dispatcher_booked import DispatcherBookedScraper
 
 async def run_fieldedge_scraper():
     """Execute FieldEdge scraping workflow."""
@@ -115,6 +115,25 @@ async def run_online_rme_scraper():
             except:
                 pass
 
+async def run_dispatcher_booked_scraper():
+    """Execute Dispatcher Booked scraping workflow."""
+    print("\n=== Starting Dispatcher Booked Scraper ===")
+    scraper = None
+
+    try:
+        scraper = DispatcherBookedScraper()
+        await scraper.run()
+        print("Dispatcher Booked scraping completed.")
+
+    except Exception as e:
+        print(f"Error during Dispatcher Booked execution: {e}")
+    finally:
+        if scraper:
+            try:
+                del scraper
+            except:
+                pass
+
 
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
@@ -122,7 +141,7 @@ async def main():
     await run_work_orders_scraper()
     await run_online_rme_scraper()
     await run_work_orders_tags_scraper()
-
+    await run_dispatcher_booked_scraper()
 
 def start_scraping():
     """Initialize and start the scraping process."""

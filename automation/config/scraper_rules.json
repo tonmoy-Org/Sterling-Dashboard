@@ -84,6 +84,10 @@
       },
       {
         "action": "click",
+        "xpath": "//input[@id='selected_0_7']"
+      },
+      {
+        "action": "click",
         "xpath": "//div[@class='secondary-filter box undefined undefined  class-selected multiple']//button[@class='button_JdBxs confirm_hsagT base-button']"
       }
     ],
@@ -128,7 +132,7 @@
       },
       {
         "action": "click",
-        "xpath": "//*[@id='settings-sub-menu-id']/div[2]/div[9]/div/div[11]/div[3]/div/div[3]/div/div/button[2]"
+        "xpath": "(//button[.//span[normalize-space()='Select']])[6]"
       }
     ],
     "submit_filter": [

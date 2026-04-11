@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #bdbdbd transparent; /* thumb + no track */
+}
+
+/* Prevent layout shift */
+body {
+  padding-right: 0 !important;
+  overflow-y: scroll;
+}
+
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 6px;
+}

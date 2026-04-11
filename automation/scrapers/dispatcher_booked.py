@@ -5,13 +5,11 @@ Updated to include Add Column functionality for Completed Date.
 Updated to print all table data after filters are applied.
 """
 
-import copy
 from datetime import datetime
-from typing import Dict
 from asgiref.sync import sync_to_async
 from django.utils.timezone import make_aware
 from django.utils.timezone import get_current_timezone
-from dispatcher_booked.models import DispatcherBooked
+from dispatcher_booked.serializers import DispatcherBookedSerializer
 from automation.scrapers.base_scraper import BaseScraper
 
 
@@ -39,28 +37,35 @@ class DispatcherBookedScraper(BaseScraper):
         # Fallback for SPA pages where network never becomes fully idle.
         await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
 
-    async def _get_booked_counts(self, url):
+    async def _get_booked_count(self, url, status_xpath):
         """
-        Navigate to the given URL and extract the booked count from the page.
+        Navigate to the given URL, apply a single dispatcher status filter,
+        and extract the booked count from the page.
 
         Args:
             url: The URL to navigate to
+            status_xpath: The xpath name for the specific status filter
         Returns:
             int: The booked count extracted from the page, or None on failure
-        """ 
+        """
         try:
             if not url:
                 print("Booked count URL is missing.")
                 return None
 
-            await self._goto_with_fallback(url, timeout_ms=6000)
+            await self._goto_with_fallback(url, timeout_ms=60000)
 
             current_url = (self.page.url or "").lower()
-            if "/Account/Login" in current_url:
+            if "/account/login" in current_url:
                 print("Detected login redirect while fetching booked count. Logging in and retrying target URL...")
                 await self.login_fieldedge()
-                await self.page.wait_for_timeout(3000)
-                await self._goto_with_fallback(url, timeout_ms=6000)
+                await self.page.wait_for_timeout(100)
+                await self._goto_with_fallback(url, timeout_ms=60000)
+
+            # Apply the specific dispatcher status filter
+            await self.perform_actions_by_xpaths(name=status_xpath)
+            await self.perform_actions_by_xpaths(name="submit_filter")
+            await self.page.wait_for_timeout(100)
 
             count_xpath = self.rules.get("booked_count_get_xpath")
             for attempt in range(1, 4):
@@ -71,19 +76,19 @@ class DispatcherBookedScraper(BaseScraper):
                     count_text = await self.page.locator(count_xpath).inner_text()
                     count_text = count_text.replace("(", "").replace(")", "").replace(",", "")
                     count = int(count_text.strip())
-                    print(f"Extracted booked count : {count}")
+                    print(f"Extracted count for [{status_xpath}]: {count}")
                     return count
                 except Exception as parse_error:
                     if attempt == 3:
                         raise parse_error
 
                     print(
-                        f"Booked count extraction attempt {attempt} failed. Reloading page and retrying..."
+                        f"Count extraction attempt {attempt} failed for [{status_xpath}]. Reloading page and retrying..."
                     )
-                    await self.page.reload(wait_until="domcontentloaded", timeout=6000)
-                    await self.page.wait_for_timeout(2000)
+                    await self.page.reload(wait_until="domcontentloaded", timeout=60000)
+                    await self.page.wait_for_timeout(200)
         except Exception as e:
-            print(f"Error getting booked count from {url}: {e}")
+            print(f"Error getting count for [{status_xpath}] from {url}: {e}")
             return None
 
     async def run(self):
@@ -104,47 +109,76 @@ class DispatcherBookedScraper(BaseScraper):
             if "Login" in self.page.url:
                 await self.login_fieldedge()
 
+            # Wait for page to settle after login
+            await self.page.wait_for_timeout(100)
 
-            # Wait for table to reflect new column
-            await self.page.wait_for_timeout(3000)
             booked_urls = self.rules.get("booked_urls", {})
             if not booked_urls:
                 print("No booked URLs configured.")
                 return None
 
-            # Step 1: Apply filters
-            booked_urls = self.rules.get("booked_urls", {})
+            cameron_booked = await self._get_booked_count(
+                booked_urls.get("cameron_booked"),
+                "dispatcher_status_xpath"
+            )
+            cameron_non_booked = await self._get_booked_count(
+                booked_urls.get("cameron_non_booked"),
+                "dispatcher_status_xpath"
+            )
+            eric_booked = await self._get_booked_count(
+                booked_urls.get("eric_booked"),
+                "dispatcher_status_xpath"
+            )
+            eric_non_booked = await self._get_booked_count(
+                booked_urls.get("eric_non_booked"),
+                "dispatcher_status_xpath"
+            )
+            total_jobs_booked = await self._get_booked_count(
+                booked_urls.get("booked"),
+                "dispatcher_status_xpath"
+            )
+            all_leads = await self._get_booked_count(
+                booked_urls.get("all_leads"),
+                "dispatcher_status_xpath"
+            )
 
-            cameron_booked = await self._get_booked_counts(booked_urls.get("cameron_booked"))
-            cameron_non_booked = await self._get_booked_counts(booked_urls.get("cameron_non_booked"))
-            eric_booked = await self._get_booked_counts(booked_urls.get("eric_booked"))
-            eric_non_booked = await self._get_booked_counts(booked_urls.get("eric_non_booked"))
-
-            counts = [cameron_booked, cameron_non_booked, eric_booked, eric_non_booked]
+            counts = [cameron_booked, cameron_non_booked, eric_booked, eric_non_booked, total_jobs_booked, all_leads]
             if any(count is None for count in counts):
                 print("One or more booked counts are None.")
                 return None
-            else:
-                print(f"Cameron Booked: {cameron_booked}")
-                print(f"Cameron Non-Booked: {cameron_non_booked}")
-                print(f"Eric Booked: {eric_booked}")
-                print(f"Eric Non-Booked: {eric_non_booked}")
-                # get_current_timezone
-                current_date = make_aware(datetime.now(), timezone=get_current_timezone())
-                data = {
-                    "date": current_date,
-                    "cameron_booked": cameron_booked,
-                    "cameron_total": cameron_non_booked + cameron_booked,
-                    "eric_booked": eric_booked,
-                    "eric_total": eric_non_booked + eric_booked,
-                }
-                await sync_to_async(DispatcherBooked.objects.create)(**data)
-                print("✅ Booked counts saved to database.")
+
+            print(f"Cameron Booked: {cameron_booked}")
+            print(f"Cameron Non-Booked: {cameron_non_booked}")
+            print(f"Eric Booked: {eric_booked}")
+            print(f"Eric Non-Booked: {eric_non_booked}")
+            print(f"Total Jobs Booked: {total_jobs_booked}")
+            print(f"All Leads: {all_leads}")
+
+            current_date = make_aware(datetime.now(), timezone=get_current_timezone())
+            data = {
+                "date": current_date.date(),
+                "cameron_booked": cameron_booked,
+                "cameron_total": cameron_non_booked + cameron_booked,
+                "eric_booked": eric_booked,
+                "eric_total": eric_non_booked + eric_booked,
+                "total_jobs_booked": total_jobs_booked,
+                "all_leads": all_leads,
+            }
+
+            def save_data():
+                serializer = DispatcherBookedSerializer(data=data)
+                if serializer.is_valid():
+                    instance = serializer.save()
+                    message = getattr(instance, "_message", "Success")
+                    print(f"✅ {message}")
+                else:
+                    print(f"❌ Validation error: {serializer.errors}")
+
+            await sync_to_async(save_data)()
+
         except Exception as e:
             print(f"Scraping error: {e}")
             return None
 
         finally:
             await self.cleanup()
-
-    

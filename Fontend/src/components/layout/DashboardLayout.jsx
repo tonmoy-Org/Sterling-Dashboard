@@ -19,13 +19,13 @@ import { useAuth } from '../../auth/AuthProvider';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import NotificationDrawer from '../Notification/NotificationDrawer';
-import ProfileDialog from '../ProfileDialog';
-import NestedMenuItem from '../NestedMenuItem';
-import SearchBar from '../SearchBar'
+import ProfileDialog from '../features/profile/ProfileDialog';
+import NestedMenuItem from './NestedMenuItem';
+import SearchBar from '../common/SearchBar'
 import NotificationBadge from '../Notification/Notificationbadge';
 import logo from '../../assets/logos/logo.png';
 import miniLogo from '../../assets/logos/mini_logo.png';
-import DashboardFooter from '../DashboardFooter';
+import DashboardFooter from './DashboardFooter';
 
 import {
   LogOut,
@@ -35,7 +35,7 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react';
-import { useNotifications } from '../../hook/useNotifications';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const drawerWidth = 250;
 const closedDrawerWidth = 60;

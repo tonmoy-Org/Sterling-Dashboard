@@ -1,6 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthProvider';
-import axiosInstance from '../api/axios';
+import { notificationsApi } from '../api/services/notifications';
+import { locatesApi } from '../api/services/locatesApi';
+import { rmeApi } from '../api/services/rmeApi';
+import { workOrdersApi } from '../api/services/workOrders';
 import { useEffect, useCallback } from 'react';
 
 const NOTIFICATIONS_CACHE_KEY = 'notifications-cache';
@@ -193,9 +196,9 @@ export const useNotifications = () => {
 
             try {
                 const [locatesResult, workOrdersResult, allWorkOrdersResult] = await Promise.allSettled([
-                    axiosInstance.get('/locates/'),
-                    axiosInstance.get('/work-orders-today/'),
-                    axiosInstance.get('/work-orders/'),
+                    locatesApi.getAll(),
+                    rmeApi.getAll(),
+                    workOrdersApi.getAll(),
                 ]);
 
                 const locatesData = locatesResult.status === 'fulfilled'

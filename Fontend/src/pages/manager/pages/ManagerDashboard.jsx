@@ -3,7 +3,7 @@ import { Box, Typography, Badge } from '@mui/material';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../auth/AuthProvider';
-import { useNotifications } from '../../../hook/useNotifications';
+import { useNotifications } from '../../../hooks/useNotifications';
 import h1 from '../../../assets/homepage/h1.jpeg';
 import h2 from '../../../assets/homepage/h2.jpeg';
 import h3 from '../../../assets/homepage/h3.jpeg';

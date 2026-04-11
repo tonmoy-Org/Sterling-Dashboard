@@ -1,12 +1,16 @@
-import axiosInstance from '../../../../../api/axios';
+import axiosInstance from '../axios';
 
 export const rmeApi = {
     getAll: () => axiosInstance.get('/work-orders-today/'),
+    getOne: (id) => axiosInstance.get(`/work-order-edit/${id}/`),
     update: (id, data) => axiosInstance.patch(`/work-orders-today/${id}/`, data),
+    updateEdit: (id, data) => axiosInstance.patch(`/work-order-edit/${id}/`, data),
     delete: (id) => axiosInstance.delete(`/work-orders-today/${id}/`),
     lockReport: (id, data) => axiosInstance.patch(`/work-orders-today/${id}/`, data),
     waitToLock: (id, data) => axiosInstance.patch(`/work-orders-today/${id}/`, data),
     discardReport: (id, data) => axiosInstance.patch(`/work-orders-today/${id}/`, data),
+    markSeen: (data) => axiosInstance.post('/work-orders-today/mark-seen/', data),
+    startScraping: () => axiosInstance.post('/work-orders-today/start-scraping/'),
     bulkSoftDelete: (ids, data) => {
         const promises = Array.from(ids).map(id =>
             axiosInstance.patch(`/work-orders-today/${id}/`, data)

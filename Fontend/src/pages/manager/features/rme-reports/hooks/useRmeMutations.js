@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { rmeApi } from '../api/rmeApi';
+import { rmeApi } from '../../../../../api/services/rmeApi';
 import moment from 'moment/moment';
 
 export const useRmeMutations = (currentUser, showSnackbar) => {

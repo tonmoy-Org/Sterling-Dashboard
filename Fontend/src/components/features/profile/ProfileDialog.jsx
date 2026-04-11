@@ -22,7 +22,7 @@ import {
     Edit,
     X,
 } from 'lucide-react';
-import GradientButton from './ui/GradientButton';
+import GradientButton from '../../ui/GradientButton';
 
 // Color constants matching your other components
 const TEXT_COLOR = '#0F1115';

@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { X, Save, ArrowLeft } from 'lucide-react';
-import axiosInstance from '../../../../../../api/axios';
+import { rmeApi } from '../../../../../../api/services/rmeApi';
 import StyledTextField from '../../../../../../components/ui/StyledTextField';
 import StyledTextarea from '../../../../../../components/ui/StyledTextarea';
 import StyledSelect from '../../../../../../components/ui/StyledSelect';
@@ -61,7 +61,7 @@ const EditFormModal = ({ open, onClose, workOrderData, onSave, showSnackbar }) =
             setIsLoading(true);
             setError(null);
             try {
-                const response = await axiosInstance.get(`/work-order-edit/${workOrderData.id}/`);
+                const response = await rmeApi.getOne(workOrderData.id);
 
                 let serverData = response.data;
                 let formDataArray = [];
@@ -250,10 +250,7 @@ const EditFormModal = ({ open, onClose, workOrderData, onSave, showSnackbar }) =
                 showSnackbar('Saving changes… please wait', 'info');
             }
 
-            const response = await axiosInstance.patch(
-                `/work-order-edit/${workOrderData.id}/`,
-                payload
-            );
+            const response = await rmeApi.updateEdit(workOrderData.id, payload);
 
             if (onSave) {
                 onSave(formDataArray, response.data);

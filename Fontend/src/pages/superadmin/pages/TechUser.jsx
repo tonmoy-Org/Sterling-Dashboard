@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import GradientButton from '../../../components/ui/GradientButton';
 import DashboardLoader from '../../../components/Loader/DashboardLoader';
-import { useUsers } from '../../../hook/useUsers';
+import { useUsers } from '../../../hooks/useUsers';
 import { UserFormModal } from '../../../components/ui/UserFormModal';
 import { DeleteConfirmationModal } from '../../../components/ui/DeleteConfirmationModal';
 import { StatusToggleModal } from '../../../components/ui/StatusToggleModal';

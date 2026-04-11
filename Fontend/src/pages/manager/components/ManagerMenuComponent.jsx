@@ -8,8 +8,8 @@ import {
     UserCog,
     BarChart3,
 } from 'lucide-react';
-import { useNotifications } from '../../../hook/useNotifications';
-import axiosInstance from '../../../api/axios';
+import { useNotifications } from '../../../hooks/useNotifications';
+import { workOrdersApi } from '../../../api/services/workOrders';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -129,13 +129,13 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
             if (isCustomerCenter) {
                 await Promise.all(
                     ids.map(id =>
-                        axiosInstance.post('/work-orders/seen/', {
+                        workOrdersApi.markSeen({
                             work_order: id,
                         })
                     )
                 );
             } else {
-                await axiosInstance.post(endpoint, { ids });
+                await workOrdersApi.post(endpoint, { ids });
             }
 
             clearTimeout(timeoutId);

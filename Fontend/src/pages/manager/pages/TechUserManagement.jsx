@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { Helmet } from 'react-helmet-async';
 import DashboardLoader from '../../../components/Loader/DashboardLoader';
-import { useReadOnlyUsers } from '../../../hook/useReadOnlyUsers';
+import { useReadOnlyUsers } from '../../../hooks/useReadOnlyUsers';
 import { NotificationSnackbar } from '../../../components/ui/NotificationSnackbar';
 import { DataTable } from '../../../components/DataTable/DataTable';
 import { Mail, UserCog, UserCheck, UserX } from 'lucide-react';

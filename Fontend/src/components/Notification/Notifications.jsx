@@ -26,9 +26,12 @@ import {
   Check,
   X,
 } from 'lucide-react';
-import { useNotifications } from '../../hook/useNotifications';
+import { useNotifications } from '../../hooks/useNotifications';
 import { Helmet } from 'react-helmet-async';
-import axiosInstance from '../../api/axios';
+import { notificationsApi } from '../../api/services/notifications';
+import { locatesApi } from '../../api/services/locatesApi';
+import { rmeApi } from '../../api/services/rmeApi';
+import { workOrdersApi } from '../../api/services/workOrders';
 import { useNavigate } from 'react-router-dom';
 import { useGlobalSnackbar } from '../../context/GlobalSnackbarContext';
 import DashboardLoader from '../Loader/DashboardLoader';
@@ -350,15 +353,15 @@ export default function Notifications() {
   const markAsSeenMutation = useMutation({
     mutationFn: async (notification) => {
       if (notification.type === 'RME') {
-        await axiosInstance.post('/work-orders-today/mark-seen/', {
+        await rmeApi.markSeen({
           ids: [notification.entityId],
         });
       } else if (notification.type === 'locate') {
-        await axiosInstance.post('/locates/mark-seen/', {
+        await locatesApi.markSeen({
           ids: [notification.entityId],
         });
       } else if (notification.type === 'work-order') {
-        await axiosInstance.post('/work-orders/seen/', {
+        await workOrdersApi.markSeen({
           user: user?.id,
           work_order: notification.entityId,
         });
@@ -436,17 +439,17 @@ export default function Notifications() {
       const promises = [];
 
       if (locateIds.length > 0) {
-        promises.push(axiosInstance.post('/locates/mark-seen/', { ids: locateIds }));
+        promises.push(locatesApi.markSeen({ ids: locateIds }));
       }
 
       if (workOrderIds.length > 0) {
-        promises.push(axiosInstance.post('/work-orders-today/mark-seen/', { ids: workOrderIds }));
+        promises.push(rmeApi.markSeen({ ids: workOrderIds }));
       }
 
       if (allWoIds.length > 0) {
         allWoIds.forEach((id) =>
           promises.push(
-            axiosInstance.post('/work-orders/seen/', { user: user?.id, work_order: id })
+            workOrdersApi.markSeen({ user: user?.id, work_order: id })
           )
         );
       }

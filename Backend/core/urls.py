@@ -23,7 +23,7 @@ urlpatterns = [
    path('api/', include('tank_repair.urls')),
    path('api/', include('work_order.urls')),
    path('api/', include('dispatcher_booked.urls')),
-   path('health-check/', include('status.urls')),
+   path('api/health-check/', include('status.urls')),
     
     # --- API Documentation URLs ---
    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

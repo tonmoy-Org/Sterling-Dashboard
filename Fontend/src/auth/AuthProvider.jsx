@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axiosInstance from '../api/axios';
+import { authApi } from '../api/services/auth';
 import GetDeviceInfo from '../components/GetDeviceInfo/GetDeviceInfo';
 
 const AuthContext = createContext(undefined);
@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const device = GetDeviceInfo(); // get current device info
 
-      const response = await axiosInstance.post('/auth/login', {
+      const response = await authApi.login({
         email,
         password,
         device // send device object to backend
@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password, role) => {
     try {
-      const response = await axiosInstance.post('/auth/register', {
+      const response = await authApi.register({
         name,
         email,
         password,
@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error('No authentication token found');
       }
 
-      const response = await axiosInstance.get('/auth/me');
+      const response = await authApi.me();
       const userData = response.data.user || response.data.data || response.data;
 
       // Update both state and localStorage

@@ -9,7 +9,7 @@ import h3 from '../../../assets/homepage/h3.jpeg';
 import h4 from '../../../assets/homepage/h4.jpeg';
 import h5 from '../../../assets/homepage/h6.jpeg';
 import h6 from '../../../assets/homepage/h7.png';
-import { useNotifications } from '../../../hook/useNotifications';
+import { useNotifications } from '../../../hooks/useNotifications';
 
 const getOneMonthAgo = () => {
   const d = new Date();

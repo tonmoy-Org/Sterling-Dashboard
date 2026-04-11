@@ -17,7 +17,7 @@ import {
     IconButton,
     Button,
 } from '@mui/material';
-import axiosInstance from '../../api/axios';
+import { authApi } from '../../api/services/auth';
 import { useAuth } from '../../auth/AuthProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -42,7 +42,7 @@ import {
 import { Helmet } from 'react-helmet-async';
 import DashboardLoader from '../Loader/DashboardLoader';
 import OutlineButton from '../ui/OutlineButton';
-import DeviceList from '../DeviceList';
+import DeviceList from '../features/devices/DeviceList';
 import GradientButton from '../ui/GradientButton';
 import { useGlobalSnackbar } from '../../context/GlobalSnackbarContext';
 
@@ -88,7 +88,7 @@ export const ProfilePage = ({ roleLabel }) => {
     } = useQuery({
         queryKey: ['userProfile', user?.id],
         queryFn: async () => {
-            const response = await axiosInstance.get('/auth/me');
+            const response = await authApi.me();
             const userData = response.data.user || response.data.data || response.data;
             return userData;
         },
@@ -108,7 +108,7 @@ export const ProfilePage = ({ roleLabel }) => {
 
     const updateProfileMutation = useMutation({
         mutationFn: async (formData) => {
-            const response = await axiosInstance.put('/auth/profile', formData);
+            const response = await authApi.updateProfile(formData);
             return response.data.data || response.data;
         },
         onMutate: async (newData) => {
@@ -165,7 +165,7 @@ export const ProfilePage = ({ roleLabel }) => {
 
     const changePasswordMutation = useMutation({
         mutationFn: async (passwordData) => {
-            const response = await axiosInstance.put('/auth/change-password', {
+            const response = await authApi.changePassword({
                 currentPassword: passwordData.currentPassword,
                 newPassword: passwordData.newPassword,
             });
@@ -604,51 +604,14 @@ export const ProfilePage = ({ roleLabel }) => {
                             )}
                         </Box>
                     </Paper>
-
                     {/* Device List Card */}
-                    <Paper
-                        elevation={0}
-                        sx={{
-                            borderRadius: '6px',
-                            overflow: 'hidden',
-                            border: `1px solid ${alpha(BLUE_COLOR, 0.15)}`,
-                            bgcolor: 'white'
-                        }}
-                    >
-                        <Box
-                            sx={{
-                                p: isMobile ? 1 : 1.5,
-                                bgcolor: 'white',
-                                borderBottom: `1px solid ${alpha(BLUE_COLOR, 0.1)}`,
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                            }}
-                        >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Smartphone size={18} color={BLUE_COLOR} />
-                                    <Typography
-                                        sx={{
-                                            fontSize: isMobile ? '0.85rem' : '0.9rem',
-                                            color: TEXT_COLOR,
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        Active Devices
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </Box>
-
-                        <Box sx={{ p: isMobile ? 1.5 : 2 }}>
-                            <DeviceList
-                                devices={profile?.devices || []}
-                                title=""
-                                subtitle=""
-                            />
-                        </Box>
-                    </Paper>
+                    <Box >
+                        <DeviceList
+                            devices={profile?.devices || []}
+                            title=""
+                            subtitle=""
+                        />
+                    </Box>
                 </Box>
 
                 {/* Right Column - Profile Summary */}

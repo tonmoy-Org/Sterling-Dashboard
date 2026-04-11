@@ -1,4 +1,4 @@
-import axiosInstance from '../../../../../api/axios';
+import axiosInstance from '../axios';
 
 export const locatesApi = {
     getAll: () => axiosInstance.get('/locates/'),
@@ -8,4 +8,6 @@ export const locatesApi = {
     delete: (id) => axiosInstance.delete(`/locates/${id}/`),
 
     markCalled: (id, data) => axiosInstance.patch(`/locates/${id}/`, data),
+
+    markSeen: (data) => axiosInstance.post('/locates/mark-seen/', data),
 };

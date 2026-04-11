@@ -10,8 +10,8 @@ import {
     BarChart3,
 } from 'lucide-react';
 
-import { useNotifications } from '../../../hook/useNotifications';
-import axiosInstance from '../../../api/axios';
+import { useNotifications } from '../../../hooks/useNotifications';
+import { workOrdersApi } from '../../../api/services/workOrders';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../auth/AuthProvider';
@@ -122,7 +122,7 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
             if (isWorkOrderPath) {
                 await Promise.all(
                     ids.map(id =>
-                        axiosInstance.post('/work-orders/seen/', {
+                        workOrdersApi.markSeen({
                             user: user?.id,
                             work_order: id,
                         })
@@ -142,7 +142,7 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                     };
                 });
             } else {
-                await axiosInstance.post(endpoint, { ids });
+                await workOrdersApi.post(endpoint, { ids });
             }
 
             clearTimeout(timeoutId);

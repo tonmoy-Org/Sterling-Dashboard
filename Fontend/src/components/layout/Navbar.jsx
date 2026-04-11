@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth } from '../../auth/AuthProvider';
 import { LogOut, Menu, X } from 'lucide-react';
 
 export const Navbar = () => {

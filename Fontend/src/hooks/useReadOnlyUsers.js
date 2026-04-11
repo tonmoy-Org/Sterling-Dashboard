@@ -1,7 +1,7 @@
 // hooks/useReadOnlyUsers.js
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axiosInstance from '../api/axios';
+import { usersApi } from '../api/services/users';
 
 export const useReadOnlyUsers = (endpoint = '/users', queryKey = 'users') => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -14,7 +14,7 @@ export const useReadOnlyUsers = (endpoint = '/users', queryKey = 'users') => {
     const { data: users = [], isLoading } = useQuery({
         queryKey: [queryKey],
         queryFn: async () => {
-            const response = await axiosInstance.get(endpoint);
+            const response = await usersApi.get(endpoint);
             return response.data.users || response.data.data || response.data;
         },
         staleTime: 30000,

@@ -10,7 +10,9 @@ import { TechLayout } from '../pages/tech/components/TechLayout';
 
 import { Login } from '../pages/login/Login';
 import { ErrorPage } from '../pages/error/ErrorPage';
-import StatusPage from '../pages/StatusPage';
+import StatusPage from '../pages/status_starling/Home';
+import StatusLayout from '../components/StatusStarling/Layout';
+
 
 import { SuperAdminDashboard } from '../pages/superadmin/pages/SuperAdminDashboard';
 import { SuperAdminProfile } from '../pages/superadmin/pages/Profile';
@@ -82,7 +84,9 @@ export const AppRoutes = () => {
         />
 
         {/* Public Status Page */}
-        <Route path="/status" element={<StatusPage />} />
+        <Route element={<StatusLayout />}>
+          <Route path="/status" element={<StatusPage />} />
+        </Route>
 
         {/* Error pages */}
         <Route path="/error" element={<ErrorPage />} />

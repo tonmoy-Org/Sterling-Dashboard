@@ -15,10 +15,13 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import axiosInstance from '../../api/axios';
+import { notificationsApi } from '../../api/services/notifications';
+import { locatesApi } from '../../api/services/locatesApi';
+import { rmeApi } from '../../api/services/rmeApi';
+import { workOrdersApi } from '../../api/services/workOrders';
 import { useAuth } from '../../auth/AuthProvider';
 import { Bell, X, Clock, MapPin, Wrench, ArrowRight, Check } from 'lucide-react';
-import { useNotifications } from '../../hook/useNotifications';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const GREEN_COLOR  = '#10b981';
 const BLUE_COLOR   = '#1976d2';
@@ -115,11 +118,11 @@ const NotificationDrawer = ({ onClose }) => {
     const markAsSeenMutation = useMutation({
         mutationFn: async (notification) => {
             if (notification.type === 'RME') {
-                await axiosInstance.post('/work-orders-today/mark-seen/', { ids: [notification.entityId] });
+                await rmeApi.markSeen({ ids: [notification.entityId] });
             } else if (notification.type === 'locate') {
-                await axiosInstance.post('/locates/mark-seen/', { ids: [notification.entityId] });
+                await locatesApi.markSeen({ ids: [notification.entityId] });
             } else if (notification.type === 'work-order') {
-                await axiosInstance.post('/work-orders/seen/', { user: user?.id, work_order: notification.entityId });
+                await workOrdersApi.markSeen({ user: user?.id, work_order: notification.entityId });
             }
         },
         onMutate: async (notification) => {
@@ -164,10 +167,10 @@ const NotificationDrawer = ({ onClose }) => {
             const allWoIds = notificationsArray.filter(n => n.type === 'work-order').map(n => n.entityId);
 
             const promises = [];
-            if (locateIds.length > 0) promises.push(axiosInstance.post('/locates/mark-seen/', { ids: locateIds }));
-            if (workOrderIds.length > 0) promises.push(axiosInstance.post('/work-orders-today/mark-seen/', { ids: workOrderIds }));
+            if (locateIds.length > 0) promises.push(locatesApi.markSeen({ ids: locateIds }));
+            if (workOrderIds.length > 0) promises.push(rmeApi.markSeen({ ids: workOrderIds }));
             if (allWoIds.length > 0) {
-                allWoIds.forEach(id => promises.push(axiosInstance.post('/work-orders/seen/', { user: user?.id, work_order: id })));
+                allWoIds.forEach(id => promises.push(workOrdersApi.markSeen({ user: user?.id, work_order: id })));
             }
             await Promise.all(promises);
         },

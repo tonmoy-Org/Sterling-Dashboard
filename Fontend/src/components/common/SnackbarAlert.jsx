@@ -2,7 +2,7 @@ import React from 'react';
 import { Snackbar, Alert, Typography, useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react';
-import { TEXT_COLOR } from '../pages/manager/features/locates/utils/constants';
+import { TEXT_COLOR } from '../../pages/manager/features/locates/utils/constants';
 
 const GREEN_COLOR = '#10b981';
 const RED_COLOR = '#ef4444';

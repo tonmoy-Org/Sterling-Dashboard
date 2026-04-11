@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Badge, IconButton, Tooltip } from "@mui/material";
 import { Bell } from "lucide-react";
-import { useNotifications } from "../../hook/useNotifications";
+import { useNotifications } from "../../hooks/useNotifications";
 
 const NotificationBadge = ({ onClick }) => {
     const { badgeCount, refetch } = useNotifications();

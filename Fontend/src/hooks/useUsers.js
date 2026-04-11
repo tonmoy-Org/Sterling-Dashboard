@@ -1,7 +1,7 @@
 // hooks/useUsers.js
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axiosInstance from '../api/axios';
+import { usersApi } from '../api/services/users';
 
 export const useUsers = (queryKey = 'users') => {
     const queryClient = useQueryClient();
@@ -26,7 +26,7 @@ export const useUsers = (queryKey = 'users') => {
     const { data: users = [], isLoading } = useQuery({
         queryKey: [queryKey],
         queryFn: async () => {
-            const response = await axiosInstance.get('/users/');
+            const response = await usersApi.getAll();
             return response.data.users || response.data.data || response.data;
         },
         staleTime: 30000,
@@ -56,7 +56,7 @@ export const useUsers = (queryKey = 'users') => {
     // Mutations
     const createUserMutation = useMutation({
         mutationFn: async (userData) => {
-            const response = await axiosInstance.post('/users/', userData);
+            const response = await usersApi.create(userData);
             return response.data;
         },
         onSuccess: () => {
@@ -69,7 +69,7 @@ export const useUsers = (queryKey = 'users') => {
 
     const deleteUserMutation = useMutation({
         mutationFn: async (userId) => {
-            const response = await axiosInstance.delete(`/users/${userId}/`);
+            const response = await usersApi.delete(userId);
             return response.data;
         },
         onSuccess: () => {
@@ -84,7 +84,7 @@ export const useUsers = (queryKey = 'users') => {
 
     const updateUserMutation = useMutation({
         mutationFn: async ({ userId, userData }) => {
-            const response = await axiosInstance.put(`/users/${userId}/`, userData);
+            const response = await usersApi.update(userId, userData);
             return response.data;
         },
         onSuccess: () => {
@@ -96,7 +96,7 @@ export const useUsers = (queryKey = 'users') => {
 
     const toggleUserStatusMutation = useMutation({
         mutationFn: async (userId) => {
-            const response = await axiosInstance.patch(`/users/${userId}/toggle-status`);
+            const response = await usersApi.toggleStatus(userId);
             return response.data;
         },
         onSuccess: () => {

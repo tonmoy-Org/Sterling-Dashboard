@@ -39,7 +39,7 @@ import {
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { alpha } from '@mui/material/styles';
-import axiosInstance from '../../../../api/axios';
+import { repairsApi } from '../../../../api/services/repairs';
 import StyledTextField from '../../../../components/ui/StyledTextField';
 import {
   CheckCircle,
@@ -411,7 +411,7 @@ const Repairs = () => {
     queryKey: ['tank-repairs'],
     queryFn: async () => {
       try {
-        const response = await axiosInstance.get('/tank-repairs/');
+        const response = await repairsApi.getAll();
         const transformedData = response.data.map(transformRepairData);
         return transformedData;
       } catch (error) {
@@ -425,7 +425,7 @@ const Repairs = () => {
     mutationFn: async (repairData) => {
       try {
         const apiData = transformToAPIFormat(repairData);
-        const response = await axiosInstance.post('/tank-repairs/', apiData);
+        const response = await repairsApi.create(apiData);
         return transformRepairData(response.data);
       } catch (error) {
         console.error('Error creating repair:', error);
@@ -446,7 +446,7 @@ const Repairs = () => {
     mutationFn: async ({ id, data }) => {
       try {
         const apiData = transformToAPIFormat(data);
-        const response = await axiosInstance.put(`/tank-repairs/${id}/`, apiData);
+        const response = await repairsApi.update(id, apiData);
         return transformRepairData(response.data);
       } catch (error) {
         console.error('Error updating repair:', error);
@@ -467,7 +467,7 @@ const Repairs = () => {
     mutationFn: async ({ id, data }) => {
       try {
         const apiData = transformToAPIFormat(data);
-        const response = await axiosInstance.patch(`/tank-repairs/${id}/`, apiData);
+        const response = await repairsApi.patch(id, apiData);
         return transformRepairData(response.data);
       } catch (error) {
         console.error('Error patching repair:', error);
@@ -486,7 +486,7 @@ const Repairs = () => {
     mutationFn: async ({ id, data }) => {
       try {
         const apiData = transformToAPIFormat(data);
-        const response = await axiosInstance.patch(`/tank-repairs/${id}/`, apiData);
+        const response = await repairsApi.patch(id, apiData);
         return transformRepairData(response.data);
       } catch (error) {
         console.error('Error soft deleting repair:', error);
@@ -513,7 +513,7 @@ const Repairs = () => {
             deleted_by_email: currentUser.email,
             deleted_date: new Date().toISOString().split('T')[0]
           };
-          return axiosInstance.patch(`/tank-repairs/${id}/`, data);
+          return repairsApi.patch(id, data);
         });
         await Promise.all(promises);
         return ids;
@@ -541,7 +541,7 @@ const Repairs = () => {
           deleted_by_email: null,
           deleted_date: null
         };
-        const response = await axiosInstance.patch(`/tank-repairs/${id}/`, data);
+        const response = await repairsApi.patch(id, data);
         return transformRepairData(response.data);
       } catch (error) {
         console.error('Error restoring repair:', error);
@@ -568,7 +568,7 @@ const Repairs = () => {
             deleted_by_email: null,
             deleted_date: null
           };
-          return axiosInstance.patch(`/tank-repairs/${id}/`, data);
+          return repairsApi.patch(id, data);
         });
         await Promise.all(promises);
         return ids;
@@ -590,7 +590,7 @@ const Repairs = () => {
   const permanentDeleteMutation = useMutation({
     mutationFn: async (id) => {
       try {
-        await axiosInstance.delete(`/tank-repairs/${id}/`);
+        await repairsApi.delete(id);
         return id;
       } catch (error) {
         console.error('Error permanently deleting repair:', error);
@@ -611,7 +611,7 @@ const Repairs = () => {
     mutationFn: async (ids) => {
       try {
         const promises = ids.map(id =>
-          axiosInstance.delete(`/tank-repairs/${id}/`)
+          repairsApi.delete(id)
         );
         await Promise.all(promises);
         return ids;

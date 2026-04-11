@@ -3,7 +3,8 @@ import { useState } from 'react';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
-import axiosInstance from '../../api/axios';
+import { scraperApi } from '../../api/services/scraperApi';
+import { rmeApi } from '../../api/services/rmeApi';
 import { useScraping } from '../../context/ScrapingContext'; // ← ADD THIS
 
 const StyledRefreshButton = styled(Button)(({ theme }) => ({
@@ -71,7 +72,7 @@ const RefreshButton = () => {
         handleCloseModal();
         
         try {
-            await axiosInstance.post('/work-orders-today/start-scraping/');
+            await rmeApi.startScraping();
             console.log('Scraping started successfully');
         } catch (error) {
             console.error('Error starting scraping:', error);

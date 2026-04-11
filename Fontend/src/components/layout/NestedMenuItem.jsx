@@ -9,8 +9,10 @@ import Tooltip from '@mui/material/Tooltip';
 import Box from '@mui/material/Box';
 import Badge from '@mui/material/Badge';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useNotifications } from '../hook/useNotifications';
-import axiosInstance from '../api/axios';
+import { useNotifications } from '../../hooks/useNotifications';
+import { scraperApi } from '../../api/services/scraperApi';
+import { locatesApi } from '../../api/services/locatesApi';
+import { rmeApi } from '../../api/services/rmeApi';
 
 const colors = {
     primary: '#3182ce',
@@ -130,7 +132,7 @@ const NestedMenuItem = ({
                         .map(locate => locate.id);
 
                     if (locateIds.length > 0) {
-                        await axiosInstance.post('/locates/mark-seen/', {
+                        await locatesApi.markSeen({
                             ids: locateIds
                         });
                     }
@@ -146,7 +148,7 @@ const NestedMenuItem = ({
                         .map(workOrder => workOrder.id);
 
                     if (rmeIds.length > 0) {
-                        await axiosInstance.post('/work-orders-today/mark-seen/', {
+                        await rmeApi.markSeen({
                             ids: rmeIds
                         });
                     }

@@ -12,7 +12,7 @@ import Chip from '@mui/material/Chip';
 import Paper from '@mui/material/Paper';
 import Fade from '@mui/material/Fade';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth } from '../../auth/AuthProvider';
 import {
     Search,
     X,

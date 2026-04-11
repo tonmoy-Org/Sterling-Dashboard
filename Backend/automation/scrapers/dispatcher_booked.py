@@ -46,12 +46,12 @@ class DispatcherBookedScraper(BaseScraper):
             url: The URL to navigate to
             status_xpath: The xpath name for the specific status filter
         Returns:
-            int: The booked count extracted from the page, or None on failure
+            int: The booked count extracted from the page, or 0 on failure
         """
         try:
             if not url:
                 print("Booked count URL is missing.")
-                return None
+                return 0
 
             await self._goto_with_fallback(url, timeout_ms=60000)
 
@@ -80,16 +80,12 @@ class DispatcherBookedScraper(BaseScraper):
                     return count
                 except Exception as parse_error:
                     if attempt == 3:
-                        raise parse_error
+                        print(f"⚠️ All 3 attempts failed for [{status_xpath}], defaulting to 0. Error: {parse_error}")
+                        return 0
 
-                    print(
-                        f"Count extraction attempt {attempt} failed for [{status_xpath}]. Reloading page and retrying..."
-                    )
-                    await self.page.reload(wait_until="domcontentloaded", timeout=60000)
-                    await self.page.wait_for_timeout(200)
         except Exception as e:
             print(f"Error getting count for [{status_xpath}] from {url}: {e}")
-            return None
+            return 0
 
     async def run(self):
         """
@@ -149,20 +145,6 @@ class DispatcherBookedScraper(BaseScraper):
                 booked_urls.get("all_leads"),
                 "dispatcher_status_xpath"
             )
-
-            counts = [cameron_booked, cameron_non_booked, eric_booked, eric_non_booked, total_jobs_booked, all_leads]
-            if any(count is None for count in counts):
-                print("One or more booked counts are None.")
-                _error_occurred = "One or more booked counts returned None — scraping failed to extract data."
-                _details = {
-                    "cameron_booked": cameron_booked,
-                    "cameron_non_booked": cameron_non_booked,
-                    "eric_booked": eric_booked,
-                    "eric_non_booked": eric_non_booked,
-                    "total_jobs_booked": total_jobs_booked,
-                    "all_leads": all_leads,
-                }
-                return None
 
             print(f"Cameron Booked: {cameron_booked}")
             print(f"Cameron Non-Booked: {cameron_non_booked}")

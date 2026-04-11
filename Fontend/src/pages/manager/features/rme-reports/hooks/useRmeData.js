@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axiosInstance from '../../../../../api/axios';
+import { rmeApi } from '../../../../../api/services/rmeApi';
 import { useAuth } from '../../../../../auth/AuthProvider';
 import {
     formatDate,
@@ -32,7 +32,7 @@ export const useRmeData = () => {
     const { data: allWorkOrders = [], isLoading, refetch: refetchWorkOrders } = useQuery({
         queryKey: ['rme-work-orders'],
         queryFn: async () => {
-            const res = await axiosInstance.get('/work-orders-today/');
+            const res = await rmeApi.getAll();
             return Array.isArray(res.data) ? res.data : [];
         },
         // Auto-refresh configuration

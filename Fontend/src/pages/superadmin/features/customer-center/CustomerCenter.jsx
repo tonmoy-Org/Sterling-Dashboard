@@ -13,7 +13,7 @@ import {
     RotateCcw, ExternalLink, Eye, Clock,
     CheckCheck, ChevronRight, History, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import axiosInstance from '../../../../api/axios';
+import { workOrdersApi } from '../../../../api/services/workOrders';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../../auth/AuthProvider';
 import { Helmet } from 'react-helmet-async';
@@ -935,7 +935,7 @@ export default function CustomerCenter() {
     const { data: workOrders = [], isLoading } = useQuery({
         queryKey: ['work-orders'],
         queryFn: async () => {
-            const response = await axiosInstance.get('/work-orders/');
+            const response = await workOrdersApi.getAll();
             const raw = Array.isArray(response.data)
                 ? response.data
                 : response.data?.results ?? response.data?.data ?? [];
@@ -956,7 +956,7 @@ export default function CustomerCenter() {
     // Update a single work order field(s)
     const updateWorkOrderMutation = useMutation({
         mutationFn: async ({ id, data }) => {
-            const response = await axiosInstance.patch(`/work-orders/${id}/`, transformToAPIFormat(data));
+            const response = await workOrdersApi.patch(id, transformToAPIFormat(data));
             return transformRepairData(response.data);
         },
         onMutate: async ({ id, data }) => {
@@ -975,7 +975,7 @@ export default function CustomerCenter() {
     // Single soft-delete (move to bin)
     const softDeleteMutation = useMutation({
         mutationFn: async ({ id, data }) => {
-            const response = await axiosInstance.patch(`/work-orders/${id}/`, transformToAPIFormat(data));
+            const response = await workOrdersApi.patch(id, transformToAPIFormat(data));
             return transformRepairData(response.data);
         },
         onMutate: async ({ id, data }) => {
@@ -996,7 +996,7 @@ export default function CustomerCenter() {
     const bulkSoftDeleteMutation = useMutation({
         mutationFn: async (ids) => {
             await Promise.all(ids.map(id =>
-                axiosInstance.patch(`/work-orders/${id}/`, { is_deleted: true, deleted_by: user.name, deleted_by_email: user.email, deleted_date: new Date().toISOString().split('T')[0] })
+                workOrdersApi.patch(id, { is_deleted: true, deleted_by: user.name, deleted_by_email: user.email, deleted_date: new Date().toISOString().split('T')[0] })
             ));
             return ids;
         },
@@ -1018,7 +1018,7 @@ export default function CustomerCenter() {
     // Single restore
     const restoreMutation = useMutation({
         mutationFn: async (id) => {
-            const response = await axiosInstance.patch(`/work-orders/${id}/`, { is_deleted: false, deleted_by: null, deleted_by_email: null, deleted_date: null });
+            const response = await workOrdersApi.patch(id, { is_deleted: false, deleted_by: null, deleted_by_email: null, deleted_date: null });
             return transformRepairData(response.data);
         },
         onMutate: async (id) => {
@@ -1039,7 +1039,7 @@ export default function CustomerCenter() {
     const bulkRestoreMutation = useMutation({
         mutationFn: async (ids) => {
             await Promise.all(ids.map(id =>
-                axiosInstance.patch(`/work-orders/${id}/`, { is_deleted: false, deleted_by: null, deleted_by_email: null, deleted_date: null })
+                workOrdersApi.patch(id, { is_deleted: false, deleted_by: null, deleted_by_email: null, deleted_date: null })
             ));
             return ids;
         },
@@ -1060,7 +1060,7 @@ export default function CustomerCenter() {
     // Single permanent delete
     const permanentDeleteMutation = useMutation({
         mutationFn: async (id) => {
-            await axiosInstance.delete(`/work-orders/${id}/`);
+            await workOrdersApi.delete(id);
             return id;
         },
         onMutate: async (id) => {
@@ -1080,7 +1080,7 @@ export default function CustomerCenter() {
     // Bulk permanent delete
     const bulkPermanentDeleteMutation = useMutation({
         mutationFn: async (ids) => {
-            await Promise.all(ids.map(id => axiosInstance.delete(`/work-orders/${id}/`)));
+            await Promise.all(ids.map(id => workOrdersApi.delete(id)));
             return ids;
         },
         onMutate: async (ids) => {

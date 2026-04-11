@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../../../../auth/AuthProvider';
-import axiosInstance from '../../../../api/axios';
+import { dispatchKpiApi } from '../../../../api/services/dispatchKpi';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import DashboardLoader from '../../../../components/Loader/DashboardLoader';
 
@@ -706,7 +706,7 @@ export default function DispatchKpi() {
     const { data: serverData = [], isLoading } = useQuery({
         queryKey: ['dispatcher-booked'],
         queryFn: async () => {
-            const response = await axiosInstance.get('/dispatcher-booked/');
+            const response = await dispatchKpiApi.getAll();
             const raw = Array.isArray(response.data)
                 ? response.data
                 : response.data?.results ?? response.data?.data ?? [];
@@ -725,7 +725,7 @@ export default function DispatchKpi() {
         mutationFn: async (ids) => {
             await Promise.all(
                 ids.map(id =>
-                    axiosInstance.patch(`/dispatcher-booked/${id}/`, {
+                    dispatchKpiApi.patch(id, {
                         is_deleted:       true,
                         deleted_by:       user?.name  || 'Unknown',
                         deleted_by_email: user?.email || '',
@@ -761,7 +761,7 @@ export default function DispatchKpi() {
     // ── Restore single record ─────────────────────────────────────────────────
     const restoreMutation = useMutation({
         mutationFn: async (id) => {
-            const response = await axiosInstance.patch(`/dispatcher-booked/${id}/`, {
+            const response = await dispatchKpiApi.patch(id, {
                 is_deleted:       false,
                 deleted_by:       null,
                 deleted_by_email: null,
@@ -788,7 +788,7 @@ export default function DispatchKpi() {
         mutationFn: async (ids) => {
             await Promise.all(
                 ids.map(id =>
-                    axiosInstance.patch(`/dispatcher-booked/${id}/`, {
+                    dispatchKpiApi.patch(id, {
                         is_deleted:       false,
                         deleted_by:       null,
                         deleted_by_email: null,
@@ -817,7 +817,7 @@ export default function DispatchKpi() {
     // ── Permanent delete single ───────────────────────────────────────────────
     const permanentDeleteMutation = useMutation({
         mutationFn: async (id) => {
-            await axiosInstance.delete(`/dispatcher-booked/${id}/`);
+            await dispatchKpiApi.delete(id);
             return id;
         },
         onMutate: async (id) => {
@@ -837,7 +837,7 @@ export default function DispatchKpi() {
     // ── Bulk permanent delete ─────────────────────────────────────────────────
     const bulkPermanentDeleteMutation = useMutation({
         mutationFn: async (ids) => {
-            await Promise.all(ids.map(id => axiosInstance.delete(`/dispatcher-booked/${id}/`)));
+            await Promise.all(ids.map(id => dispatchKpiApi.delete(id)));
             return ids;
         },
         onMutate: async (ids) => {

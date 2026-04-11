@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import SnackbarAlert from '../components/SnackbarAlert'
+import SnackbarAlert from '../components/common/SnackbarAlert'
 
 const GlobalSnackbarContext = createContext();
 

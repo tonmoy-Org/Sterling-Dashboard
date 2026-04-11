@@ -81,7 +81,7 @@ class BaseScraper:
             
             # Launch browser with visible UI and slight delay
             self.browser = await self.playwright.chromium.launch(
-                headless=True,
+                headless=False,
                 slow_mo=50,
                 args=["--start-maximized"]
             )

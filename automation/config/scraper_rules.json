@@ -279,6 +279,28 @@
         "xpath": "//div[contains(@class,'secondary-filter') and ./div[@class='filter-name' and normalize-space()='Tags']]//button[contains(@class,'confirm_hsagT')]"
       }
     ],
+    "dispatcher_status_xpath": [
+      {
+        "action": "click",
+        "xpath": "//*[@id='settings-sub-menu-id']/div[2]/div[9]/div/div[1]"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//ul[contains(@id,'__listbox')]//li[contains(@id,'__option-3')]"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+      }
+    ],
     "save_edit_form_btn": "//input[@value='SAVE'] | //input[@id='btnSaveChanges2']",
     "work_history_table_xpath": "(//table[@id='ctl02_DataGridOMhistory']/tbody//tr)[position() > 1]",
     "wait_xpath": "//tbody[@class='fixed-body']",
@@ -290,9 +312,10 @@
       "cameron_booked": "https://login.fieldedge.com/#/List/10/1f31f1bb-382d-4a62-b402-6e6396c6c619",
       "cameron_non_booked": "https://login.fieldedge.com/#/List/10/bc212460-a431-48ee-b87e-50e14d0fa6f1",
       "eric_booked": "https://login.fieldedge.com/#/List/10/c2eaedcc-c725-4568-8b83-612aec705fb0",
-      "eric_non_booked": "https://login.fieldedge.com/#/List/10/931c6c6a-6c26-420e-83cf-4070f1854c64"
+      "eric_non_booked": "https://login.fieldedge.com/#/List/10/931c6c6a-6c26-420e-83cf-4070f1854c64",
+      "booked": "https://login.fieldedge.com/#/List/10/1e2052e1-b5b0-4338-bf6f-4834a04a0218",
+      "all_leads": "https://login.fieldedge.com/#/List/10/c8c3b7f3-26ed-4053-b1c6-fea3b8a331bb"
     },
     "booked_count_get_xpath": "//div[contains(@class, 'group-amount group-selected')]"
-    
   }
 ]

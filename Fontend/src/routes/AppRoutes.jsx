@@ -10,6 +10,7 @@ import { TechLayout } from '../pages/tech/components/TechLayout';
 
 import { Login } from '../pages/login/Login';
 import { ErrorPage } from '../pages/error/ErrorPage';
+import StatusPage from '../pages/StatusPage';
 
 import { SuperAdminDashboard } from '../pages/superadmin/pages/SuperAdminDashboard';
 import { SuperAdminProfile } from '../pages/superadmin/pages/Profile';
@@ -79,6 +80,9 @@ export const AppRoutes = () => {
             </LoginRoute>
           }
         />
+
+        {/* Public Status Page */}
+        <Route path="/status" element={<StatusPage />} />
 
         {/* Error pages */}
         <Route path="/error" element={<ErrorPage />} />

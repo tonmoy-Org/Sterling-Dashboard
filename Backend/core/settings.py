@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from dotenv import load_dotenv
+# Triggering hot reload for CORS
 import os
 from datetime import timedelta
 

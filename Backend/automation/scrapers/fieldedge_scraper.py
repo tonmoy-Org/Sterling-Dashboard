@@ -39,18 +39,14 @@ class FieldEdgeScraper(BaseScraper):
         Args:
             status_name: Status to filter by (e.g., "Assigned")
         """
-        try:
-            selector = f'button[title="{status_name}"]'
-            status_button = self.page.locator(selector)
-            
-            if await status_button.count() > 0:
-                await status_button.click()
-                print(f"Selected status: {status_name}")
-            else:
-                print(f"Status button '{status_name}' not found.")
-                
-        except Exception as e:
-            print(f"Error selecting status '{status_name}': {e}")
+        selector = f'button[title="{status_name}"]'
+        status_button = self.page.locator(selector)
+        
+        if await status_button.count() > 0:
+            await status_button.click()
+            print(f"Selected status: {status_name}")
+        else:
+            raise Exception(f"Status button '{status_name}' not found.")
     
     async def select_task_filter(self, task_name):
         """
@@ -59,31 +55,27 @@ class FieldEdgeScraper(BaseScraper):
         Args:
             task_name: Task type to filter by
         """
-        try:
-            task_dropdown_xpath = self.rules.get(
-                'task_dropdown_xpath',
-                "//span[text()='Task']"
-            )
-            task_label_xpath = f"//label[normalize-space(text())='{task_name}']"
+        task_dropdown_xpath = self.rules.get(
+            'task_dropdown_xpath',
+            "//span[text()='Task']"
+        )
+        task_label_xpath = f"//label[normalize-space(text())='{task_name}']"
+        
+        # Open dropdown
+        task_button = self.page.locator(task_dropdown_xpath)
+        if await task_button.count() > 0:
+            await task_button.click()
+            await self.page.wait_for_timeout(1000)
             
-            # Open dropdown
-            task_button = self.page.locator(task_dropdown_xpath)
-            if await task_button.count() > 0:
-                await task_button.click()
-                await self.page.wait_for_timeout(1000)
-                
-                # Select task option
-                task_label = self.page.locator(task_label_xpath)
-                if await task_label.count() > 0:
-                    await task_label.click()
-                    print(f"Selected task: {task_name}")
-                else:
-                    print(f"Task option '{task_name}' not found in dropdown.")
+            # Select task option
+            task_label = self.page.locator(task_label_xpath)
+            if await task_label.count() > 0:
+                await task_label.click()
+                print(f"Selected task: {task_name}")
             else:
-                print("Task dropdown button not found.")
-                
-        except Exception as e:
-            print(f"Error selecting task filter: {e}")
+                raise Exception(f"Task option '{task_name}' not found in dropdown.")
+        else:
+            raise Exception("Task dropdown button not found.")
     
     async def set_date_filter(self, start_date, end_date):
         """
@@ -93,44 +85,36 @@ class FieldEdgeScraper(BaseScraper):
             start_date: Start date in MM/DD/YYYY format
             end_date: End date in MM/DD/YYYY format
         """
-        try:
-            # Open date filter dropdown
-            date_filter_dropdown = self.page.locator(
-                'div.filter-dropdown:has(.time-filter) div.filter-text'
-            ).first
-            
-            if await date_filter_dropdown.count() > 0:
-                await date_filter_dropdown.click()
-            
-            # Fill date inputs
-            start_input = self.page.locator('#start-date-filter')
-            end_input = self.page.locator('#end-date-filter')
-            
-            await start_input.fill('')
-            await start_input.type(start_date)
-            
-            await end_input.fill('')
-            await end_input.type(end_date)
-            
-            print(f"Date filter set: {start_date} to {end_date}")
-            
-        except Exception as e:
-            print(f"Error setting date filter: {e}")
+        # Open date filter dropdown
+        date_filter_dropdown = self.page.locator(
+            'div.filter-dropdown:has(.time-filter) div.filter-text'
+        ).first
+        
+        if await date_filter_dropdown.count() > 0:
+            await date_filter_dropdown.click()
+        
+        # Fill date inputs
+        start_input = self.page.locator('#start-date-filter')
+        end_input = self.page.locator('#end-date-filter')
+        
+        await start_input.fill('')
+        await start_input.type(start_date)
+        
+        await end_input.fill('')
+        await end_input.type(end_date)
+        
+        print(f"Date filter set: {start_date} to {end_date}")
     
     async def apply_filters(self):
         """Apply all selected filters."""
-        try:
-            apply_button = self.page.locator('.plot-map-button:has-text("Apply")')
-            
-            if await apply_button.count() > 0:
-                await apply_button.click()
-                print("Filters applied.")
-                await self.page.wait_for_timeout(2000)
-            else:
-                print("Apply button not found.")
-                
-        except Exception as e:
-            print(f"Error applying filters: {e}")
+        apply_button = self.page.locator('.plot-map-button:has-text("Apply")')
+        
+        if await apply_button.count() > 0:
+            await apply_button.click()
+            print("Filters applied.")
+            await self.page.wait_for_timeout(2000)
+        else:
+            raise Exception("Apply button not found.")
     
     async def scrape_work_orders(self):
         """
@@ -140,15 +124,15 @@ class FieldEdgeScraper(BaseScraper):
         Returns:
             dict: Scraped data with rows and count
         """
+        print("⏳ Waiting for data rows...")
         try:
-            print("⏳ Waiting for data rows...")
             await self.page.wait_for_selector(
                 '.kgRow',
                 state='attached',
                 timeout=60000
             )
         except Exception as e:
-            print(f"Timeout waiting for rows: {e}")
+            print(f"No rows found (timeout waiting for .kgRow). Assuming empty data.")
             return {'rows': []}
         
         try:
@@ -213,39 +197,32 @@ class FieldEdgeScraper(BaseScraper):
         Returns:
             str: Status text or None if not found
         """
-        try:
-            target_xpath = f"//span[text()='{work_order_number}']"
-            
-            # Click on work order
-            await self.perform_actions_by_xpaths(
-                action_list=[{
-                    "action": "click",
-                    "xpath": target_xpath
-                }]
-            )
-            
-            # Wait for and extract status
-            status_xpath = self.rules.get('locator_status_xpath')
-            try:
-                await self.page.wait_for_selector(
-                    status_xpath,
-                    state='visible',
-                    timeout=60000
-                )
-            except:
-                pass
-            status_locator = self.page.locator(status_xpath)
-            raw_text = await status_locator.text_content()
-            
-            if raw_text:
-                # Clean up non-breaking spaces
-                return raw_text.replace("\xa0", "").strip()
-            
-            return None
-            
-        except Exception as e:
-            print(f"Failed to get status for work order '{work_order_number}': {e}")
-            return None
+        target_xpath = f"//span[text()='{work_order_number}']"
+        
+        # Click on work order
+        await self.perform_actions_by_xpaths(
+            action_list=[{
+                "action": "click",
+                "xpath": target_xpath
+            }],
+            raise_on_error=True
+        )
+        
+        # Wait for and extract status
+        status_xpath = self.rules.get('locator_status_xpath')
+        await self.page.wait_for_selector(
+            status_xpath,
+            state='visible',
+            timeout=10000
+        )
+        status_locator = self.page.locator(status_xpath)
+        raw_text = await status_locator.text_content()
+        
+        if raw_text:
+            # Clean up non-breaking spaces
+            return raw_text.replace("\xa0", "").strip()
+        
+        return None
     
     async def run(self):
         """
@@ -254,6 +231,12 @@ class FieldEdgeScraper(BaseScraper):
         Returns:
             dict: Scraped data with work orders and filter dates, or None on error
         """
+        import time as _time
+        import traceback
+        _start_time = _time.time()
+        _error_occurred = None
+        _records_processed = 0
+
         try:
             await self.initialize()
             
@@ -262,23 +245,19 @@ class FieldEdgeScraper(BaseScraper):
             if url:
                 await self.page.goto(url, wait_until='domcontentloaded')
             else:
-                print("No URL found in rules configuration.")
-                return None
+                raise ValueError("No URL found in rules configuration.")
             
             # Login if necessary
             if "Login" in self.page.url:
                 await self.login_fieldedge()
             
             # Wait for UI to load
-            try:
-                wait_xpath = self.rules.get("task_dropdown_xpath", "//span[text()='Task']")
-                await self.page.wait_for_selector(
-                    wait_xpath,
-                    state='visible',
-                    timeout=60000
-                )
-            except Exception as e:
-                print(f"Task dropdown not immediately visible: {e}")
+            wait_xpath = self.rules.get("task_dropdown_xpath", "//span[text()='Task']")
+            await self.page.wait_for_selector(
+                wait_xpath,
+                state='visible',
+                timeout=60000
+            )
             
             # Apply filters
             status_name = self.rules.get('status_name', "Assigned")
@@ -298,6 +277,7 @@ class FieldEdgeScraper(BaseScraper):
             # Scrape initial data
             scraped = await self.scrape_work_orders()
             work_orders = scraped.get('rows', [])
+            _records_processed = len(work_orders)
             
             # Fetch detailed status for each work order
             for work_order in work_orders:
@@ -317,7 +297,35 @@ class FieldEdgeScraper(BaseScraper):
             
         except Exception as e:
             print(f"Critical error in FieldEdge scraper: {e}")
+            _error_occurred = f"{str(e)}\n{traceback.format_exc()}"
             return None
             
         finally:
             await self.cleanup()
+
+            # ── Log execution result to ScraperExecutionLog ──
+            _elapsed = _time.time() - _start_time
+            try:
+                from status.models import ScraperExecutionLog
+                from asgiref.sync import sync_to_async
+                def _log_execution():
+                    ScraperExecutionLog.objects.create(
+                        scraper_name='fieldedge-locates-scraper',
+                        status='error' if _error_occurred else 'success',
+                        error_message=_error_occurred,
+                        records_processed=_records_processed,
+                        execution_time_seconds=round(_elapsed, 2),
+                    )
+                await sync_to_async(_log_execution)()
+                print(f"📝 Execution logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s)")
+            except Exception as log_err:
+                print(f"⚠️ Failed to log execution: {log_err}")
+                
+            if _error_occurred:
+                try:
+                    from status.email_service import send_outage_email
+                    from asgiref.sync import sync_to_async
+                    await sync_to_async(send_outage_email)('Fieldedge Locates Scraper', _error_occurred)
+                    print("📧 Sent direct outage notification email from scraper.")
+                except Exception as mail_err:
+                    print(f"⚠️ Failed to send direct email: {mail_err}")

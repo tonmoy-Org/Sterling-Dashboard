@@ -63,20 +63,28 @@ def run_health_checks():
     except Exception as e:
         check_service("API Endpoint", False, f"Could not connect to API: {e}")
 
-    # 3. Check Scraper Freshness
-    last_run = ScraperExecutionLog.objects.filter(scraper_name='dispatcher-booked-scraper').order_by('-executed_at').first()
-    if last_run:
-        # If last run was error, or if it ran more than 24 hours ago, it's downtime
-        hours_since = (timezone.now() - last_run.executed_at).total_seconds() / 3600
-        
-        if last_run.status == 'error':
-            check_service("Dispatcher Booked Scraper", False, f"Scraper execution failed: {last_run.error_message}")
-        elif hours_since > 24:
-            check_service("Dispatcher Booked Scraper", False, f"Scraper has not run successfully in {round(hours_since)} hours.")
-        else:
-            check_service("Dispatcher Booked Scraper", True)
-    else:
-        # No run found yet
-        check_service("Dispatcher Booked Scraper", False, "No scraper execution logs found yet.")
+    # 3. Check Scraper Freshness for all scrapers
+    try:
+        scraper_names = ScraperExecutionLog.objects.values_list('scraper_name', flat=True).distinct()
+        for scraper_name in scraper_names:
+            last_run = ScraperExecutionLog.objects.filter(scraper_name=scraper_name).order_by('-executed_at').first()
+            
+            # Format service name for display (e.g., 'dispatcher-booked-scraper' -> 'Dispatcher Booked Scraper')
+            display_name = scraper_name.replace('-', ' ').title()
+            
+            if last_run:
+                # If last run was error, or if it ran more than 24 hours ago, it's downtime
+                hours_since = (timezone.now() - last_run.executed_at).total_seconds() / 3600
+                
+                if last_run.status == 'error':
+                    check_service(display_name, False, f"Scraper execution failed: {last_run.error_message}")
+                elif hours_since > 24:
+                    check_service(display_name, False, f"Scraper has not run successfully in {round(hours_since)} hours.")
+                else:
+                    check_service(display_name, True)
+            else:
+                check_service(display_name, False, "No scraper execution logs found yet.")
+    except Exception as e:
+        check_service("Scraper Health Check", False, f"Could not check scrapers: {e}")
         
     print("--- Health Check Complete ---\n")

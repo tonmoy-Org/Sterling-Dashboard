@@ -46,45 +46,39 @@ class DispatcherBookedScraper(BaseScraper):
             url: The URL to navigate to
             status_xpath: The xpath name for the specific status filter
         Returns:
-            int: The booked count extracted from the page, or 0 on failure
+            int: The booked count extracted from the page
         """
-        try:
-            if not url:
-                print("Booked count URL is missing.")
-                return 0
+        if not url:
+            raise ValueError("Booked count URL is missing.")
 
+        await self._goto_with_fallback(url, timeout_ms=60000)
+
+        current_url = (self.page.url or "").lower()
+        if "/account/login" in current_url:
+            print("Detected login redirect while fetching booked count. Logging in and retrying target URL...")
+            await self.login_fieldedge()
+            await self.page.wait_for_timeout(100)
             await self._goto_with_fallback(url, timeout_ms=60000)
 
-            current_url = (self.page.url or "").lower()
-            if "/account/login" in current_url:
-                print("Detected login redirect while fetching booked count. Logging in and retrying target URL...")
-                await self.login_fieldedge()
-                await self.page.wait_for_timeout(100)
-                await self._goto_with_fallback(url, timeout_ms=60000)
+        # Apply the specific dispatcher status filter
+        await self.perform_actions_by_xpaths(name=status_xpath, raise_on_error=True)
+        await self.perform_actions_by_xpaths(name="submit_filter", raise_on_error=True)
+        await self.page.wait_for_timeout(100)
 
-            # Apply the specific dispatcher status filter
-            await self.perform_actions_by_xpaths(name=status_xpath)
-            await self.perform_actions_by_xpaths(name="submit_filter")
-            await self.page.wait_for_timeout(100)
+        count_xpath = self.rules.get("booked_count_get_xpath")
 
-            count_xpath = self.rules.get("booked_count_get_xpath")
-            for attempt in range(1, 4):
-                try:
-                    await self.page.wait_for_selector(
-                        count_xpath, state="visible", timeout=6000
-                    )
-                    count_text = await self.page.locator(count_xpath).inner_text()
-                    count_text = count_text.replace("(", "").replace(")", "").replace(",", "")
-                    count = int(count_text.strip())
-                    print(f"Extracted count for [{status_xpath}]: {count}")
-                    return count
-                except Exception as parse_error:
-                    if attempt == 3:
-                        print(f"⚠️ All 3 attempts failed for [{status_xpath}], defaulting to 0. Error: {parse_error}")
-                        return 0
-
+        # Wait for selector and extract text (safely return 0 if element isn't found)
+        try:
+            await self.page.wait_for_selector(
+                count_xpath, state="visible", timeout=15000
+            )
+            count_text = await self.page.locator(count_xpath).inner_text()
+            count_text = count_text.replace("(", "").replace(")", "").replace(",", "")
+            count = int(count_text.strip())
+            print(f"Extracted count for [{status_xpath}]: {count}")
+            return count
         except Exception as e:
-            print(f"Error getting count for [{status_xpath}] from {url}: {e}")
+            print(f"Count element not found for [{status_xpath}] (timeout). Assuming 0.")
             return 0
 
     async def run(self):
@@ -196,6 +190,7 @@ class DispatcherBookedScraper(BaseScraper):
             _elapsed = _time.time() - _start_time
             try:
                 from status.models import ScraperExecutionLog
+
                 def _log_execution():
                     ScraperExecutionLog.objects.create(
                         scraper_name='dispatcher-booked-scraper',
@@ -205,7 +200,16 @@ class DispatcherBookedScraper(BaseScraper):
                         execution_time_seconds=round(_elapsed, 2),
                         details=_details,
                     )
+
                 await sync_to_async(_log_execution)()
                 print(f"📝 Execution logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s)")
             except Exception as log_err:
                 print(f"⚠️ Failed to log execution: {log_err}")
+
+            if _error_occurred:
+                try:
+                    from status.email_service import send_outage_email
+                    await sync_to_async(send_outage_email)('Dispatcher Booked Scraper', _error_occurred)
+                    print("📧 Sent direct outage notification email from scraper.")
+                except Exception as mail_err:
+                    print(f"⚠️ Failed to send direct email: {mail_err}")

@@ -138,7 +138,7 @@ class BaseScraper:
             print(f"Online RME login failed: {e}")
             raise
     
-    async def perform_actions_by_xpaths(self, name:str='', action_list:list=[], value:str=None):
+    async def perform_actions_by_xpaths(self, name:str='', action_list:list=None, value:str=None, raise_on_error:bool=False):
         """
         Execute actions (click, right-click, input) on elements by XPath.
         
@@ -146,9 +146,15 @@ class BaseScraper:
             name: Key to lookup in rules configuration
             action_list: List of action dictionaries (fallback if name not found)
             value: Value to input for 'input' actions
+            raise_on_error: If True, raises Exception on any failure or missing element
         """
         
+        if action_list is None:
+            action_list = []
+            
         xpaths = self.rules.get(name, action_list)
+        
+        has_executed = False
         
         for item in xpaths:
             action = item.get("action", "")
@@ -172,8 +178,11 @@ class BaseScraper:
                     await self.page.evaluate(code_to_run)
                     print(f"Executed JS code: {code_to_run}")
                     await asyncio.sleep(3)
+                    has_executed = True
                 except Exception as e:
                     print(f"Action '{action}' failed for script '{code_to_run}': {e}")
+                    if raise_on_error:
+                        raise Exception(f"Action '{action}' failed for script '{code_to_run}': {e}") from e
                 continue
             
             if not xpath:
@@ -205,10 +214,20 @@ class BaseScraper:
                     
                     # Brief pause between actions for stability
                     await asyncio.sleep(3)
+                    has_executed = True
+                else:
+                    print(f"Element count 0 for xpath: {xpath}")
+                    if raise_on_error:
+                        raise Exception(f"Element not found for xpath '{xpath}'")
             except Exception as e:
                 print(f"Action '{action}' failed for xpath '{xpath}': {e}")
+                if raise_on_error:
+                    raise Exception(f"Action '{action}' failed for xpath '{xpath}': {e}") from e
         
-        print(f"Element not found or all actions failed for: {name or action_list}")
+        if not has_executed:
+            print(f"Element not found or all actions failed for: {name or action_list}")
+            if raise_on_error:
+                raise Exception(f"Element not found or all actions failed for: {name or action_list}")
     
     def insert_locates(self, locates_data):
         """

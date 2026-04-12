@@ -27,45 +27,49 @@ function formatDuration(sec) {
   return `${Math.floor(sec / 60)}m ${Math.round(sec % 60)}s`;
 }
 
-/* ─── single row ────────────────────────────────────────────────── */
-function LogRow({ log }) {
+/* ─── derive group status from all runs ─────────────────────────── */
+function groupStatus(logs) {
+  if (logs.some(l => l.status === 'error'))   return 'error';
+  if (logs.some(l => l.status === 'partial')) return 'partial';
+  if (logs.every(l => l.status === 'success')) return 'success';
+  return logs[0]?.status ?? 'unknown';
+}
+
+/* ─── individual run row (inside expanded group) ────────────────── */
+function RunRow({ log }) {
   const [expanded, setExpanded] = useState(false);
-  const { label, Icon, color, bg, dot } = statusMeta(log.status);
+  const { label, Icon, color, bg } = statusMeta(log.status);
 
   return (
-    <div className="border-b border-gray-100 last:border-b-0">
-      {/* Main row */}
+    <div className="border-t border-gray-100">
+      {/* Run summary */}
       <div
-        className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="flex items-center justify-between pl-12 pr-4 py-2.5 cursor-pointer hover:bg-gray-50/80 transition-colors"
         onClick={() => setExpanded(v => !v)}
       >
-        {/* Left: chevron + name + dot */}
         <div className="flex items-center gap-2 min-w-0">
           <ChevronRight
-            size={13}
-            className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+            size={12}
+            className={`flex-shrink-0 text-gray-300 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
           />
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
-          <span className="text-sm text-gray-800 font-medium truncate">{log.scraper_name}</span>
+          <span className="text-xs text-gray-500">{log.executed_at ? new Date(log.executed_at).toLocaleString() : '—'}</span>
         </div>
-
-        {/* Right: status badge + time */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <span className="text-xs text-gray-400">{relativeTime(log.executed_at)}</span>
-          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${color} ${bg}`}>
-            <Icon size={11} />
+          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${color} ${bg}`}>
+            <Icon size={10} />
             {label}
           </span>
         </div>
       </div>
 
-      {/* Expanded detail */}
+      {/* Run detail */}
       {expanded && (
-        <div className="px-9 pb-4 pt-1 grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50/60 border-t border-gray-100">
+        <div className="pl-14 pr-4 pb-3 pt-1 grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50/60">
           <DetailCell label="Records Processed" value={log.records_processed ?? '—'} />
           <DetailCell label="Execution Time"     value={formatDuration(log.execution_time_seconds)} />
-          <DetailCell label="Executed At"        value={log.executed_at ? new Date(log.executed_at).toLocaleString() : '—'} />
           <DetailCell label="ID"                 value={`#${log.id}`} />
+          <DetailCell label="Duration"           value={formatDuration(log.execution_time_seconds)} />
 
           {log.error_message && (
             <div className="col-span-2 md:col-span-4">
@@ -84,6 +88,82 @@ function LogRow({ log }) {
               </pre>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── grouped scraper row ───────────────────────────────────────── */
+function GroupRow({ scraperName, logs }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const latestLog = logs[0]; // assumed sorted newest-first
+  const status    = groupStatus(logs);
+  const { label, Icon, color, bg, dot } = statusMeta(status);
+
+  // mini counts
+  const counts = useMemo(() => {
+    const c = { success: 0, error: 0, partial: 0 };
+    logs.forEach(l => { if (c[l.status] !== undefined) c[l.status]++; });
+    return c;
+  }, [logs]);
+
+  return (
+    <div className="border-b border-gray-100 last:border-b-0">
+      {/* Group header row */}
+      <div
+        className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={() => setExpanded(v => !v)}
+      >
+        {/* Left */}
+        <div className="flex items-center gap-2 min-w-0">
+          <ChevronRight
+            size={13}
+            className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+          />
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
+          <span className="text-sm text-gray-800 font-medium truncate">{scraperName}</span>
+          {/* run count badge */}
+          <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
+            {logs.length} run{logs.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Right */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* mini status pills */}
+          <div className="hidden sm:flex items-center gap-1">
+            {counts.success > 0 && (
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                {counts.success}✓
+              </span>
+            )}
+            {counts.error > 0 && (
+              <span className="text-xs font-semibold text-red-700 bg-red-50 px-1.5 py-0.5 rounded-full">
+                {counts.error}✗
+              </span>
+            )}
+            {counts.partial > 0 && (
+              <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                {counts.partial}~
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-gray-400">{relativeTime(latestLog?.executed_at)}</span>
+          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${color} ${bg}`}>
+            <Icon size={11} />
+            {label}
+          </span>
+        </div>
+      </div>
+
+      {/* Expanded: list all individual runs */}
+      {expanded && (
+        <div className="bg-gray-50/40">
+          {logs.map(log => (
+            <RunRow key={log.id} log={log} />
+          ))}
         </div>
       )}
     </div>
@@ -141,6 +221,7 @@ function SkeletonRow() {
         <div className="w-3 h-3 rounded-full bg-gray-200" />
         <div className="w-2 h-2 rounded-full bg-gray-200" />
         <div className="h-3 w-44 bg-gray-200 rounded" />
+        <div className="h-4 w-12 bg-gray-100 rounded-full" />
       </div>
       <div className="flex items-center gap-3">
         <div className="h-3 w-14 bg-gray-200 rounded" />
@@ -179,8 +260,20 @@ function Chip({ label, color }) {
 export default function ServicesTable() {
   const [query, setQuery] = useState({ scraper_name: '', status: '', limit: '50' });
 
-  // Auto-refresh every 30 seconds
   const { logs, loading, error, refetch, lastFetched } = useScraperLogs(query, 30_000);
+
+  // Group logs by scraper_name, preserving newest-first order within each group
+  const groups = useMemo(() => {
+    const map = new Map();
+    logs.forEach(log => {
+      if (!map.has(log.scraper_name)) map.set(log.scraper_name, []);
+      map.get(log.scraper_name).push(log);
+    });
+    // Return as array of { scraperName, logs } sorted by latest run descending
+    return Array.from(map.entries())
+      .map(([scraperName, groupLogs]) => ({ scraperName, logs: groupLogs }))
+      .sort((a, b) => new Date(b.logs[0]?.executed_at) - new Date(a.logs[0]?.executed_at));
+  }, [logs]);
 
   return (
     <div className="max-w-2xl mx-auto px-4 mt-8 mb-12">
@@ -209,15 +302,13 @@ export default function ServicesTable() {
         {/* Filter bar */}
         <FilterBar query={query} onChange={setQuery} />
 
-        {/* Summary chips */}
+        {/* Summary chips (totals across all runs) */}
         {!loading && !error && logs.length > 0 && <SummaryChips logs={logs} />}
 
         {/* Body */}
         <div className="bg-white">
           {loading && (
-            <>
-              {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
-            </>
+            Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
           )}
 
           {!loading && error && (
@@ -234,7 +325,7 @@ export default function ServicesTable() {
             </div>
           )}
 
-          {!loading && !error && logs.length === 0 && (
+          {!loading && !error && groups.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Clock size={32} className="text-gray-300 mb-3" />
               <p className="text-sm text-gray-400">No execution logs found.</p>
@@ -242,8 +333,8 @@ export default function ServicesTable() {
             </div>
           )}
 
-          {!loading && !error && logs.map(log => (
-            <LogRow key={log.id} log={log} />
+          {!loading && !error && groups.map(({ scraperName, logs: groupLogs }) => (
+            <GroupRow key={scraperName} scraperName={scraperName} logs={groupLogs} />
           ))}
         </div>
 

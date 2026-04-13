@@ -9,5 +9,7 @@ urlpatterns = [
     # Exposing ScraperExecutionLog via API
     path('logs/', views.scraper_log_list, name='scraper-log-list'),
     path('logs/<int:pk>/', views.scraper_log_detail, name='scraper-log-detail'),
-]
 
+    # Exposing Incident via API
+    path('incidents/', views.incident_list, name='incident-list'),
+]

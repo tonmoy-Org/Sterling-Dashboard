@@ -1,4 +1,4 @@
-const TABS = ['LIVE UPDATES', 'HISTORY', 'REPORT ISSUE'];
+const TABS = ['LIVE UPDATES', 'LIVE UPTIME', 'HISTORY'];
 
 export default function TabNavigation({ activeTab, onTabChange }) {
   return (

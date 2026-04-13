@@ -3,6 +3,7 @@ import HeroBanner from '../../components/StatusStarling/HeroBanner';
 import TabNavigation from '../../components/StatusStarling/TabNavigation';
 import ServicesTable from '../../components/StatusStarling/ServicesTable';
 import ServiceStatusTable from '../../components/StatusStarling/ServiceStatusTable';
+import IncidentHistoryTable from '../../components/StatusStarling/IncidentHistoryTable';
 import { useServiceStatus } from '../../hooks/useStatusData';
 
 export default function Home() {
@@ -32,9 +33,11 @@ export default function Home() {
             <main className="flex-1">
                 {activeTab === 'LIVE UPDATES' && <ServicesTable />}
 
-                {activeTab === 'HISTORY' && (
+                {activeTab === 'LIVE UPTIME' && (
                     <ServiceStatusTable services={services} loading={statusLoading} />
                 )}
+
+                {activeTab === 'HISTORY' && <IncidentHistoryTable />}
 
                 {activeTab === 'REPORT ISSUE' && (
                     <div className="max-w-2xl mx-auto px-4 mt-8 text-gray-500 text-sm">

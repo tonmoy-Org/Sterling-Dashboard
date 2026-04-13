@@ -185,10 +185,11 @@ class DispatcherBookedScraper(BaseScraper):
         finally:
             await self.cleanup()
 
-            # ── Log execution result to ScraperExecutionLog ──
+            # ── Log execution result to ScraperExecutionLog and Incident ──
             _elapsed = _time.time() - _start_time
             try:
-                from status.models import ScraperExecutionLog
+                from status.models import ScraperExecutionLog, Incident
+                from django.utils import timezone
 
                 def _log_execution():
                     ScraperExecutionLog.objects.create(
@@ -199,6 +200,33 @@ class DispatcherBookedScraper(BaseScraper):
                         execution_time_seconds=round(_elapsed, 2),
                         details=_details,
                     )
+                    
+                    if _error_occurred:
+                        incident, created = Incident.objects.get_or_create(
+                            service_name="dispatcher-booked-scraper",
+                            status="active",
+                            defaults={
+                                "title": "Dispatcher Booked Scraper Error",
+                                "description": _error_occurred
+                            }
+                        )
+                        if not created:
+                            incident.description = _error_occurred
+                            incident.save()
+                    else:
+                        active_incidents = Incident.objects.filter(
+                            service_name="dispatcher-booked-scraper",
+                            status="active"
+                        )
+                        if active_incidents.exists():
+                            from status.email_service import send_recovery_email
+                            for incident in active_incidents:
+                                incident.status = "resolved"
+                                incident.resolved_at = timezone.now()
+                                incident.resolution_description = "Automation started properly and automatically resolved the incident."
+                                incident.save()
+                                downtime_seconds = (incident.resolved_at - incident.created_at).total_seconds()
+                                send_recovery_email("Dispatcher Booked Scraper", downtime_seconds)
 
                 await sync_to_async(_log_execution)()
                 print(

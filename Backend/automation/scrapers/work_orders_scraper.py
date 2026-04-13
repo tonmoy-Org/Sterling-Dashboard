@@ -334,6 +334,12 @@ class WorkOrdersScraper(BaseScraper):
         Returns:
             list: Work orders with full addresses, or None on error
         """
+        import time as _time
+        import traceback
+        _start_time = _time.time()
+        _error_occurred = None
+        _records_processed = 0
+
         try:
             await self.initialize()
 
@@ -358,6 +364,7 @@ class WorkOrdersScraper(BaseScraper):
                 )
             except Exception as e:
                 print(f"Error waiting for table: {e}")
+                _error_occurred = f"Error waiting for table: {e}"
                 return None
 
             # Step 1: Add Completed Date column via Add Column modal
@@ -395,11 +402,70 @@ class WorkOrdersScraper(BaseScraper):
                 work_orders
             )
 
+            _records_processed = len(work_orders_with_addresses)
             return work_orders_with_addresses
 
         except Exception as e:
             print(f"Scraping error: {e}")
+            _error_occurred = f"{str(e)}\n{traceback.format_exc()}"
             return None
 
         finally:
             await self.cleanup()
+
+            # ── Log execution result to ScraperExecutionLog and Incident ──
+            _elapsed = _time.time() - _start_time
+            try:
+                from status.models import ScraperExecutionLog, Incident
+                from django.utils import timezone
+                from asgiref.sync import sync_to_async
+                
+                def _log_execution():
+                    ScraperExecutionLog.objects.create(
+                        scraper_name="work-orders-scraper",
+                        status="error" if _error_occurred else "success",
+                        error_message=_error_occurred,
+                        records_processed=_records_processed,
+                        execution_time_seconds=round(_elapsed, 2),
+                    )
+                    
+                    if _error_occurred:
+                        incident, created = Incident.objects.get_or_create(
+                            service_name="work-orders-scraper",
+                            status="active",
+                            defaults={
+                                "title": "Work Orders Scraper Error",
+                                "description": _error_occurred
+                            }
+                        )
+                        if not created:
+                            incident.description = _error_occurred
+                            incident.save()
+                    else:
+                        active_incidents = Incident.objects.filter(
+                            service_name="work-orders-scraper",
+                            status="active"
+                        )
+                        if active_incidents.exists():
+                            from status.email_service import send_recovery_email
+                            for incident in active_incidents:
+                                incident.status = "resolved"
+                                incident.resolved_at = timezone.now()
+                                incident.resolution_description = "Automation started properly and automatically resolved the incident."
+                                incident.save()
+                                downtime_seconds = (incident.resolved_at - incident.created_at).total_seconds()
+                                send_recovery_email("Work Orders Scraper", downtime_seconds)
+                                
+                await sync_to_async(_log_execution)()
+                print(f"📝 Execution logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s)")
+            except Exception as log_err:
+                print(f"⚠️ Failed to log execution: {log_err}")
+                
+            if _error_occurred:
+                try:
+                    from status.email_service import send_outage_email
+                    from asgiref.sync import sync_to_async
+                    await sync_to_async(send_outage_email)('Work Orders Scraper', _error_occurred)
+                    print("📧 Sent direct outage notification email from scraper.")
+                except Exception as mail_err:
+                    print(f"⚠️ Failed to send direct email: {mail_err}")

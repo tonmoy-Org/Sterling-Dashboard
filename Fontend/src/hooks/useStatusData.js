@@ -88,3 +88,45 @@ export function useServiceStatus(refreshInterval = 0) {
 
   return { services, loading, error, refetch: fetchStatus, lastFetched };
 }
+
+/**
+ * useIncidentLogs
+ *
+ * Fetches incident logs from the Django backend.
+ */
+export function useIncidentLogs(query = {}, refreshInterval = 0) {
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastFetched, setLastFetched] = useState(null);
+
+  const fetchIncidents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = {};
+      if (query.service_name) params.service_name = query.service_name;
+      if (query.status)       params.status       = query.status;
+
+      const { data } = await api.get('/health-check/incidents/', { params });
+      setIncidents(data);
+      setLastFetched(new Date());
+    } catch (err) {
+      setError(err?.response?.data?.detail || err.message || 'Failed to fetch incidents');
+    } finally {
+      setLoading(false);
+    }
+  }, [query.service_name, query.status]);
+
+  useEffect(() => {
+    fetchIncidents();
+  }, [fetchIncidents]);
+
+  useEffect(() => {
+    if (!refreshInterval) return;
+    const id = setInterval(fetchIncidents, refreshInterval);
+    return () => clearInterval(id);
+  }, [fetchIncidents, refreshInterval]);
+
+  return { incidents, loading, error, refetch: fetchIncidents, lastFetched };
+}

@@ -59,7 +59,7 @@ class DispatcherBookedScraper(BaseScraper):
                 "Detected login redirect while fetching booked count. Logging in and retrying target URL..."
             )
             await self.login_fieldedge()
-            await self.page.wait_for_timeout(3000)
+            await self.page.wait_for_timeout(5000)
             await self._goto_with_fallback(url, timeout_ms=60000)
 
         # Apply the specific dispatcher status filter
@@ -112,7 +112,7 @@ class DispatcherBookedScraper(BaseScraper):
                 await self.login_fieldedge()
 
             # Wait for page to settle after login
-            await self.page.wait_for_timeout(1500)
+            await self.page.wait_for_timeout(4000)
 
             booked_urls = self.rules.get("booked_urls", {})
             if not booked_urls:

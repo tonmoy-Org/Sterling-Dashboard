@@ -348,7 +348,7 @@ class WorkOrdersScraper(BaseScraper):
             # Navigate to work orders list if needed
             work_order_url = self.rules.get("work_order_url", "")
             if work_order_url and work_order_url != self.page.url:
-                await self.page.goto(work_order_url, wait_until="networkidle")
+                await self.page.goto(work_order_url, wait_until="domcontentloaded")
 
             # Wait for table to load
             try:

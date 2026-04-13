@@ -41,6 +41,8 @@ import { useAuth } from '../../../../auth/AuthProvider';
 import { dispatchKpiApi } from '../../../../api/services/dispatchKpi';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import DashboardLoader from '../../../../components/Loader/DashboardLoader';
+import RefreshButton from '../../../../components/ui/RefreshButton';
+import { rmeApi } from '../../../../api/services/rmeApi';
 
 // ─── Replace local snack state with the global snackbar hook ───────────────────
 import { useGlobalSnackbar } from '../../../../context/GlobalSnackbarContext';
@@ -956,20 +958,23 @@ export default function DispatchKpi() {
                         Performance tracking for Dispatchers · Cameron & Eric
                     </Typography>
                 </Box>
-                <Button
-                    variant="outlined" size="small"
-                    startIcon={<History size={15} />}
-                    onClick={() => setBinOpen(true)}
-                    sx={{
-                        textTransform: 'none', fontSize: '0.8rem', fontWeight: 500,
-                        height: '38px', px: 1.75,
-                        color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35),
-                        borderRadius: '6px',
-                        '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) },
-                    }}
-                >
-                    Recycle Bin ({deletedData.length})
-                </Button>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <RefreshButton onRefresh={rmeApi.startDispatcherBookedScraping} />
+                    <Button
+                        variant="outlined" size="small"
+                        startIcon={<History size={15} />}
+                        onClick={() => setBinOpen(true)}
+                        sx={{
+                            textTransform: 'none', fontSize: '0.8rem', fontWeight: 500,
+                            height: '34px', px: 1.75,
+                            color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35),
+                            borderRadius: '6px',
+                            '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) },
+                        }}
+                    >
+                        Recycle Bin ({deletedData.length})
+                    </Button>
+                </Box>
             </Box>
 
             {/* ── Per-dispatcher KPI cards ─────────────────────────────────── */}

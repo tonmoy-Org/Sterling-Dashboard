@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Check,
   X,
+  BarChart3,
 } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { Helmet } from 'react-helmet-async';
@@ -32,6 +33,7 @@ import { notificationsApi } from '../../api/services/notifications';
 import { locatesApi } from '../../api/services/locatesApi';
 import { rmeApi } from '../../api/services/rmeApi';
 import { workOrdersApi } from '../../api/services/workOrders';
+import { dispatchKpiApi } from '../../api/services/dispatchKpi';
 import { useNavigate } from 'react-router-dom';
 import { useGlobalSnackbar } from '../../context/GlobalSnackbarContext';
 import DashboardLoader from '../Loader/DashboardLoader';
@@ -144,7 +146,7 @@ export default function Notifications() {
   const notifications = useMemo(() => {
     if (!combinedData) return [];
 
-    const { locates = [], workOrders = [], allWorkOrders = [] } = combinedData;
+    const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [] } = combinedData;
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
@@ -268,6 +270,39 @@ export default function Notifications() {
       }
     });
 
+    // Process Dispatch KPI
+    dispatchKpi.forEach((dkpi) => {
+      const createdAt = dkpi.date;
+      if (!createdAt || dkpi.is_deleted) return;
+
+      try {
+        const createdDate = new Date(createdAt);
+
+        if (createdDate >= oneMonthAgo) {
+          const isSeen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length > 0;
+
+          allNotifications.push({
+            id: `dkpi-${dkpi.id}`,
+            type: 'dispatch-kpi',
+            title: 'Dispatch KPI Updated',
+            description: `Dispatch KPI updated for ${formatDate(createdAt)}`,
+            address: 'System',
+            customerName: 'System',
+            timestamp: createdDate,
+            formattedTime: formatDate(createdAt),
+            icon: BarChart3,
+            color: GREEN_COLOR,
+            status: 'completed',
+            rawData: dkpi,
+            is_seen: isSeen,
+            entityId: dkpi.id
+          });
+        }
+      } catch (e) {
+        console.error('Error parsing dispatch KPI date:', e);
+      }
+    });
+
     return allNotifications.sort((a, b) => b.timestamp - a.timestamp);
   }, [combinedData]);
 
@@ -288,6 +323,8 @@ export default function Notifications() {
             message = `New RME: ${notification.rmeNumber}`;
           } else if (notification.type === 'work-order') {
             message = `New work order: ${notification.workOrderNumber}`;
+          } else if (notification.type === 'dispatch-kpi') {
+            message = `Dispatch KPI updated`;
           }
 
           showSnackbar(message, 'info');
@@ -336,6 +373,7 @@ export default function Notifications() {
     const locateCount = notifications.filter(n => n.type === 'locate').length;
     const rmeCount = notifications.filter(n => n.type === 'RME').length;
     const woCount = notifications.filter(n => n.type === 'work-order').length;
+    const dkpiCount = notifications.filter(n => n.type === 'dispatch-kpi').length;
     const unseenCount = notifications.filter(n => !n.is_seen).length;
     const seenCount = notifications.filter(n => n.is_seen).length;
 
@@ -344,6 +382,7 @@ export default function Notifications() {
       locateCount,
       rmeCount,
       woCount,
+      dkpiCount,
       unseenCount,
       seenCount
     };
@@ -364,6 +403,11 @@ export default function Notifications() {
         await workOrdersApi.markSeen({
           user: user?.id,
           work_order: notification.entityId,
+        });
+      } else if (notification.type === 'dispatch-kpi') {
+        await dispatchKpiApi.markSeen({
+          user: user?.id,
+          dispatcher_booked: notification.entityId,
         });
       }
     },
@@ -400,6 +444,14 @@ export default function Notifications() {
                     : item
                 )
               : old.allWorkOrders,
+          dispatchKpi:
+            notification.type === 'dispatch-kpi'
+              ? (old.dispatchKpi || []).map((item) =>
+                  item.id === notification.entityId
+                    ? { ...item, user_seen_records: [{ user: user?.id }] }
+                    : item
+                )
+              : old.dispatchKpi,
         };
       });
 
@@ -436,6 +488,10 @@ export default function Notifications() {
         .filter((n) => n.type === 'work-order' && !n.is_seen)
         .map((n) => n.entityId);
 
+      const dkpiIds = notifications
+        .filter((n) => n.type === 'dispatch-kpi' && !n.is_seen)
+        .map((n) => n.entityId);
+
       const promises = [];
 
       if (locateIds.length > 0) {
@@ -450,6 +506,14 @@ export default function Notifications() {
         allWoIds.forEach((id) =>
           promises.push(
             workOrdersApi.markSeen({ user: user?.id, work_order: id })
+          )
+        );
+      }
+
+      if (dkpiIds.length > 0) {
+        dkpiIds.forEach((id) =>
+          promises.push(
+            dispatchKpiApi.markSeen({ user: user?.id, dispatcher_booked: id })
           )
         );
       }
@@ -475,6 +539,13 @@ export default function Notifications() {
                 ? item.user_seen_records
                 : [{ user: user?.id }],
           })),
+          dispatchKpi: (old.dispatchKpi || []).map((item) => ({
+            ...item,
+            user_seen_records:
+              Array.isArray(item.user_seen_records) && item.user_seen_records.length > 0
+                ? item.user_seen_records
+                : [{ user: user?.id }],
+          })),
         };
       });
 
@@ -492,13 +563,16 @@ export default function Notifications() {
       // Use the snapshot count before optimistic update for the message
       const unseenBefore = context?.previous
         ? (() => {
-            const { locates = [], workOrders = [], allWorkOrders = [] } = context.previous;
+            const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [] } = context.previous;
             const unseenLocates = locates.filter((i) => !i.is_seen).length;
             const unseenWO = workOrders.filter((i) => !i.is_seen).length;
             const unseenAllWO = allWorkOrders.filter(
               (i) => Array.isArray(i.user_seen_records) && i.user_seen_records.length === 0
             ).length;
-            return unseenLocates + unseenWO + unseenAllWO;
+            const unseenDkpi = dispatchKpi.filter(
+              (i) => Array.isArray(i.user_seen_records) && i.user_seen_records.length === 0
+            ).length;
+            return unseenLocates + unseenWO + unseenAllWO + unseenDkpi;
           })()
         : counts.unseenCount;
 
@@ -554,6 +628,14 @@ export default function Notifications() {
       navigate(`${dashboardBasePath}/customer-center`, {
         state: {
           highlightWorkOrderId: notification.entityId,
+          fromNotifications: true,
+          scrollToTop: true,
+        },
+      });
+    } else if (notification.type === 'dispatch-kpi') {
+      navigate(`${dashboardBasePath}/dispatch-kpi`, {
+        state: {
+          highlightDispatchKpiId: notification.entityId,
           fromNotifications: true,
           scrollToTop: true,
         },
@@ -883,6 +965,8 @@ export default function Notifications() {
                                     ? 'Locate'
                                     : notification.type === 'RME'
                                     ? 'RME'
+                                    : notification.type === 'dispatch-kpi'
+                                    ? 'KPI'
                                     : 'WO'
                                 }
                                 size="small"
@@ -991,6 +1075,11 @@ export default function Notifications() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: INDIGO_COLOR }} />
               <span>{counts.woCount} Work Orders</span>
+            </Box>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: GREEN_COLOR }} />
+              <span>{counts.dkpiCount} KPI</span>
             </Box>
           </Typography>
         </Box>

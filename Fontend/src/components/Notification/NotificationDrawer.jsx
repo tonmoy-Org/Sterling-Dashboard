@@ -19,8 +19,9 @@ import { notificationsApi } from '../../api/services/notifications';
 import { locatesApi } from '../../api/services/locatesApi';
 import { rmeApi } from '../../api/services/rmeApi';
 import { workOrdersApi } from '../../api/services/workOrders';
+import { dispatchKpiApi } from '../../api/services/dispatchKpi';
 import { useAuth } from '../../auth/AuthProvider';
-import { Bell, X, Clock, MapPin, Wrench, ArrowRight, Check } from 'lucide-react';
+import { Bell, X, Clock, MapPin, Wrench, ArrowRight, Check, BarChart3 } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 
 const GREEN_COLOR  = '#10b981';
@@ -123,6 +124,8 @@ const NotificationDrawer = ({ onClose }) => {
                 await locatesApi.markSeen({ ids: [notification.entityId] });
             } else if (notification.type === 'work-order') {
                 await workOrdersApi.markSeen({ user: user?.id, work_order: notification.entityId });
+            } else if (notification.type === 'dispatch-kpi') {
+                await dispatchKpiApi.markSeen({ user: user?.id, dispatcher_booked: notification.entityId });
             }
         },
         onMutate: async (notification) => {
@@ -145,6 +148,10 @@ const NotificationDrawer = ({ onClose }) => {
                         notification.type === 'work-order'
                             ? old.allWorkOrders.map(item => item.id === notification.entityId ? { ...item, user_seen_records: [{ user: user?.id }] } : item)
                             : old.allWorkOrders,
+                    dispatchKpi:
+                        notification.type === 'dispatch-kpi'
+                            ? (old.dispatchKpi || []).map(item => item.id === notification.entityId ? { ...item, user_seen_records: [{ user: user?.id }] } : item)
+                            : old.dispatchKpi,
                 };
             });
 
@@ -165,12 +172,16 @@ const NotificationDrawer = ({ onClose }) => {
             const locateIds = notificationsArray.filter(n => n.type === 'locate').map(n => n.entityId);
             const workOrderIds = notificationsArray.filter(n => n.type === 'RME').map(n => n.entityId);
             const allWoIds = notificationsArray.filter(n => n.type === 'work-order').map(n => n.entityId);
+            const dkpiIds = notificationsArray.filter(n => n.type === 'dispatch-kpi').map(n => n.entityId);
 
             const promises = [];
             if (locateIds.length > 0) promises.push(locatesApi.markSeen({ ids: locateIds }));
             if (workOrderIds.length > 0) promises.push(rmeApi.markSeen({ ids: workOrderIds }));
             if (allWoIds.length > 0) {
                 allWoIds.forEach(id => promises.push(workOrdersApi.markSeen({ user: user?.id, work_order: id })));
+            }
+            if (dkpiIds.length > 0) {
+                dkpiIds.forEach(id => promises.push(dispatchKpiApi.markSeen({ user: user?.id, dispatcher_booked: id })));
             }
             await Promise.all(promises);
         },
@@ -185,6 +196,13 @@ const NotificationDrawer = ({ onClose }) => {
                     locates: old.locates.map(item => ({ ...item, is_seen: true })),
                     workOrders: old.workOrders.map(item => ({ ...item, is_seen: true })),
                     allWorkOrders: old.allWorkOrders.map(item => ({
+                        ...item,
+                        user_seen_records:
+                            Array.isArray(item.user_seen_records) && item.user_seen_records.length > 0
+                                ? item.user_seen_records
+                                : [{ user: user?.id }],
+                    })),
+                    dispatchKpi: (old.dispatchKpi || []).map(item => ({
                         ...item,
                         user_seen_records:
                             Array.isArray(item.user_seen_records) && item.user_seen_records.length > 0
@@ -208,7 +226,7 @@ const NotificationDrawer = ({ onClose }) => {
     /* ── Build notification list from all three sources ── */
     const latestNotifications = React.useMemo(() => {
         if (!notifications) return [];
-        const { locates = [], workOrders = [], allWorkOrders = [] } = notifications;
+        const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [] } = notifications;
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
         const all = [];
@@ -298,13 +316,39 @@ const NotificationDrawer = ({ onClose }) => {
                     timestamp: createdDate,
                     formattedTime: formatDate(createdAt),
                     icon: Wrench,
-                    color: '#6366f1',
+                    color: NOTIFICATION_COLORS.primary,
                     rawData: workOrder,
                     entityId: workOrder.id,
                     is_seen: isSeen,
                     tag: tagName,
                     tagLabel,
                     tagColor,
+                });
+            }
+        });
+
+        // Dispatch KPI
+        dispatchKpi.forEach((dkpi) => {
+            const createdAt = dkpi.date;
+            if (!createdAt || dkpi.is_deleted) return;
+            const createdDate = new Date(createdAt);
+            if (createdDate >= oneMonthAgo) {
+                const isSeen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length > 0;
+                all.push({
+                    id: `dkpi-${dkpi.id}`,
+                    type: 'dispatch-kpi',
+                    title: 'Dispatch KPI Updated',
+                    description: `Dispatch KPI updated for ${formatDate(createdAt)}`,
+                    address: 'System',
+                    workOrderNumber: 'N/A',
+                    customerName: 'System',
+                    timestamp: createdDate,
+                    formattedTime: formatDate(createdAt),
+                    icon: BarChart3,
+                    color: GREEN_COLOR,
+                    rawData: dkpi,
+                    entityId: dkpi.id,
+                    is_seen: isSeen,
                 });
             }
         });
@@ -366,6 +410,8 @@ const NotificationDrawer = ({ onClose }) => {
             navigate(`${basePath}/rme/work-orders`, { state: { highlightWorkOrderId: notification.entityId, fromNotifications: true } });
         } else if (notification.type === 'work-order') {
             navigate(`${basePath}/customer-center`, { state: { highlightWorkOrderId: notification.entityId, fromNotifications: true } });
+        } else if (notification.type === 'dispatch-kpi') {
+            navigate(`${basePath}/dispatch-kpi`, { state: { highlightDispatchKpiId: notification.entityId, fromNotifications: true } });
         }
     };
 
@@ -496,7 +542,7 @@ const NotificationDrawer = ({ onClose }) => {
                                                                     />
                                                                 )}
                                                                 <Chip
-                                                                    label={notification.type === 'locate' ? 'Locate' : notification.type === 'RME' ? 'RME' : 'WO'}
+                                                                    label={notification.type === 'locate' ? 'Locate' : notification.type === 'RME' ? 'RME' : notification.type === 'dispatch-kpi' ? 'KPI' : 'WO'}
                                                                     size="small"
                                                                     sx={{ height: '20px', fontSize: '0.65rem', fontWeight: 600, backgroundColor: alpha(notification.color, 0.1), color: notification.color, border: `1px solid ${alpha(notification.color, 0.2)}` }}
                                                                 />
@@ -510,6 +556,8 @@ const NotificationDrawer = ({ onClose }) => {
                                                                 ? `WO: ${notification.workOrderNumber}`
                                                                 : notification.type === 'RME'
                                                                 ? `WO: ${notification.rmeNumber}`
+                                                                : notification.type === 'dispatch-kpi'
+                                                                ? `KPI`
                                                                 : `WO: ${notification.workOrderNumber}`}
                                                             <Box sx={{ mx: 0.5 }}>•</Box>
                                                             {notification.formattedTime}

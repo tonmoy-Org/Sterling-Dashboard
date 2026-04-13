@@ -54,9 +54,10 @@ def run_health_checks():
     # 2. Check API
     api_url = os.getenv('API_URL', 'http://127.0.0.1:8000/api/')
     try:
-        response = requests.get(api_url + "dispatcher-booked/", timeout=10)
-        # Even 401 Unauthorized means the API is responding
-        if response.status_code in [200, 201, 401, 403]:
+        # Check an unauthenticated endpoint to avoid 'Unauthorized' log pollution
+        response = requests.get(api_url + "health-check/services/", timeout=10)
+        
+        if response.status_code == 200:
             check_service("API Endpoint", True)
         else:
             check_service("API Endpoint", False, f"API returned HTTP {response.status_code}")

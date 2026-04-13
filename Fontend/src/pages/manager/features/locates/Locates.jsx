@@ -49,6 +49,7 @@ import {
   TEXT_COLOR,
 } from './utils/constants';
 import RefreshButton from '../../../../components/ui/RefreshButton';
+import { rmeApi } from '../../../../api/services/rmeApi';
 
 // Move this function outside the component or use a proper utility
 const getCalledAtDate = (item) => {
@@ -435,7 +436,7 @@ const Locates = () => {
           </Typography>
         </Box>
         <Box sx={{ mt: isMobile ? 1 : 0 }}>
-          <RefreshButton />
+          <RefreshButton onRefresh={rmeApi.startFieldedgeScraping} />
           <Button
             variant="outlined"
             startIcon={<History size={16} />}

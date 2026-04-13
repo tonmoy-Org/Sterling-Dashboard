@@ -20,6 +20,7 @@ import { AlertTriangle, History, RotateCcw, Trash2 } from 'lucide-react';
 import { useRmeData } from './hooks/useRmeData';
 import { useRmeMutations } from './hooks/useRmeMutations';
 import { useGlobalSnackbar } from '../../../../context/GlobalSnackbarContext';
+import { rmeApi } from '../../../../api/services/rmeApi';
 
 import DashboardLoader from '../../../../components/Loader/DashboardLoader';
 import Section from './components/shared/Section';
@@ -626,7 +627,7 @@ const RMEReports = () => {
                     </Typography>
                 </Box>
                 <Box>
-                    <RefreshButton />
+                    <RefreshButton onRefresh={rmeApi.startWorkOrdersAndRmeScraping} />
                     <Button
                         variant="outlined"
                         startIcon={<History size={isMobile ? 14 : 16} />}

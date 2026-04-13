@@ -4,6 +4,7 @@ import { notificationsApi } from '../api/services/notifications';
 import { locatesApi } from '../api/services/locatesApi';
 import { rmeApi } from '../api/services/rmeApi';
 import { workOrdersApi } from '../api/services/workOrders';
+import { dispatchKpiApi } from '../api/services/dispatchKpi';
 import { useEffect, useCallback } from 'react';
 
 const NOTIFICATIONS_CACHE_KEY = 'notifications-cache';
@@ -23,14 +24,17 @@ const EMPTY_RESPONSE = {
     locates: [],
     workOrders: [],
     allWorkOrders: [],
+    dispatchKpi: [],
     latestNotifications: [],
     locatesCount: 0,
     workOrdersCount: 0,
     allWorkOrdersCount: 0,
+    dispatchKpiCount: 0,
     totalActualCount: 0,
     unseenLocateIds: [],
     unseenRmeIds: [],
     unseenAllWoIds: [],
+    unseenDispatchKpiIds: [],
     unseenIds: [],
     count: 0,
 };
@@ -108,32 +112,65 @@ const processAllWorkOrders = (allWorkOrdersData) => {
     };
 };
 
-const buildResponse = (locatesData, workOrdersData, allWorkOrdersData) => {
+const processDispatchKpi = (dispatchKpiData) => {
+    const now = Date.now();
+
+    const activeDispatchKpi = dispatchKpiData.filter(dkpi => {
+        const timestamp = formatDate(dkpi.date);
+        const isRecent = timestamp === null || (now - timestamp) <= WO_STALE_THRESHOLD;
+        const isNotDeleted = dkpi.is_deleted === false;
+        return isRecent && isNotDeleted;
+    });
+
+    const unseenDispatchKpi = activeDispatchKpi.filter(dkpi => {
+        const hasNoUserSeen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
+        return hasNoUserSeen;
+    });
+
+    return {
+        count: unseenDispatchKpi.length,
+        ids: unseenDispatchKpi.map(dkpi => `dkpi-${dkpi.id}`),
+        activeCount: activeDispatchKpi.length,
+        notifications: unseenDispatchKpi.map(dkpi => ({
+            id: `dkpi-${dkpi.id}`,
+            type: 'dispatch-kpi',
+            timestamp: formatDate(dkpi.date),
+            data: dkpi,
+        })),
+    };
+};
+
+const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData) => {
     const locatesResult = processLocates(locatesData);
     const workOrdersResult = processWorkOrders(workOrdersData);
     const allWorkOrdersResult = processAllWorkOrders(allWorkOrdersData);
+    const dispatchKpiResult = processDispatchKpi(dispatchKpiData);
 
     const latestNotifications = [
         ...locatesResult.notifications,
         ...workOrdersResult.notifications,
         ...allWorkOrdersResult.notifications,
+        ...dispatchKpiResult.notifications,
     ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
 
-    const totalCount = locatesResult.count + workOrdersResult.count + allWorkOrdersResult.count;
+    const totalCount = locatesResult.count + workOrdersResult.count + allWorkOrdersResult.count + dispatchKpiResult.count;
 
     return {
         locates: locatesData,
         workOrders: workOrdersData,
         allWorkOrders: allWorkOrdersData,
+        dispatchKpi: dispatchKpiData,
         latestNotifications,
         locatesCount: locatesResult.count,
         workOrdersCount: workOrdersResult.count,
         allWorkOrdersCount: allWorkOrdersResult.count,
+        dispatchKpiCount: dispatchKpiResult.count,
         totalActualCount: totalCount,
         unseenLocateIds: locatesResult.ids,
         unseenRmeIds: workOrdersResult.ids,
         unseenAllWoIds: allWorkOrdersResult.ids,
-        unseenIds: [...locatesResult.ids, ...workOrdersResult.ids, ...allWorkOrdersResult.ids],
+        unseenDispatchKpiIds: dispatchKpiResult.ids,
+        unseenIds: [...locatesResult.ids, ...workOrdersResult.ids, ...allWorkOrdersResult.ids, ...dispatchKpiResult.ids],
         count: totalCount,
         lastUpdated: Date.now(),
     };
@@ -195,10 +232,11 @@ export const useNotifications = () => {
             if (localCache) return localCache;
 
             try {
-                const [locatesResult, workOrdersResult, allWorkOrdersResult] = await Promise.allSettled([
+                const [locatesResult, workOrdersResult, allWorkOrdersResult, dispatchKpiResult] = await Promise.allSettled([
                     locatesApi.getAll(),
                     rmeApi.getAll(),
                     workOrdersApi.getAll(),
+                    dispatchKpiApi.getAll(),
                 ]);
 
                 const locatesData = locatesResult.status === 'fulfilled'
@@ -219,7 +257,13 @@ export const useNotifications = () => {
                         : allWorkOrdersResult.value.data?.data || [])
                     : [];
 
-                const response = buildResponse(locatesData, workOrdersData, allWorkOrdersData);
+                const dispatchKpiData = dispatchKpiResult.status === 'fulfilled'
+                    ? (Array.isArray(dispatchKpiResult.value.data)
+                        ? dispatchKpiResult.value.data
+                        : dispatchKpiResult.value.data?.data || [])
+                    : [];
+
+                const response = buildResponse(locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData);
                 setLocalCache(response);
                 return response;
             } catch (err) {
@@ -273,11 +317,14 @@ export const useNotifications = () => {
         locatesCount: data?.locatesCount || 0,
         rmeCount: data?.workOrdersCount || 0,
         allWorkOrdersCount: data?.allWorkOrdersCount || 0,
+        dispatchKpiCount: data?.dispatchKpiCount || 0,
         unseenLocateIds: data?.unseenLocateIds || [],
         unseenRmeIds: data?.unseenRmeIds || [],
         unseenAllWoIds: data?.unseenAllWoIds || [],
+        unseenDispatchKpiIds: data?.unseenDispatchKpiIds || [],
         unseenIds: data?.unseenIds || [],
         latestNotifications: data?.latestNotifications || [],
         allWorkOrders: data?.allWorkOrders || [],
+        dispatchKpi: data?.dispatchKpi || [],
     };
 };

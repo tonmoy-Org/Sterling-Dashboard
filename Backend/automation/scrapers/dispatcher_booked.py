@@ -59,13 +59,13 @@ class DispatcherBookedScraper(BaseScraper):
                 "Detected login redirect while fetching booked count. Logging in and retrying target URL..."
             )
             await self.login_fieldedge()
-            await self.page.wait_for_timeout(100)
+            await self.page.wait_for_timeout(2000)
             await self._goto_with_fallback(url, timeout_ms=60000)
 
         # Apply the specific dispatcher status filter
         await self.perform_actions_by_xpaths(name=status_xpath, raise_on_error=True)
         await self.perform_actions_by_xpaths(name="submit_filter", raise_on_error=True)
-        await self.page.wait_for_timeout(100)
+        await self.page.wait_for_timeout(2000)
 
         count_xpath = self.rules.get("booked_count_get_xpath")
 
@@ -112,7 +112,7 @@ class DispatcherBookedScraper(BaseScraper):
                 await self.login_fieldedge()
 
             # Wait for page to settle after login
-            await self.page.wait_for_timeout(100)
+            await self.page.wait_for_timeout(1500)
 
             booked_urls = self.rules.get("booked_urls", {})
             if not booked_urls:

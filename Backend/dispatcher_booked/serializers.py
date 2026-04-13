@@ -1,8 +1,15 @@
 from rest_framework import serializers
-from .models import DispatcherBooked
+from .models import DispatcherBooked, DispatcherBookedSeen
+
+
+class DispatcherBookedSeenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DispatcherBookedSeen
+        fields = "__all__"
 
 
 class DispatcherBookedSerializer(serializers.ModelSerializer):
+    user_seen_records = DispatcherBookedSeenSerializer(many=True, read_only=True)
 
     class Meta:
         model = DispatcherBooked

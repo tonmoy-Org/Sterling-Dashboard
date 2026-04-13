@@ -12,6 +12,7 @@ import {
 
 import { useNotifications } from '../../../hooks/useNotifications';
 import { workOrdersApi } from '../../../api/services/workOrders';
+import { dispatchKpiApi } from '../../../api/services/dispatchKpi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../auth/AuthProvider';
@@ -20,6 +21,7 @@ const NOTIFICATION_PATHS = [
     '/super-admin-dashboard/locates/work-orders',
     '/super-admin-dashboard/rme/work-orders',
     '/super-admin-dashboard/customer-center',
+    '/super-admin-dashboard/dispatch-kpi',
 ];
 
 const MARK_SEEN_TIMEOUT = 5000;
@@ -101,6 +103,20 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
 
             isWorkOrderPath = true;
         }
+        else if (path === '/super-admin-dashboard/dispatch-kpi') {
+            const now = Date.now();
+            const WO_STALE_THRESHOLD = 24 * 60 * 60 * 1000;
+
+            ids = (notifications.dispatchKpi || [])
+                .filter(dkpi => {
+                    if (dkpi.is_deleted) return false;
+                    const ts = dkpi.date ? new Date(dkpi.date).getTime() : null;
+                    const isRecent = ts === null || (!isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD);
+                    const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
+                    return isRecent && isUnseen;
+                })
+                .map(dkpi => dkpi.id);
+        }
 
         if (ids.length === 0) return;
 
@@ -138,6 +154,28 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                             ids.includes(wo.id)
                                 ? { ...wo, user_seen_records: [{ user: user?.id }] }
                                 : wo
+                        ),
+                    };
+                });
+            } else if (path === '/super-admin-dashboard/dispatch-kpi') {
+                await Promise.all(
+                    ids.map(id =>
+                        dispatchKpiApi.markSeen({
+                            user: user?.id,
+                            dispatcher_booked: id,
+                        })
+                    )
+                );
+
+                clearLocalCache?.();
+                queryClient.setQueryData(['notifications', user?.role], (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        dispatchKpi: (old.dispatchKpi || []).map(dkpi =>
+                            ids.includes(dkpi.id)
+                                ? { ...dkpi, user_seen_records: [{ user: user?.id }] }
+                                : dkpi
                         ),
                     };
                 });
@@ -197,6 +235,14 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                         const isUnseen = Array.isArray(wo.user_seen_records) && wo.user_seen_records.length === 0;
                         return isRecent && isUnseen;
                     });
+                } else if (path === '/super-admin-dashboard/dispatch-kpi') {
+                    hasUnseen = (notifications.dispatchKpi || []).some(dkpi => {
+                        if (dkpi.is_deleted) return false;
+                        const ts = dkpi.date ? new Date(dkpi.date).getTime() : null;
+                        const isRecent = ts === null || (!isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD);
+                        const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
+                        return isRecent && isUnseen;
+                    });
                 }
 
                 if (!hasUnseen) next.delete(path);
@@ -237,6 +283,7 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
         const locatesPath = '/super-admin-dashboard/locates/work-orders';
         const rmePath = '/super-admin-dashboard/rme/work-orders';
         const ccPath = '/super-admin-dashboard/customer-center';
+        const dkpiPath = '/super-admin-dashboard/dispatch-kpi';
 
         return {
             [locatesPath]: optimisticallyCleared.has(locatesPath)
@@ -260,6 +307,16 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                     const ts = wo.createdAt ? new Date(wo.createdAt).getTime() : null;
                     const isRecent = ts === null || (!isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD);
                     const isUnseen = Array.isArray(wo.user_seen_records) && wo.user_seen_records.length === 0;
+                    return isRecent && isUnseen;
+                }).length,
+                
+            [dkpiPath]: optimisticallyCleared.has(dkpiPath)
+                ? 0
+                : (notifications.dispatchKpi || []).filter(dkpi => {
+                    if (dkpi.is_deleted) return false;
+                    const ts = dkpi.date ? new Date(dkpi.date).getTime() : null;
+                    const isRecent = ts === null || (!isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD);
+                    const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
                     return isRecent && isUnseen;
                 }).length,
         };
@@ -309,12 +366,12 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
             path: '/super-admin-dashboard/customer-center',
             section: 'SYSTEM',
         },
-        {
-            text: 'Dispatch KPI',
-            icon: <BarChart3 size={18} />,
-            path: '/super-admin-dashboard/dispatch-kpi',
-            section: 'SYSTEM',
-        },
+        // {
+        //     text: 'Dispatch KPI',
+        //     icon: <BarChart3 size={18} />,
+        //     path: '/super-admin-dashboard/dispatch-kpi',
+        //     section: 'SYSTEM',
+        // },
         {
             text: 'Lookup',
             icon: <Search size={18} />,

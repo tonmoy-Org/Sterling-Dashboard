@@ -30,7 +30,7 @@ const dashboardCards = [
   { label: 'Locates', route: '/manager-dashboard/locates/work-orders', handwritten: true, image: h3, notificationPath: '/manager-dashboard/locates/work-orders' },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
   { label: 'Customer Center', route: '/manager-dashboard/customer-center', handwritten: true, image: h1, notificationPath: '/manager-dashboard/customer-center' },
-  { label: 'Dispatch KPI', route: '/manager-dashboard/dispatch-kpi', handwritten: true, image: h6, notificationPath: null },
+  // { label: 'Dispatch KPI', route: '/manager-dashboard/dispatch-kpi', handwritten: true, image: h6, notificationPath: '/manager-dashboard/dispatch-kpi' },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
 ];
@@ -90,6 +90,15 @@ export const ManagerDashboard = () => {
         const ts = wo.createdAt ? new Date(wo.createdAt).getTime() : null;
         const isRecent = ts === null || !isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD;
         const isUnseen = Array.isArray(wo.user_seen_records) && wo.user_seen_records.length === 0;
+        return isRecent && isUnseen;
+      }).length,
+
+      // Dispatch KPI count
+      '/manager-dashboard/dispatch-kpi': (notifications.dispatchKpi || []).filter(dkpi => {
+        if (dkpi.is_deleted) return false;
+        const ts = dkpi.date ? new Date(dkpi.date).getTime() : null;
+        const isRecent = ts === null || !isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD;
+        const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
         return isRecent && isUnseen;
       }).length,
     };

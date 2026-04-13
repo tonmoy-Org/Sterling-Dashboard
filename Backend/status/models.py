@@ -74,3 +74,24 @@ class ScraperExecutionLog(models.Model):
     def __str__(self):
         return f"{self.scraper_name} — {self.status} @ {self.executed_at:%Y-%m-%d %H:%M}"
 
+
+class Incident(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('resolved', 'Resolved'),
+    ]
+
+    service_name = models.CharField(max_length=255, help_text="The scraper or service name (e.g. dispatcher-booked-scraper)")
+    title = models.CharField(max_length=255)
+    description = models.TextField(help_text="Error description or traceback")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    created_at = models.DateTimeField(default=timezone.now)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+    resolution_description = models.TextField(blank=True, null=True, help_text="Auto added description when resolved")
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.get_status_display()}] {self.service_name} - {self.title}"
+

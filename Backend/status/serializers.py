@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ScraperExecutionLog, ServiceStatus
+from .models import ScraperExecutionLog, ServiceStatus, Incident
 
 class ScraperExecutionLogSerializer(serializers.ModelSerializer):
     """
@@ -15,3 +15,8 @@ class ServiceStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceStatus
         fields = ['id', 'service_name', 'is_operational', 'last_checked_at', 'outage_started_at', 'uptime_percentage']
+
+class IncidentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Incident
+        fields = '__all__'

@@ -55,7 +55,9 @@ class DispatcherBookedScraper(BaseScraper):
 
         current_url = (self.page.url or "").lower()
         if "/account/login" in current_url:
-            print("Detected login redirect while fetching booked count. Logging in and retrying target URL...")
+            print(
+                "Detected login redirect while fetching booked count. Logging in and retrying target URL..."
+            )
             await self.login_fieldedge()
             await self.page.wait_for_timeout(100)
             await self._goto_with_fallback(url, timeout_ms=60000)
@@ -78,7 +80,9 @@ class DispatcherBookedScraper(BaseScraper):
             print(f"Extracted count for [{status_xpath}]: {count}")
             return count
         except Exception as e:
-            print(f"Count element not found for [{status_xpath}] (timeout). Assuming 0.")
+            print(
+                f"Count element not found for [{status_xpath}] (timeout). Assuming 0."
+            )
             return 0
 
     async def run(self):
@@ -90,6 +94,7 @@ class DispatcherBookedScraper(BaseScraper):
         """
         import time as _time
         import traceback
+
         _start_time = _time.time()
         _error_occurred = None
         _records_processed = 0
@@ -116,28 +121,22 @@ class DispatcherBookedScraper(BaseScraper):
                 return None
 
             cameron_booked = await self._get_booked_count(
-                booked_urls.get("cameron_booked"),
-                "dispatcher_status_xpath"
+                booked_urls.get("cameron_booked"), "dispatcher_status_xpath"
             )
             cameron_non_booked = await self._get_booked_count(
-                booked_urls.get("cameron_non_booked"),
-                "dispatcher_status_xpath"
+                booked_urls.get("cameron_non_booked"), "dispatcher_status_xpath"
             )
             eric_booked = await self._get_booked_count(
-                booked_urls.get("eric_booked"),
-                "dispatcher_status_xpath"
+                booked_urls.get("eric_booked"), "dispatcher_status_xpath"
             )
             eric_non_booked = await self._get_booked_count(
-                booked_urls.get("eric_non_booked"),
-                "dispatcher_status_xpath"
+                booked_urls.get("eric_non_booked"), "dispatcher_status_xpath"
             )
             total_jobs_booked = await self._get_booked_count(
-                booked_urls.get("booked"),
-                "dispatcher_status_xpath"
+                booked_urls.get("booked"), "dispatcher_status_xpath"
             )
             all_leads = await self._get_booked_count(
-                booked_urls.get("all_leads"),
-                "dispatcher_status_xpath"
+                booked_urls.get("all_leads"), "dispatcher_status_xpath"
             )
 
             print(f"Cameron Booked: {cameron_booked}")
@@ -147,9 +146,9 @@ class DispatcherBookedScraper(BaseScraper):
             print(f"Total Jobs Booked: {total_jobs_booked}")
             print(f"All Leads: {all_leads}")
 
-            current_date = make_aware(datetime.now(), timezone=get_current_timezone())
+            # current_date = make_aware(datetime.now(), timezone=get_current_timezone())
             data = {
-                "date": current_date.date(),
+                # "date": current_date.date(),
                 "cameron_booked": cameron_booked,
                 "cameron_total": cameron_non_booked + cameron_booked,
                 "eric_booked": eric_booked,
@@ -186,30 +185,63 @@ class DispatcherBookedScraper(BaseScraper):
         finally:
             await self.cleanup()
 
-            # ── Log execution result to ScraperExecutionLog ──
+            # ── Log execution result to ScraperExecutionLog and Incident ──
             _elapsed = _time.time() - _start_time
             try:
-                from status.models import ScraperExecutionLog
+                from status.models import ScraperExecutionLog, Incident
+                from django.utils import timezone
 
                 def _log_execution():
                     ScraperExecutionLog.objects.create(
-                        scraper_name='dispatcher-booked-scraper',
-                        status='error' if _error_occurred else 'success',
+                        scraper_name="dispatcher-booked-scraper",
+                        status="error" if _error_occurred else "success",
                         error_message=_error_occurred,
                         records_processed=_records_processed,
                         execution_time_seconds=round(_elapsed, 2),
                         details=_details,
                     )
+                    
+                    if _error_occurred:
+                        incident, created = Incident.objects.get_or_create(
+                            service_name="dispatcher-booked-scraper",
+                            status="active",
+                            defaults={
+                                "title": "Dispatcher Booked Scraper Error",
+                                "description": _error_occurred
+                            }
+                        )
+                        if not created:
+                            incident.description = _error_occurred
+                            incident.save()
+                    else:
+                        active_incidents = Incident.objects.filter(
+                            service_name="dispatcher-booked-scraper",
+                            status="active"
+                        )
+                        if active_incidents.exists():
+                            from status.email_service import send_recovery_email
+                            for incident in active_incidents:
+                                incident.status = "resolved"
+                                incident.resolved_at = timezone.now()
+                                incident.resolution_description = "Automation started properly and automatically resolved the incident."
+                                incident.save()
+                                downtime_seconds = (incident.resolved_at - incident.created_at).total_seconds()
+                                send_recovery_email("Dispatcher Booked Scraper", downtime_seconds)
 
                 await sync_to_async(_log_execution)()
-                print(f"📝 Execution logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s)")
+                print(
+                    f"📝 Execution logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s)"
+                )
             except Exception as log_err:
                 print(f"⚠️ Failed to log execution: {log_err}")
 
             if _error_occurred:
                 try:
                     from status.email_service import send_outage_email
-                    await sync_to_async(send_outage_email)('Dispatcher Booked Scraper', _error_occurred)
+
+                    await sync_to_async(send_outage_email)(
+                        "Dispatcher Booked Scraper", _error_occurred
+                    )
                     print("📧 Sent direct outage notification email from scraper.")
                 except Exception as mail_err:
                     print(f"⚠️ Failed to send direct email: {mail_err}")

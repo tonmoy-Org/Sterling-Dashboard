@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { workOrdersApi } from '../../../api/services/workOrders';
+import { dispatchKpiApi } from '../../../api/services/dispatchKpi';
+import { useAuth } from '../../../auth/AuthProvider';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -17,6 +19,7 @@ const NOTIFICATION_PATHS = [
     '/manager-dashboard/locates/work-orders',
     '/manager-dashboard/rme/work-orders',
     '/manager-dashboard/customer-center',
+    '/manager-dashboard/dispatch-kpi',
 ];
 
 const MARK_SEEN_TIMEOUT = 5000;
@@ -46,6 +49,7 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { user } = useAuth();
 
     const pendingMarkSeen = useRef(new Set());
     const timeoutRefs = useRef(new Map());
@@ -107,6 +111,19 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
                 .map(wo => wo.id);
 
             isCustomerCenter = true;
+        } else if (path === '/manager-dashboard/dispatch-kpi') {
+            const now = Date.now();
+            const WO_STALE_THRESHOLD = 24 * 60 * 60 * 1000;
+
+            ids = (notifications.dispatchKpi || [])
+                .filter(dkpi => {
+                    if (dkpi.is_deleted) return false;
+                    const ts = dkpi.date ? new Date(dkpi.date).getTime() : null;
+                    const isRecent = ts === null || (!isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD);
+                    const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
+                    return isRecent && isUnseen;
+                })
+                .map(dkpi => dkpi.id);
         }
 
         if (!ids.length) return;
@@ -130,10 +147,44 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
                 await Promise.all(
                     ids.map(id =>
                         workOrdersApi.markSeen({
+                            user: user?.id,
                             work_order: id,
                         })
                     )
                 );
+                
+                queryClient.setQueryData(['notifications', user?.role], (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        allWorkOrders: old.allWorkOrders.map(wo =>
+                            ids.includes(wo.id)
+                                ? { ...wo, user_seen_records: [{ user: user?.id }] }
+                                : wo
+                        ),
+                    };
+                });
+            } else if (path === '/manager-dashboard/dispatch-kpi') {
+                await Promise.all(
+                    ids.map(id =>
+                        dispatchKpiApi.markSeen({
+                            user: user?.id,
+                            dispatcher_booked: id,
+                        })
+                    )
+                );
+
+                queryClient.setQueryData(['notifications', user?.role], (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        dispatchKpi: (old.dispatchKpi || []).map(dkpi =>
+                            ids.includes(dkpi.id)
+                                ? { ...dkpi, user_seen_records: [{ user: user?.id }] }
+                                : dkpi
+                        ),
+                    };
+                });
             } else {
                 await workOrdersApi.post(endpoint, { ids });
             }
@@ -202,6 +253,14 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
 
                         return isRecent && isUnseen;
                     });
+                } else if (path === '/manager-dashboard/dispatch-kpi') {
+                    hasUnseen = (notifications.dispatchKpi || []).some(dkpi => {
+                        if (dkpi.is_deleted) return false;
+                        const ts = dkpi.date ? new Date(dkpi.date).getTime() : null;
+                        const isRecent = ts === null || (!isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD);
+                        const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
+                        return isRecent && isUnseen;
+                    });
                 }
 
                 if (!hasUnseen) next.delete(path);
@@ -243,6 +302,7 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
         const locatesPath = '/manager-dashboard/locates/work-orders';
         const rmePath = '/manager-dashboard/rme/work-orders';
         const ccPath = '/manager-dashboard/customer-center';
+        const dkpiPath = '/manager-dashboard/dispatch-kpi';
 
         return {
             [locatesPath]: optimisticallyCleared.has(locatesPath)
@@ -275,6 +335,16 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
                         Array.isArray(wo.user_seen_records) &&
                         wo.user_seen_records.length === 0;
 
+                    return isRecent && isUnseen;
+                }).length,
+                
+            [dkpiPath]: optimisticallyCleared.has(dkpiPath)
+                ? 0
+                : (notifications.dispatchKpi || []).filter(dkpi => {
+                    if (dkpi.is_deleted) return false;
+                    const ts = dkpi.date ? new Date(dkpi.date).getTime() : null;
+                    const isRecent = ts === null || (!isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD);
+                    const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
                     return isRecent && isUnseen;
                 }).length,
         };
@@ -311,12 +381,12 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
             path: '/manager-dashboard/customer-center',
             section: 'SYSTEM',
         },
-        {
-            text: 'Dispatch KPI',
-            icon: <BarChart3 size={18} />,
-            path: '/manager-dashboard/dispatch-kpi',
-            section: 'SYSTEM',
-        },
+        // {
+        //     text: 'Dispatch KPI',
+        //     icon: <BarChart3 size={18} />,
+        //     path: '/manager-dashboard/dispatch-kpi',
+        //     section: 'SYSTEM',
+        // },
         {
             text: 'Lookup',
             icon: <Search size={18} />,

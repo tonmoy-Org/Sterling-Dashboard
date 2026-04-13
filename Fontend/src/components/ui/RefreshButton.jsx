@@ -55,8 +55,8 @@ const DialogTitleStyled = styled(DialogTitle)(({ theme }) => ({
     },
 }));
 
-const RefreshButton = () => {
-    const { loading, setLoading } = useScraping(); // ← REPLACE useState with context
+const RefreshButton = ({ onRefresh }) => {
+    const { loading, setLoading } = useScraping();
     const [openModal, setOpenModal] = useState(false);
 
     const handleOpenModal = () => {
@@ -72,7 +72,11 @@ const RefreshButton = () => {
         handleCloseModal();
         
         try {
-            await rmeApi.startScraping();
+            if (onRefresh) {
+                await onRefresh();
+            } else {
+                await rmeApi.startScraping();
+            }
             console.log('Scraping started successfully');
         } catch (error) {
             console.error('Error starting scraping:', error);

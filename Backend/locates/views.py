@@ -21,8 +21,15 @@ from .serializers import (
     WorkOrderTodayEditSerializer
 )
 import subprocess, os, sys, json
-from automation.main import start_scraping
-
+from automation.main import (
+    start_scraping,
+    start_fieldedge_scraper,
+    start_work_orders_scraper,
+    start_online_rme_scraper,
+    start_work_orders_tags_scraper,
+    start_dispatcher_booked_scraper,
+    start_work_orders_and_rme_combined
+)
 
 
 class WorkOrderTodayFilter(FilterSet):
@@ -111,6 +118,54 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=False, methods=['post'], url_path='start-fieldedge-scraping', permission_classes=[IsAuthenticated])
+    def trigger_fieldedge_scraping(self, request):
+        try:
+            start_fieldedge_scraper()
+            return Response({'status': 'success', 'message': 'FieldEdge scraping started successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='start-work-orders-scraping', permission_classes=[IsAuthenticated])
+    def trigger_work_orders_scraping(self, request):
+        try:
+            start_work_orders_scraper()
+            return Response({'status': 'success', 'message': 'Work Orders scraping started successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='start-online-rme-scraping', permission_classes=[IsAuthenticated])
+    def trigger_online_rme_scraping(self, request):
+        try:
+            start_online_rme_scraper()
+            return Response({'status': 'success', 'message': 'Online RME scraping started successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='start-work-orders-and-rme-scraping', permission_classes=[IsAuthenticated])
+    def trigger_work_orders_and_rme_scraping(self, request):
+        try:
+            start_work_orders_and_rme_combined()
+            return Response({'status': 'success', 'message': 'Work Orders and Online RME combined scraping started successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='start-work-orders-tags-scraping', permission_classes=[IsAuthenticated])
+    def trigger_work_orders_tags_scraping(self, request):
+        try:
+            start_work_orders_tags_scraper()
+            return Response({'status': 'success', 'message': 'Work Orders Tags scraping started successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='start-dispatcher-booked-scraping', permission_classes=[IsAuthenticated])
+    def trigger_dispatcher_booked_scraping(self, request):
+        try:
+            start_dispatcher_booked_scraper()
+            return Response({'status': 'success', 'message': 'Dispatcher Booked scraping started successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     
     @action(detail=False, methods=['post'], url_path='mark-seen', permission_classes=[IsAuthenticated])

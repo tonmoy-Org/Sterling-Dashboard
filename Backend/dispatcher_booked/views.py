@@ -3,9 +3,15 @@ from rest_framework import viewsets, status
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 
-from .models import DispatcherBooked
-from .serializers import DispatcherBookedSerializer
+from .models import DispatcherBooked, DispatcherBookedSeen
+from .serializers import DispatcherBookedSerializer, DispatcherBookedSeenSerializer
 import django_filters
+
+
+class DispatcherBookedSeenViewSet(viewsets.ModelViewSet):
+    queryset = DispatcherBookedSeen.objects.all().order_by("-id")
+    serializer_class = DispatcherBookedSeenSerializer
+    filter_backends = [DjangoFilterBackend]
 
 
 class DispatcherBookedFilter(django_filters.FilterSet):
@@ -27,7 +33,10 @@ class DispatcherBookedViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
 
-        return Response({
-            "message": getattr(instance, "_message", "Success"),
-            "data": self.get_serializer(instance).data
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "message": getattr(instance, "_message", "Success"),
+                "data": self.get_serializer(instance).data,
+            },
+            status=status.HTTP_200_OK,
+        )

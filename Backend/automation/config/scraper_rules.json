@@ -84,10 +84,6 @@
       },
       {
         "action": "click",
-        "xpath": "//input[@id='selected_0_7']"
-      },
-      {
-        "action": "click",
         "xpath": "//div[@class='secondary-filter box undefined undefined  class-selected multiple']//button[@class='button_JdBxs confirm_hsagT base-button']"
       }
     ],
@@ -290,7 +286,7 @@
       },
       {
         "action": "click",
-        "xpath": "//ul[contains(@id,'__listbox')]//li[contains(@id,'__option-3')]"
+        "xpath": "//div[contains(@class,'date-filter-select')]//following::ul[1]//li[contains(.,'Today')]"
       },
       {
         "action": "wait",

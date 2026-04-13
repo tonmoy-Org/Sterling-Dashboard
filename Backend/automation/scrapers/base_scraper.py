@@ -79,14 +79,14 @@ class BaseScraper:
         try:
             self.playwright = await async_playwright().start()
             
-            # Launch browser with visible UI and slight delay
+            # Launch browser with explicit viewport to prevent responsive layout breaks in headless mode
             self.browser = await self.playwright.chromium.launch(
                 headless=True,
                 slow_mo=50,
-                args=["--start-maximized"]
+                args=["--start-maximized", "--window-size=1920,1080"]
             )
             
-            self.context = await self.browser.new_context(no_viewport=True)
+            self.context = await self.browser.new_context(viewport={"width": 1920, "height": 1080})
             self.page = await self.context.new_page()
             
             print("Browser initialized successfully.")

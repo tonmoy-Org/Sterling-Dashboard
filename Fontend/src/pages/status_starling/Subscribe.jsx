@@ -33,7 +33,7 @@ export default function Subscribe() {
                 </form>
 
                 <div className="mt-5 text-center">
-                    <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
+                    <Link to="/status" className="text-sm text-gray-500 hover:text-gray-700">
                         ← Back to Home
                     </Link>
                 </div>

@@ -11,6 +11,7 @@ import { TechLayout } from '../pages/tech/components/TechLayout';
 import { Login } from '../pages/login/Login';
 import { ErrorPage } from '../pages/error/ErrorPage';
 import StatusPage from '../pages/status_starling/Home';
+import Subscribe from '../pages/status_starling/Subscribe';
 import StatusLayout from '../components/StatusStarling/Layout';
 
 
@@ -86,6 +87,7 @@ export const AppRoutes = () => {
         {/* Public Status Page */}
         <Route element={<StatusLayout />}>
           <Route path="/status" element={<StatusPage />} />
+          <Route path="/status/subscribe" element={<Subscribe />} />
         </Route>
 
         {/* Error pages */}

@@ -6,12 +6,12 @@ export default function Header() {
       <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
 
         <div className="flex items-center">
-          <Link to="/">
+          <Link to="/status">
             <img src={logo} alt="Logo" className="h-11 w-auto mr-4" />
           </Link>
         </div>
 
-        <Link to="/subscribe">
+        <Link to="/status/subscribe">
           <button className="bg-[#1565C0] hover:bg-[#0d47a1] transition-colors text-white text-xs font-semibold tracking-widest px-6 py-2.5 rounded">
             Subscribe
           </button>

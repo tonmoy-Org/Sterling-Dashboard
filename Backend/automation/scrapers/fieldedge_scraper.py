@@ -55,6 +55,8 @@ class FieldEdgeScraper(BaseScraper):
         Args:
             task_name: Task type to filter by
         """
+        await self.page.wait_for_timeout(1000)
+        
         task_dropdown_xpath = self.rules.get(
             'task_dropdown_xpath',
             "//span[text()='Task']"

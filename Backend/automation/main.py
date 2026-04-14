@@ -4,12 +4,31 @@ Orchestrates the execution of all scraping tasks in sequence.
 """
 
 import sys
+import os
+import time
 import asyncio
 from automation.scrapers.fieldedge_scraper import FieldEdgeScraper
 from automation.scrapers.work_orders_scraper import WorkOrdersScraper
 from automation.scrapers.work_orders_tags_scraper import WorkOrdersTagsScraper
 from automation.scrapers.online_rme_scraper import OnlineRMEScraper
 from automation.scrapers.dispatcher_booked import DispatcherBookedScraper
+
+# Use a lock file to share status accurately across multiple VPS server workers
+LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scraper.lock')
+
+def track_scraper(func):
+    def wrapper(*args, **kwargs):
+        with open(LOCK_FILE, 'w') as f:
+            f.write(str(time.time()))
+        try:
+            return func(*args, **kwargs)
+        finally:
+            try:
+                if os.path.exists(LOCK_FILE):
+                    os.remove(LOCK_FILE)
+            except Exception:
+                pass
+    return wrapper
 
 async def run_fieldedge_scraper():
     """Execute FieldEdge scraping workflow."""
@@ -137,12 +156,13 @@ async def run_dispatcher_booked_scraper():
 
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
-    # await run_fieldedge_scraper()
+    await run_fieldedge_scraper()
     await run_work_orders_scraper()
-    # await run_online_rme_scraper()
-    # await run_work_orders_tags_scraper()
-    # await run_dispatcher_booked_scraper()
+    await run_online_rme_scraper()
+    await run_work_orders_tags_scraper()
+    await run_dispatcher_booked_scraper()
 
+@track_scraper
 def start_fieldedge_scraper():
     """Initialize and start the FieldEdge scraping process."""
     print("\n" + "=" * 50)
@@ -153,6 +173,7 @@ def start_fieldedge_scraper():
     except Exception as e:
         print(f"\nCritical error: {e}")
 
+@track_scraper
 def start_work_orders_scraper():
     """Initialize and start the Work Orders scraping process."""
     print("\n" + "=" * 50)
@@ -168,6 +189,7 @@ async def run_work_orders_and_rme_combined():
     await run_work_orders_scraper()
     await run_online_rme_scraper()
 
+@track_scraper
 def start_work_orders_and_rme_combined():
     """Initialize and start the combined Work Orders and Online RME scraping process."""
     print("\n" + "=" * 50)
@@ -178,6 +200,7 @@ def start_work_orders_and_rme_combined():
     except Exception as e:
         print(f"\nCritical error: {e}")
 
+@track_scraper
 def start_online_rme_scraper():
     """Initialize and start the Online RME scraping process."""
     print("\n" + "=" * 50)
@@ -188,6 +211,7 @@ def start_online_rme_scraper():
     except Exception as e:
         print(f"\nCritical error: {e}")
 
+@track_scraper
 def start_work_orders_tags_scraper():
     """Initialize and start the Work Orders Tags scraping process."""
     print("\n" + "=" * 50)
@@ -198,6 +222,7 @@ def start_work_orders_tags_scraper():
     except Exception as e:
         print(f"\nCritical error: {e}")
 
+@track_scraper
 def start_dispatcher_booked_scraper():
     """Initialize and start the Dispatcher Booked scraping process."""
     print("\n" + "=" * 50)
@@ -209,6 +234,7 @@ def start_dispatcher_booked_scraper():
         print(f"\nCritical error: {e}")
 
 
+@track_scraper
 def start_scraping():
     """Initialize and start all scraping processes."""
     print("\n" + "=" * 50)

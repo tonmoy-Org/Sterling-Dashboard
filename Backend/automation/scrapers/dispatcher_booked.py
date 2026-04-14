@@ -8,7 +8,7 @@ Updated to print all table data after filters are applied.
 from datetime import datetime
 from asgiref.sync import sync_to_async
 from django.utils.timezone import make_aware
-from django.utils.timezone import get_current_timezone
+from django.utils import timezone
 from dispatcher_booked.serializers import DispatcherBookedSerializer
 from automation.scrapers.base_scraper import BaseScraper
 
@@ -59,13 +59,13 @@ class DispatcherBookedScraper(BaseScraper):
                 "Detected login redirect while fetching booked count. Logging in and retrying target URL..."
             )
             await self.login_fieldedge()
-            await self.page.wait_for_timeout(100)
+            await self.page.wait_for_timeout(5000)
             await self._goto_with_fallback(url, timeout_ms=60000)
 
         # Apply the specific dispatcher status filter
         await self.perform_actions_by_xpaths(name=status_xpath, raise_on_error=True)
         await self.perform_actions_by_xpaths(name="submit_filter", raise_on_error=True)
-        await self.page.wait_for_timeout(100)
+        await self.page.wait_for_timeout(2000)
 
         count_xpath = self.rules.get("booked_count_get_xpath")
 
@@ -112,7 +112,7 @@ class DispatcherBookedScraper(BaseScraper):
                 await self.login_fieldedge()
 
             # Wait for page to settle after login
-            await self.page.wait_for_timeout(100)
+            await self.page.wait_for_timeout(4000)
 
             booked_urls = self.rules.get("booked_urls", {})
             if not booked_urls:
@@ -146,9 +146,9 @@ class DispatcherBookedScraper(BaseScraper):
             print(f"Total Jobs Booked: {total_jobs_booked}")
             print(f"All Leads: {all_leads}")
 
-            # current_date = make_aware(datetime.now(), timezone=get_current_timezone())
+            current_date = timezone.now()
             data = {
-                # "date": current_date.date(),
+                "date": current_date,
                 "cameron_booked": cameron_booked,
                 "cameron_total": cameron_non_booked + cameron_booked,
                 "eric_booked": eric_booked,
@@ -189,7 +189,6 @@ class DispatcherBookedScraper(BaseScraper):
             _elapsed = _time.time() - _start_time
             try:
                 from status.models import ScraperExecutionLog, Incident
-                from django.utils import timezone
 
                 def _log_execution():
                     ScraperExecutionLog.objects.create(
@@ -200,15 +199,15 @@ class DispatcherBookedScraper(BaseScraper):
                         execution_time_seconds=round(_elapsed, 2),
                         details=_details,
                     )
-                    
+
                     if _error_occurred:
                         incident, created = Incident.objects.get_or_create(
                             service_name="dispatcher-booked-scraper",
                             status="active",
                             defaults={
                                 "title": "Dispatcher Booked Scraper Error",
-                                "description": _error_occurred
-                            }
+                                "description": _error_occurred,
+                            },
                         )
                         if not created:
                             incident.description = _error_occurred
@@ -216,17 +215,22 @@ class DispatcherBookedScraper(BaseScraper):
                     else:
                         active_incidents = Incident.objects.filter(
                             service_name="dispatcher-booked-scraper",
-                            status="active"
+                            status="active",
                         )
                         if active_incidents.exists():
                             from status.email_service import send_recovery_email
+
                             for incident in active_incidents:
                                 incident.status = "resolved"
                                 incident.resolved_at = timezone.now()
                                 incident.resolution_description = "Automation started properly and automatically resolved the incident."
                                 incident.save()
-                                downtime_seconds = (incident.resolved_at - incident.created_at).total_seconds()
-                                send_recovery_email("Dispatcher Booked Scraper", downtime_seconds)
+                                downtime_seconds = (
+                                    incident.resolved_at - incident.created_at
+                                ).total_seconds()
+                                send_recovery_email(
+                                    "Dispatcher Booked Scraper", downtime_seconds
+                                )
 
                 await sync_to_async(_log_execution)()
                 print(

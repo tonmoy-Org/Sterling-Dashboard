@@ -96,6 +96,12 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
     
+    @action(detail=False, methods=['get'], url_path='scraper-status', permission_classes=[IsAuthenticated])
+    def scraper_status(self, request):
+        from django.core.cache import cache
+        is_running = cache.get('scraper_is_running', False)
+        return Response({'is_running': is_running}, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=['post'], url_path='start-scraping', permission_classes=[IsAuthenticated])
     def trigger_scraping(self, request):
         """

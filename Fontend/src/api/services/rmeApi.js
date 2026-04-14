@@ -10,6 +10,7 @@ export const rmeApi = {
     waitToLock: (id, data) => axiosInstance.patch(`/work-orders-today/${id}/`, data),
     discardReport: (id, data) => axiosInstance.patch(`/work-orders-today/${id}/`, data),
     markSeen: (data) => axiosInstance.post('/work-orders-today/mark-seen/', data),
+    getScraperStatus: () => axiosInstance.get('/work-orders-today/scraper-status/'),
     startScraping: () => axiosInstance.post('/work-orders-today/start-scraping/'),
     startDispatcherBookedScraping: () => axiosInstance.post('/work-orders-today/start-dispatcher-booked-scraping/'),
     startFieldedgeScraping: () => axiosInstance.post('/work-orders-today/start-fieldedge-scraping/'),

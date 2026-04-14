@@ -98,8 +98,20 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], url_path='scraper-status', permission_classes=[IsAuthenticated])
     def scraper_status(self, request):
-        from django.core.cache import cache
-        is_running = cache.get('scraper_is_running', False)
+        import os, time
+        lock_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'automation', 'scraper.lock')
+        is_running = False
+        
+        if os.path.exists(lock_file):
+            try:
+                mtime = os.path.getmtime(lock_file)
+                if time.time() - mtime < 1800:  # 30 mins max execution assumed
+                    is_running = True
+                else:
+                    os.remove(lock_file) # Clean up stale lock
+            except Exception:
+                pass
+                
         return Response({'is_running': is_running}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='start-scraping', permission_classes=[IsAuthenticated])

@@ -48,37 +48,7 @@ class FieldEdgeScraper(BaseScraper):
         else:
             raise Exception(f"Status button '{status_name}' not found.")
     
-    async def select_task_filter(self, task_name):
-        """
-        Select task type from dropdown filter.
-        
-        Args:
-            task_name: Task type to filter by
-        """
-        await self.page.wait_for_timeout(1000)
-        
-        task_dropdown_xpath = self.rules.get(
-            'task_dropdown_xpath',
-            "//span[text()='Task']"
-        )
-        task_label_xpath = f"//label[normalize-space(text())='{task_name}']"
-        
-        # Open dropdown
-        task_button = self.page.locator(task_dropdown_xpath)
-        if await task_button.count() > 0:
-            await task_button.click()
-            await self.page.wait_for_timeout(1000)
-            
-            # Select task option
-            task_label = self.page.locator(task_label_xpath)
-            if await task_label.count() > 0:
-                await task_label.click()
-                print(f"Selected task: {task_name}")
-            else:
-                raise Exception(f"Task option '{task_name}' not found in dropdown.")
-        else:
-            raise Exception("Task dropdown button not found.")
-    
+
     async def set_date_filter(self, start_date, end_date):
         """
         Set date range filter in the UI.
@@ -254,10 +224,9 @@ class FieldEdgeScraper(BaseScraper):
                 await self.login_fieldedge()
             
             # Wait for UI to load
-            wait_xpath = self.rules.get("task_dropdown_xpath", "//span[text()='Task']")
             await self.page.wait_for_selector(
-                wait_xpath,
-                state='visible',
+                '.plot-map-button:has-text("Apply")',
+                state='attached',
                 timeout=60000
             )
             
@@ -265,10 +234,7 @@ class FieldEdgeScraper(BaseScraper):
             status_name = self.rules.get('status_name', "Assigned")
             await self.select_status(status_name)
             
-            if self.rules.get('is_apply_task', False):
-                task_name = self.rules.get('task_option_name', "EXCAVATION DRAIN FIELD REPAIR")
-                await self.select_task_filter(task_name)
-            
+
             # Set date range
             start_date = self.rules.get('start_date') or datetime.now().strftime('%m/%d/%Y')
             end_date = self.rules.get('end_date') or datetime.now().strftime('%m/%d/%Y')

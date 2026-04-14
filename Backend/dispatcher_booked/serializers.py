@@ -18,7 +18,7 @@ class DispatcherBookedSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         date = validated_data.get("date")
 
-        instance = DispatcherBooked.objects.filter(date=date).first()
+        instance = DispatcherBooked.objects.filter(date__date=date.date()).first()
 
         if instance:
             # 👉 check if any value changed

@@ -282,7 +282,7 @@
     "dispatcher_status_xpath": [
       {
         "action": "click",
-        "xpath": "//*[@id='settings-sub-menu-id']/div[2]/div[9]/div/div[1]"
+        "xpath": "//div[contains(@class, 'date-filter')][.//div[contains(text(), 'Date')]]"
       },
       {
         "action": "wait",

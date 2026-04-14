@@ -86,7 +86,10 @@ class BaseScraper:
                 args=["--start-maximized", "--window-size=1920,1080"]
             )
             
-            self.context = await self.browser.new_context(viewport={"width": 1920, "height": 1080})
+            self.context = await self.browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            )
             self.page = await self.context.new_page()
             
             print("Browser initialized successfully.")
@@ -192,6 +195,14 @@ class BaseScraper:
             element = self.page.locator(xpath)
             
             try:
+                # Playwright's locator.count() resolves instantly. 
+                # On a headless VPS, we must explicitly wait for the element to attach first.
+                wait_timeout = item.get("timeout", 15000)
+                try:
+                    await element.first.wait_for(state="attached", timeout=wait_timeout)
+                except Exception:
+                    pass  # Let the count() check below handle the failure properly
+                
                 element_count = await element.count()
                 
                 if element_count > 0:

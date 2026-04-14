@@ -4,21 +4,30 @@ Orchestrates the execution of all scraping tasks in sequence.
 """
 
 import sys
+import os
+import time
 import asyncio
 from automation.scrapers.fieldedge_scraper import FieldEdgeScraper
 from automation.scrapers.work_orders_scraper import WorkOrdersScraper
 from automation.scrapers.work_orders_tags_scraper import WorkOrdersTagsScraper
 from automation.scrapers.online_rme_scraper import OnlineRMEScraper
 from automation.scrapers.dispatcher_booked import DispatcherBookedScraper
-from django.core.cache import cache
+
+# Use a lock file to share status accurately across multiple VPS server workers
+LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scraper.lock')
 
 def track_scraper(func):
     def wrapper(*args, **kwargs):
-        cache.set('scraper_is_running', True, timeout=1800) # 30 mins expiry limit
+        with open(LOCK_FILE, 'w') as f:
+            f.write(str(time.time()))
         try:
             return func(*args, **kwargs)
         finally:
-            cache.delete('scraper_is_running')
+            try:
+                if os.path.exists(LOCK_FILE):
+                    os.remove(LOCK_FILE)
+            except Exception:
+                pass
     return wrapper
 
 async def run_fieldedge_scraper():
@@ -147,10 +156,10 @@ async def run_dispatcher_booked_scraper():
 
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
-    # await run_fieldedge_scraper()
-    # await run_work_orders_scraper()
-    # await run_online_rme_scraper()
-    # await run_work_orders_tags_scraper()
+    await run_fieldedge_scraper()
+    await run_work_orders_scraper()
+    await run_online_rme_scraper()
+    await run_work_orders_tags_scraper()
     await run_dispatcher_booked_scraper()
 
 @track_scraper

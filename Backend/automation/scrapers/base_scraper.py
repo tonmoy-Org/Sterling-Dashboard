@@ -81,13 +81,13 @@ class BaseScraper:
             
             # Launch browser with explicit viewport to prevent responsive layout breaks in headless mode
             self.browser = await self.playwright.chromium.launch(
-                headless=True,
+                headless=False,
                 slow_mo=50,
                 args=["--start-maximized", "--window-size=1920,1080"]
             )
             
             self.context = await self.browser.new_context(
-                viewport={"width": 1920, "height": 1080},
+                viewport={"width": 1220, "height": 680},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             )
             self.page = await self.context.new_page()

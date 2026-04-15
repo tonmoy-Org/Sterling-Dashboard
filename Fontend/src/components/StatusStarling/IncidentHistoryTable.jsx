@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, CheckCircle2, Clock, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, Clock, RefreshCw } from 'lucide-react';
 import { useIncidentLogs } from '../../hooks/useStatusData';
 
 function relativeTime(dateStr) {
@@ -12,46 +12,66 @@ function relativeTime(dateStr) {
 }
 
 function IncidentRow({ incident }) {
+  const [open, setOpen] = useState(false);
   const isResolved = incident.status === 'resolved';
 
   return (
-    <div className="border-b border-gray-100 last:border-b-0 px-5 py-4">
-      <div className="flex items-start justify-between">
-        <div className="flex gap-3 max-w-[80%]">
-          <div className="mt-0.5">
-            {isResolved ? (
-              <CheckCircle2 size={20} className="text-emerald-500" />
-            ) : (
-              <AlertCircle size={20} className="text-red-500" />
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-semibold text-gray-800">{incident.title}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                isResolved ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
-              }`}>
-                {isResolved ? 'Resolved' : 'Active'}
-              </span>
-            </div>
-            <p className="text-xs text-gray-500 mb-2">Service: <strong>{incident.service_name}</strong></p>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{incident.description}</p>
-            
-            {isResolved && incident.resolution_description && (
-              <div className="mt-3 bg-gray-50 p-3 rounded border border-gray-100">
-                <p className="text-xs font-semibold text-gray-600 mb-1">Resolution Details:</p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{incident.resolution_description}</p>
-              </div>
-            )}
-          </div>
+    <div className="border-b border-gray-100 last:border-b-0">
+      {/* Clickable header */}
+      <button
+        onClick={() => setOpen(prev => !prev)}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+        aria-expanded={open}
+      >
+        <div className="flex-shrink-0">
+          {isResolved
+            ? <CheckCircle2 size={18} className="text-emerald-500" />
+            : <AlertCircle size={18} className="text-red-500" />}
         </div>
-        <div className="text-right flex-shrink-0">
-          <p className="text-xs text-gray-400 mb-1">{relativeTime(incident.created_at)}</p>
-          <p className="text-xs text-gray-400">
+
+        <span className="text-sm font-semibold text-gray-800 flex-1">
+          {incident.title}
+        </span>
+
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${isResolved ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+          }`}>
+          {isResolved ? 'Resolved' : 'Active'}
+        </span>
+
+        <span className="text-xs text-gray-400 flex-shrink-0">
+          {relativeTime(incident.created_at)}
+        </span>
+
+        <ChevronDown
+          size={16}
+          className={`text-gray-400 flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {/* Expandable body */}
+      {open && (
+        <div className="px-5 pb-4 pl-12">
+          <p className="text-xs text-gray-500 mb-2">
+            Service: <strong>{incident.service_name}</strong>
+            &nbsp;·&nbsp;
             {new Date(incident.created_at).toLocaleDateString()}
           </p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+            {incident.description}
+          </p>
+
+          {isResolved && incident.resolution_description && (
+            <div className="mt-3 bg-gray-50 p-3 rounded border border-gray-100">
+              <p className="text-xs font-semibold text-gray-600 mb-1">
+                Resolution Details:
+              </p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {incident.resolution_description}
+              </p>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

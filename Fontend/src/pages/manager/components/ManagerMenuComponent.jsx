@@ -381,12 +381,12 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
             path: '/manager-dashboard/customer-center',
             section: 'SYSTEM',
         },
-        // {
-        //     text: 'Dispatch KPI',
-        //     icon: <BarChart3 size={18} />,
-        //     path: '/manager-dashboard/dispatch-kpi',
-        //     section: 'SYSTEM',
-        // },
+        {
+            text: 'Dispatch KPI',
+            icon: <BarChart3 size={18} />,
+            path: '/manager-dashboard/dispatch-kpi',
+            section: 'SYSTEM',
+        },
         {
             text: 'Lookup',
             icon: <Search size={18} />,

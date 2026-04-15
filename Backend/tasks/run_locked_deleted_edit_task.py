@@ -18,7 +18,9 @@ from django.db import close_old_connections, connections
 from automation.scrapers.online_rme_scraper import OnlineRMEScraper
 from tasks.helper.edit_task import OnlineRMEEditTaskHelper
 from asyncio import sleep
-from locates.models import WorkOrderTodayEdit  # ⚠️ Add your model import here
+from locates.models import WorkOrderTodayEdit
+import time as _time
+import traceback
 
 # ==========================================
 # Force Unbuffered Output (Critical for Server Logs)
@@ -416,8 +418,15 @@ async def main():
     log_info(f"Processing Work Order ID: {work_order_edit_id}")
     log_info(f"Processing Work Order Update Body: {len(form_data)} fields")
 
-    scraper = None
-    exit_code = 1 
+    # --- Logging Setup ---
+    _start_time = _time.time()
+    _error_occurred = None
+    _records_processed = 0
+    _details = {
+        "address": wo_address,
+        "action": new_status,
+        "id": work_order_edit_id
+    }
 
     try:
         scraper = OnlineRMELocedDeletedTask()
@@ -425,6 +434,7 @@ async def main():
         
         if task_result.get("success"):
             log_success("✅ Task Completed Successfully.")
+            _records_processed = 1
             
             # Print scraped data if available
             if "scraped_data" in task_result:
@@ -448,18 +458,66 @@ async def main():
             
             exit_code = 0
         else:
-            log_error(f"❌ Task Failed: {task_result.get('error', 'Unknown error')}")
+            _error_occurred = task_result.get("error", "Unknown task failure")
+            log_error(f"❌ Task Failed: {_error_occurred}")
             exit_code = 1
 
     except Exception as e:
         log_error(f"❌ Main Loop Error occurred: {e}")
-        import traceback
-        traceback.print_exc()
+        _error_occurred = f"{str(e)}\n{traceback.format_exc()}"
         exit_code = 1
         
     finally:
         log_info("Cleaning up resources...")
         
+        # --- Log execution to Dashboard/Status models ---
+        _elapsed = _time.time() - _start_time
+        try:
+            from status.models import ScraperExecutionLog, Incident
+            from django.utils import timezone
+            
+            @sync_to_async
+            def _log_status():
+                # Records log
+                ScraperExecutionLog.objects.create(
+                    scraper_name="rme-locked-deleted-task",
+                    status="error" if _error_occurred else "success",
+                    error_message=_error_occurred,
+                    records_processed=_records_processed,
+                    execution_time_seconds=round(_elapsed, 2),
+                    details=_details
+                )
+                
+                # Manage incidents
+                if _error_occurred:
+                    incident, created = Incident.objects.get_or_create(
+                        service_name="rme-locked-deleted-task",
+                        status="active",
+                        defaults={
+                            "title": "RME Background Task Error",
+                            "description": _error_occurred
+                        }
+                    )
+                    if not created:
+                        incident.description = _error_occurred
+                        incident.save()
+                else:
+                    active_incidents = Incident.objects.filter(
+                        service_name="rme-locked-deleted-task",
+                        status="active"
+                    )
+                    if active_incidents.exists():
+                        for incident in active_incidents:
+                            incident.status = "resolved"
+                            incident.resolved_at = timezone.now()
+                            incident.resolution_description = "Background task ran successfully and auto-resolved this incident."
+                            incident.save()
+                            
+            await _log_status()
+            log_info(f"📝 Execution logged to status dashboard ({round(_elapsed, 1)}s)")
+        except Exception as log_err:
+            log_warning(f"⚠️ Failed to log execution status: {log_err}")
+
         # Close database connections
         try:
             await close_db_connections()

@@ -67,7 +67,7 @@ class OnlineRMEEditTaskHelper:
             # //table[@id='GridViewPump'] | //table[@id='ctl00_DataGridQuestions']
             await self.page.wait_for_selector(
                 "//table[@id='GridViewPump'] | //table[@id='ctl00_DataGridQuestions']", 
-                state='attached', 
+                state='visible', 
                 timeout=6000
             )
         except Exception as e:
@@ -104,7 +104,7 @@ class OnlineRMEEditTaskHelper:
             # Wait for table
             await self.page.wait_for_selector(
                 "//table[@id='GridViewPump'] | //table[@id='ctl00_DataGridQuestions']", 
-                state='attached', 
+                state='visible', 
                 timeout=6000
             )
 

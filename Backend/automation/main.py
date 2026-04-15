@@ -156,11 +156,11 @@ async def run_dispatcher_booked_scraper():
 
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
-    # await run_fieldedge_scraper()
+    await run_fieldedge_scraper()
     await run_work_orders_scraper()
     await run_online_rme_scraper()
-    # await run_work_orders_tags_scraper()
-    # await run_dispatcher_booked_scraper()
+    await run_work_orders_tags_scraper()
+    await run_dispatcher_booked_scraper()
 
 @track_scraper
 def start_fieldedge_scraper():

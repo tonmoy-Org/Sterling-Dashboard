@@ -171,14 +171,18 @@ class FieldEdgeScraper(BaseScraper):
         """
         target_xpath = f"//span[text()='{work_order_number}']"
         
-        # Click on work order
-        await self.perform_actions_by_xpaths(
-            action_list=[{
-                "action": "click",
-                "xpath": target_xpath
-            }],
-            raise_on_error=True
-        )
+        # Click on work order — use .first to avoid strict mode violation
+        # when the work order number appears in multiple places on the page
+        target_locator = self.page.locator(target_xpath).first
+        try:
+            await target_locator.wait_for(state="attached", timeout=10000)
+            await target_locator.click(timeout=5000)
+            print(f"Clicked element: {target_xpath}")
+        except Exception as e:
+            raise Exception(f"Action 'click' failed for xpath '{target_xpath}': {e}") from e
+        
+        import asyncio
+        await asyncio.sleep(3)
         
         # Wait for and extract status
         status_xpath = self.rules.get('locator_status_xpath')

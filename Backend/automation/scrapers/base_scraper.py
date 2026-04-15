@@ -74,20 +74,29 @@ class BaseScraper:
     async def initialize(self):
         """
         Launch and configure the browser instance.
-        Uses non-headless mode with slight delay for stability.
+        Uses headless mode with a full desktop viewport and Linux-safe flags.
         """
         try:
             self.playwright = await async_playwright().start()
             
-            # Launch browser with explicit viewport to prevent responsive layout breaks in headless mode
+            # Launch browser with headless-safe arguments for Linux VPS
             self.browser = await self.playwright.chromium.launch(
                 headless=True,
                 slow_mo=50,
-                args=["--start-maximized", "--window-size=1920,1080"]
+                args=[
+                    "--start-maximized",
+                    "--window-size=1920,1080",
+                    "--no-sandbox",                         # Required on Linux (especially containers/VPS)
+                    "--disable-dev-shm-usage",              # Prevents /dev/shm OOM crashes on Linux
+                    "--disable-gpu",                        # Avoid GPU issues in headless
+                    "--disable-blink-features=AutomationControlled",  # Bypass bot detection
+                ]
             )
             
+            # Use a full desktop viewport so the site renders its desktop layout,
+            # not a responsive/mobile view that changes element structure.
             self.context = await self.browser.new_context(
-                viewport={"width": 1220, "height": 680},
+                viewport={"width": 1920, "height": 1080},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             )
             self.page = await self.context.new_page()

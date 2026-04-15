@@ -215,17 +215,30 @@ class BaseScraper:
                 element_count = await element.count()
                 
                 if element_count > 0:
+                    # Use .first when multiple elements match to avoid strict mode violations
+                    target = element.first if element_count > 1 else element
+                    
                     if action == "click":
-                        await element.click(timeout=5000)
+                        try:
+                            await target.click(timeout=5000, force=True)
+                        except Exception:
+                            # Fallback: JS click for elements invisible in headless (e.g. custom context menus)
+                            await target.evaluate("el => el.click()")
                         print(f"Clicked element: {xpath}")
                     
                     elif action == "right_click":
-                        await element.click(button="right", timeout=5000)
+                        try:
+                            await target.click(button="right", timeout=5000, force=True)
+                        except Exception:
+                            # Fallback: dispatch a contextmenu event via JS
+                            await target.evaluate("""el => {
+                                el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }));
+                            }""")
                         print(f"Right-clicked element: {xpath}")
                     
                     elif action == "input":
                         if value is not None:
-                            await element.fill(str(value))
+                            await target.fill(str(value))
                             print(f"Input '{value}' into element: {xpath}")
                         else:
                             print(f"Warning: Action is 'input' but no value provided for: {xpath}")

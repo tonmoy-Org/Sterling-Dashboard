@@ -100,7 +100,7 @@ class FieldEdgeScraper(BaseScraper):
         try:
             await self.page.wait_for_selector(
                 '.kgRow',
-                state='attached',
+                state='visible',
                 timeout=60000
             )
         except Exception as e:

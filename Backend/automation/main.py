@@ -159,8 +159,8 @@ async def main():
     # await run_fieldedge_scraper()
     # await run_work_orders_scraper()
     # await run_online_rme_scraper()
-    await run_work_orders_tags_scraper()
-    # await run_dispatcher_booked_scraper()
+    # await run_work_orders_tags_scraper()
+    await run_dispatcher_booked_scraper()
 
 @track_scraper
 def start_fieldedge_scraper():

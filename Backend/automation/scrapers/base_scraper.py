@@ -208,7 +208,7 @@ class BaseScraper:
                 # On a headless VPS, we must explicitly wait for the element to attach first.
                 wait_timeout = item.get("timeout", 15000)
                 try:
-                    await element.first.wait_for(state="attached", timeout=wait_timeout)
+                    await element.first.wait_for(state="visible", timeout=wait_timeout)
                 except Exception:
                     pass  # Let the count() check below handle the failure properly
                 

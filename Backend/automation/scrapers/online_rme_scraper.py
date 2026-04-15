@@ -10,6 +10,8 @@ from locates.models import WorkOrderToday
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 import re
+import time as _time
+import traceback
 
 
 class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
@@ -1089,42 +1091,111 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
         Returns:
             List of work orders with updated data
         """
-        if not self.page:
-            await self.initialize()
+        _start_time = _time.time()
+        _error_occurred = None
+        _records_processed = 0
 
-        total_count = len(work_orders)
-        print(f"\n{'='*80}")
-        print(f"Starting processing of {total_count} work orders")
-        print(f"{'='*80}\n")
+        try:
+            if not self.page:
+                await self.initialize()
 
-        for index, work_order in enumerate(work_orders, start=1):
-            result = await self.process_single_work_order(work_order, index, total_count)
+            total_count = len(work_orders)
+            print(f"\n{'='*80}")
+            print(f"Starting processing of {total_count} work orders")
+            print(f"{'='*80}\n")
 
-            # Update work_orders list
-            work_orders[index - 1]["last_report_link"] = result.get("last_report_link")
-            work_orders[index - 1]["tech_report_submitted"] = result.get("tech_report_submitted", False)
+            for index, work_order in enumerate(work_orders, start=1):
+                try:
+                    result = await self.process_single_work_order(work_order, index, total_count)
 
-            # Single database update per work order
-            await self.update_database_batch(result)
+                    # Update work_orders list
+                    work_orders[index - 1]["last_report_link"] = result.get("last_report_link")
+                    work_orders[index - 1]["tech_report_submitted"] = result.get("tech_report_submitted", False)
 
-            print(f"\n{'─'*80}")
-            print(f"✅ Summary for work order {index}/{total_count}:")
-            print(f"   Address:               {result.get('full_address')}")
-            print(f"   Last report link:      {result.get('last_report_link')}")
-            print(f"   Tech report submitted: {result.get('tech_report_submitted')}")
-            print(f"   Status:                {result.get('status')}")
-            print(f"   RME completed:         {result.get('rme_completed')}")
-            if result.get("error"):
-                print(f"   ⚠️  Error: {result.get('error')}")
-            print(f"{'─'*80}\n")
+                    # Single database update per work order
+                    await self.update_database_batch(result)
+                    _records_processed += 1
 
-        await self.cleanup()
+                    print(f"\n{'─'*80}")
+                    print(f"✅ Summary for work order {index}/{total_count}:")
+                    print(f"   Address:               {result.get('full_address')}")
+                    print(f"   Last report link:      {result.get('last_report_link')}")
+                    print(f"   Tech report submitted: {result.get('tech_report_submitted')}")
+                    print(f"   Status:                {result.get('status')}")
+                    print(f"   RME completed:         {result.get('rme_completed')}")
+                    if result.get("error"):
+                        print(f"   ⚠️  Error: {result.get('error')}")
+                    print(f"{'─'*80}\n")
+                except Exception as WoError:
+                    print(f"❌ Error processing individual work order: {WoError}")
+                    # Continue with next work order
 
-        print(f"\n{'='*80}")
-        print(f"✅ Completed processing all {total_count} work orders")
-        print(f"{'='*80}\n")
+            return work_orders
 
-        return work_orders
+        except Exception as e:
+            print(f"Scraping error: {e}")
+            _error_occurred = f"{str(e)}\n{traceback.format_exc()}"
+            return work_orders
+
+        finally:
+            await self.cleanup()
+
+            # ── Log execution result to ScraperExecutionLog and Incident ──
+            _elapsed = _time.time() - _start_time
+            try:
+                from status.models import ScraperExecutionLog, Incident
+                from django.utils import timezone
+                from asgiref.sync import sync_to_async
+                
+                def _log_execution():
+                    ScraperExecutionLog.objects.create(
+                        scraper_name="online-rme-scraper",
+                        status="error" if _error_occurred else "success",
+                        error_message=_error_occurred,
+                        records_processed=_records_processed,
+                        execution_time_seconds=round(_elapsed, 2),
+                    )
+                    
+                    if _error_occurred:
+                        incident, created = Incident.objects.get_or_create(
+                            service_name="online-rme-scraper",
+                            status="active",
+                            defaults={
+                                "title": "Online RME Scraper Error",
+                                "description": _error_occurred
+                            }
+                        )
+                        if not created:
+                            incident.description = _error_occurred
+                            incident.save()
+                    else:
+                        active_incidents = Incident.objects.filter(
+                            service_name="online-rme-scraper",
+                            status="active"
+                        )
+                        if active_incidents.exists():
+                            from status.email_service import send_recovery_email
+                            for incident in active_incidents:
+                                incident.status = "resolved"
+                                incident.resolved_at = timezone.now()
+                                incident.resolution_description = "Automation started properly and automatically resolved the incident."
+                                incident.save()
+                                downtime_seconds = (incident.resolved_at - incident.created_at).total_seconds()
+                                send_recovery_email("Online RME Scraper", downtime_seconds)
+                                
+                await sync_to_async(_log_execution)()
+                print(f"📝 Execution logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s)")
+            except Exception as log_err:
+                print(f"⚠️ Failed to log execution: {log_err}")
+                
+            if _error_occurred:
+                try:
+                    from status.email_service import send_outage_email
+                    from asgiref.sync import sync_to_async
+                    await sync_to_async(send_outage_email)('Online RME Scraper', _error_occurred)
+                    print("📧 Sent direct outage notification email from scraper.")
+                except Exception as mail_err:
+                    print(f"⚠️ Failed to send direct email: {mail_err}")
 
     # Legacy method for backward compatibility
     async def run(self, work_orders: list) -> list:

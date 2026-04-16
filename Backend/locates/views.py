@@ -121,11 +121,12 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
         Custom action to trigger scraping from WorkOrderToday endpoint
         """
         try:
-            start_scraping()
+            import threading
+            threading.Thread(target=start_scraping, daemon=True).start()
             return Response(
                 {
                     'status': 'success',
-                    'message': 'Scraping started successfully'
+                    'message': 'Scraping started in background'
                 },
                 status=status.HTTP_200_OK
             )
@@ -141,8 +142,9 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='start-fieldedge-scraping', permission_classes=[IsAuthenticated])
     def trigger_fieldedge_scraping(self, request):
         try:
-            start_fieldedge_scraper()
-            return Response({'status': 'success', 'message': 'FieldEdge scraping started successfully'}, status=status.HTTP_200_OK)
+            import threading
+            threading.Thread(target=start_fieldedge_scraper, daemon=True).start()
+            return Response({'status': 'success', 'message': 'FieldEdge scraping started in background'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

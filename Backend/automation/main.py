@@ -189,13 +189,23 @@ async def run_review_tracker_scraper():
 
 
 async def main():
-    """Main execution flow - runs all scrapers in sequence."""
-    await fieldedge_scraper()
-    await run_work_orders_scraper()
-    await run_online_rme_scraper()
-    await run_work_orders_tags_scraper()
-    await run_dispatcher_booked_scraper()
-    # await run_review_tracker_scraper()
+    """Main execution flow - runs scrapers in parallel where possible."""
+    print("🚀 Starting parallel scraper execution...")
+    
+    # 1. Independent: FieldEdge and Dispatcher Booked can run concurrently
+    # 2. Sequential Chain: Work Orders -> Online RME -> Tags (RME depends on WO data)
+    
+    async def run_work_order_chain():
+        await run_work_orders_scraper()
+        await run_online_rme_scraper()
+        await run_work_orders_tags_scraper()
+
+    # Trigger independent tasks and the sequential chain in parallel
+    await asyncio.gather(
+        fieldedge_scraper(),
+        run_dispatcher_booked_scraper(),
+        run_work_order_chain()
+    )
 
 @track_scraper
 def start_fieldedge_scraper():

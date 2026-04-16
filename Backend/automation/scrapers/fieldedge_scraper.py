@@ -108,9 +108,11 @@ class FieldEdgeScraper(BaseScraper):
             
             await start_input.fill('')
             await start_input.type(start_date)
+            await start_input.press("Enter")
             
             await end_input.fill('')
             await end_input.type(end_date)
+            await end_input.press("Enter")
             
             print(f"Date filter set: {start_date} to {end_date}")
             
@@ -120,10 +122,20 @@ class FieldEdgeScraper(BaseScraper):
     async def apply_filters(self):
         """Apply all selected filters."""
         try:
+            # Proactively dismiss any Pendo overlays that might intercept clicks
+            try:
+                await self.page.evaluate("""() => {
+                    const pendo = document.querySelectorAll('[id^="pendo-"], ._pendo-backdrop');
+                    pendo.forEach(el => el.remove());
+                }""")
+            except:
+                pass
+
             apply_button = self.page.locator('.plot-map-button:has-text("Apply")')
             
             if await apply_button.count() > 0:
-                await apply_button.click()
+                # Using evaluate click to bypass pointer-event interception by transparent overlays
+                await apply_button.first.evaluate("el => el.click()")
                 print("Filters applied.")
                 await self.page.wait_for_timeout(2000)
             else:

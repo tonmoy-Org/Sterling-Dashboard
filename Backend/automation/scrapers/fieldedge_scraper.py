@@ -43,7 +43,10 @@ class FieldEdgeScraper(BaseScraper):
         status_button = self.page.locator(selector)
         
         if await status_button.count() > 0:
-            await status_button.click()
+            try:
+                await status_button.click(timeout=5000)
+            except Exception:
+                await status_button.evaluate("el => el.click()")
             print(f"Selected status: {status_name}")
         else:
             raise Exception(f"Status button '{status_name}' not found.")
@@ -63,7 +66,10 @@ class FieldEdgeScraper(BaseScraper):
         ).first
         
         if await date_filter_dropdown.count() > 0:
-            await date_filter_dropdown.click()
+            try:
+                await date_filter_dropdown.click(timeout=5000)
+            except Exception:
+                await date_filter_dropdown.evaluate("el => el.click()")
         
         # Fill date inputs
         start_input = self.page.locator('#start-date-filter')
@@ -79,14 +85,23 @@ class FieldEdgeScraper(BaseScraper):
     
     async def apply_filters(self):
         """Apply all selected filters."""
-        apply_button = self.page.locator('.plot-map-button:has-text("Apply")')
+        # User provided XPath for the Apply button
+        apply_xpath = '//*[@id="filter-header-bar"]/div[6]'
+        apply_button = self.page.locator(f'xpath={apply_xpath}')
         
         if await apply_button.count() > 0:
-            await apply_button.click()
+            try:
+                # Try standard click first
+                await apply_button.click(timeout=5000)
+            except Exception as e:
+                print(f"⚠️ Standard click intercepted (Pendo/Overlay?), trying JS click fallback... {e}")
+                # JS click bypasses interception issues (like Pendo backdrops)
+                await apply_button.evaluate("el => el.click()")
+            
             print("Filters applied.")
             await self.page.wait_for_timeout(2000)
         else:
-            raise Exception("Apply button not found.")
+            raise Exception(f"Apply button not found at XPath: {apply_xpath}")
     
     async def scrape_work_orders(self):
         """

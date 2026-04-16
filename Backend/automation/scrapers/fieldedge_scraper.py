@@ -44,7 +44,10 @@ class FieldEdgeScraper(BaseScraper):
         
         if await status_button.count() > 0:
             try:
-                await status_button.click(timeout=5000)
+                # Remove overlays that might block interaction
+                await self.page.evaluate('() => document.querySelectorAll("[class*=\'pendo\']").forEach(el => el.remove())')
+                # Use force=True to skip hit-test (ignore Pendo backdrops)
+                await status_button.click(timeout=1000, force=True)
             except Exception:
                 await status_button.evaluate("el => el.click()")
             print(f"Selected status: {status_name}")
@@ -67,7 +70,8 @@ class FieldEdgeScraper(BaseScraper):
         
         if await date_filter_dropdown.count() > 0:
             try:
-                await date_filter_dropdown.click(timeout=5000)
+                await self.page.evaluate('() => document.querySelectorAll("[class*=\'pendo\']").forEach(el => el.remove())')
+                await date_filter_dropdown.click(timeout=1000, force=True)
             except Exception:
                 await date_filter_dropdown.evaluate("el => el.click()")
         
@@ -91,15 +95,17 @@ class FieldEdgeScraper(BaseScraper):
         
         if await apply_button.count() > 0:
             try:
-                # Try standard click first
-                await apply_button.click(timeout=5000)
-            except Exception as e:
-                print(f"⚠️ Standard click intercepted (Pendo/Overlay?), trying JS click fallback... {e}")
-                # JS click bypasses interception issues (like Pendo backdrops)
+                # Forcibly remove any Pendo overlays from the DOM
+                await self.page.evaluate('() => document.querySelectorAll("[class*=\'pendo\']").forEach(el => el.remove())')
+                # Try standard click with force=True to ignore backdrops
+                await apply_button.click(timeout=1000, force=True)
+            except Exception:
+                # Instant fallback to JS click if the above fails
+                print("⚠️ Standard click blocked by overlay. Triggering faster JS fallback...")
                 await apply_button.evaluate("el => el.click()")
             
             print("Filters applied.")
-            await self.page.wait_for_timeout(2000)
+            await self.page.wait_for_timeout(3000)
         else:
             raise Exception(f"Apply button not found at XPath: {apply_xpath}")
     

@@ -3,6 +3,9 @@ FieldEdge Scraper
 Scrapes work order data from the FieldEdge dashboard.
 """
 from datetime import datetime
+import asyncio
+import copy
+from typing import List, Dict, Optional
 from automation.scrapers.base_scraper import BaseScraper
 
 
@@ -57,11 +60,7 @@ class FieldEdgeScraper(BaseScraper):
 
     async def set_date_filter(self, start_date, end_date):
         """
-        Set date range filter in the UI.
-        
-        Args:
-            start_date: Start date in MM/DD/YYYY format
-            end_date: End date in MM/DD/YYYY format
+        Set date range filter in the UI using ultra-robust JS injection.
         """
         # Open date filter dropdown
         date_filter_dropdown = self.page.locator(
@@ -75,16 +74,29 @@ class FieldEdgeScraper(BaseScraper):
             except Exception:
                 await date_filter_dropdown.evaluate("el => el.click()")
         
-        # Fill date inputs
+        # Very brief wait for SPA dropdown animation
+        await self.page.wait_for_timeout(500)
+        
         start_input = self.page.locator('#start-date-filter')
         end_input = self.page.locator('#end-date-filter')
         
-        await start_input.fill('')
-        await start_input.type(start_date)
-        
-        await end_input.fill('')
-        await end_input.type(end_date)
-        
+        try:
+            # Try a very quick wait for visibility (only 500ms)
+            await start_input.wait_for(state="visible", timeout=500)
+            await start_input.fill('')
+            await start_input.type(start_date)
+            await end_input.fill('')
+            await end_input.type(end_date)
+        except Exception:
+            # If not visible or blocked, use native JS injection (Silent & Robust)
+            js_setter = """(el, val) => {
+                el.value = val;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }"""
+            await start_input.evaluate(js_setter, start_date)
+            await end_input.evaluate(js_setter, end_date)
+            
         print(f"Date filter set: {start_date} to {end_date}")
     
     async def apply_filters(self):
@@ -108,10 +120,10 @@ class FieldEdgeScraper(BaseScraper):
             await self.page.wait_for_timeout(3000)
         else:
             raise Exception(f"Apply button not found at XPath: {apply_xpath}")
-    
-    async def scrape_work_orders(self):
+
+    async def scrape_work_orders_table(self):
         """
-        Scrape work order data from the table.
+        Scrape work order data from the main board table.
         Only includes EXCAVATOR priority items.
         
         Returns:
@@ -130,7 +142,7 @@ class FieldEdgeScraper(BaseScraper):
         
         try:
             scraped_data = await self.page.evaluate(r"""() => {
-                const rows = [];
+                const dataList = [];
                 
                 const getTextByClass = (rowElement, classSelector) => {
                     const el = rowElement.querySelector(classSelector);
@@ -141,7 +153,6 @@ class FieldEdgeScraper(BaseScraper):
                 
                 domRows.forEach((row, index) => {
                     try {
-                        const priorityColor = row.querySelector('.col0 div[style*="background-color"]')?.style.backgroundColor || '';
                         const priorityName = getTextByClass(row, '.col1');
                         
                         // Only process EXCAVATOR items
@@ -149,8 +160,8 @@ class FieldEdgeScraper(BaseScraper):
                             return;
                         }
                         
-                        rows.push({
-                            priorityColor: priorityColor,
+                        dataList.push({
+                            priorityColor: row.querySelector('.col0 div[style*="background-color"]')?.style.backgroundColor || '',
                             priorityName: priorityName,
                             workOrderNumber: getTextByClass(row, '.col2'),
                             customerPO: getTextByClass(row, '.col3'),
@@ -169,57 +180,111 @@ class FieldEdgeScraper(BaseScraper):
                     }
                 });
                 
-                return { rows: rows, count: rows.length };
+                return { rows: dataList, count: dataList.length };
             }""")
             
             row_count = len(scraped_data.get('rows', []))
-            print(f"Scraped {row_count} work order(s).")
+            print(f"Scraped {row_count} work order(s) from table.")
             return scraped_data
             
         except Exception as e:
             print(f"Error during page evaluation: {e}")
             return {'rows': []}
     
-    async def get_work_order_status(self, work_order_number):
+    async def scrape_details_from_page(self, page):
         """
-        Fetch detailed status for a specific work order.
+        Extract detailed status/tags from the work order detail page.
+
+        Args:
+            page: Playwright page object for the work order detail
+
+        Returns:
+            str: Detailed status text or None
+        """
+        try:
+            status_xpath = self.rules.get('locator_status_xpath')
+            await page.wait_for_selector(
+                status_xpath,
+                state='visible',
+                timeout=15000
+            )
+            status_locator = page.locator(status_xpath)
+            raw_text = await status_locator.text_content()
+            
+            if raw_text:
+                return raw_text.replace("\xa0", "").strip()
+            return None
+        except Exception as e:
+            print(f"⚠️ Error extracting details from page: {e}")
+            return None
+
+    async def fetch_detailed_status_for_all(self, work_orders: List[Dict]) -> List[Dict]:
+        """
+        Process work orders to fetch detailed status using the multi-tab pattern.
         
         Args:
-            work_order_number: Work order identifier
+            work_orders: List of work order dictionaries
             
         Returns:
-            str: Status text or None if not found
+            list: Updated work orders
         """
-        target_xpath = f"//span[text()='{work_order_number}']"
+        result = []
+        process_queue = copy.deepcopy(work_orders)
         
-        # Click on work order — use .first to avoid strict mode violation
-        # when the work order number appears in multiple places on the page
-        target_locator = self.page.locator(target_xpath).first
-        try:
-            await target_locator.wait_for(state="attached", timeout=10000)
-            await target_locator.click(timeout=5000)
-            print(f"Clicked element: {target_xpath}")
-        except Exception as e:
-            raise Exception(f"Action 'click' failed for xpath '{target_xpath}': {e}") from e
-        
-        import asyncio
-        await asyncio.sleep(3)
-        
-        # Wait for and extract status
-        status_xpath = self.rules.get('locator_status_xpath')
-        await self.page.wait_for_selector(
-            status_xpath,
-            state='visible',
-            timeout=10000
-        )
-        status_locator = self.page.locator(status_xpath)
-        raw_text = await status_locator.text_content()
-        
-        if raw_text:
-            # Clean up non-breaking spaces
-            return raw_text.replace("\xa0", "").strip()
-        
-        return None
+        print(f"\n🔍 Fetching detailed status for {len(process_queue)} work orders...")
+
+        while process_queue:
+            work_order = process_queue.pop(0)
+            wo_number = work_order.get("workOrderNumber", "").strip()
+            retry_count = work_order.get("try_later", 0)
+
+            if not wo_number or retry_count >= 2:
+                if retry_count >= 2:
+                    print(f"⏭️ Skipping {wo_number}: Retry limit reached")
+                continue
+
+            target_xpath = f"//span[text()='{wo_number}']"
+            
+            try:
+                # Open work order in new tab
+                async with self.page.context.expect_page() as new_page_info:
+                    target_locator = self.page.locator(target_xpath).first
+                    await target_locator.wait_for(state="visible", timeout=10000)
+                    
+                    # Use Robust click for the span
+                    try:
+                        await target_locator.click(timeout=2000, force=True)
+                    except Exception:
+                        await target_locator.evaluate("el => el.click()")
+
+                new_page = await new_page_info.value
+                await new_page.wait_for_load_state()
+
+                # Check for session expiration
+                if "Login" in new_page.url:
+                    print("🔄 Session expired during detail fetch, re-logging...")
+                    await self.login_fieldedge(page=new_page)
+                    await new_page.wait_for_load_state()
+                    work_order["try_later"] = retry_count + 1
+                    process_queue.append(work_order)
+                    await new_page.close()
+                    continue
+
+                # Extract details
+                status = await self.scrape_details_from_page(new_page)
+                if status:
+                    work_order['tags'] = status
+                    print(f"✅ {wo_number}: Status -> {status}")
+                
+                result.append(work_order)
+                await new_page.close()
+
+            except Exception as e:
+                print(f"⚠️ Failed to scrape {wo_number}: {e}")
+                work_order["try_later"] = retry_count + 1
+                process_queue.append(work_order)
+
+        return result
     
     async def run(self):
         """
@@ -267,23 +332,19 @@ class FieldEdgeScraper(BaseScraper):
             
             await self.apply_filters()
             
-            # Scrape initial data
-            scraped = await self.scrape_work_orders()
+            # Step 1: Scrape initial table data
+            scraped = await self.scrape_work_orders_table()
             work_orders = scraped.get('rows', [])
-            _records_processed = len(work_orders)
             
-            # Fetch detailed status for each work order
-            for work_order in work_orders:
-                wo_number = work_order.get("workOrderNumber")
-                if wo_number:
-                    status = await self.get_work_order_status(wo_number)
-                    if status:
-                        work_order['tags'] = status
+            # Step 2: Fetch detailed status for each work order (robust multi-tab pattern)
+            final_work_orders = await self.fetch_detailed_status_for_all(work_orders)
+
+            _records_processed = len(final_work_orders)
             
             result = {
                 "filterStartDate": start_date,
                 "filterEndDate": end_date,
-                "workOrders": work_orders,
+                "workOrders": final_work_orders,
             }
             
             return result

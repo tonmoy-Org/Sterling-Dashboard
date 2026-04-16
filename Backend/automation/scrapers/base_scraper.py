@@ -74,18 +74,27 @@ class BaseScraper:
     async def initialize(self):
         """
         Launch and configure the browser instance.
-        Uses non-headless mode with slight delay for stability.
+        Uses headless mode with a full desktop viewport and Linux-safe flags.
         """
         try:
             self.playwright = await async_playwright().start()
             
-            # Launch browser with explicit viewport to prevent responsive layout breaks in headless mode
+            # Launch browser with headless-safe arguments for Linux VPS
             self.browser = await self.playwright.chromium.launch(
                 headless=True,
                 slow_mo=50,
-                args=["--start-maximized", "--window-size=1920,1080"]
+                args=[
+                    "--start-maximized",
+                    "--window-size=1920,1080",
+                    "--no-sandbox",                         # Required on Linux (especially containers/VPS)
+                    "--disable-dev-shm-usage",              # Prevents /dev/shm OOM crashes on Linux
+                    "--disable-gpu",                        # Avoid GPU issues in headless
+                    "--disable-blink-features=AutomationControlled",  # Bypass bot detection
+                ]
             )
             
+            # Use a full desktop viewport so the site renders its desktop layout,
+            # not a responsive/mobile view that changes element structure.
             self.context = await self.browser.new_context(
                 viewport={"width": 1920, "height": 1080},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
@@ -199,24 +208,37 @@ class BaseScraper:
                 # On a headless VPS, we must explicitly wait for the element to attach first.
                 wait_timeout = item.get("timeout", 15000)
                 try:
-                    await element.first.wait_for(state="attached", timeout=wait_timeout)
+                    await element.first.wait_for(state="visible", timeout=wait_timeout)
                 except Exception:
                     pass  # Let the count() check below handle the failure properly
                 
                 element_count = await element.count()
                 
                 if element_count > 0:
+                    # Use .first when multiple elements match to avoid strict mode violations
+                    target = element.first if element_count > 1 else element
+                    
                     if action == "click":
-                        await element.click(timeout=5000)
+                        try:
+                            await target.click(timeout=5000, force=True)
+                        except Exception:
+                            # Fallback: JS click for elements invisible in headless (e.g. custom context menus)
+                            await target.evaluate("el => el.click()")
                         print(f"Clicked element: {xpath}")
                     
                     elif action == "right_click":
-                        await element.click(button="right", timeout=5000)
+                        try:
+                            await target.click(button="right", timeout=5000, force=True)
+                        except Exception:
+                            # Fallback: dispatch a contextmenu event via JS
+                            await target.evaluate("""el => {
+                                el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }));
+                            }""")
                         print(f"Right-clicked element: {xpath}")
                     
                     elif action == "input":
                         if value is not None:
-                            await element.fill(str(value))
+                            await target.fill(str(value))
                             print(f"Input '{value}' into element: {xpath}")
                         else:
                             print(f"Warning: Action is 'input' but no value provided for: {xpath}")

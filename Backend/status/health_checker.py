@@ -10,19 +10,28 @@ def check_service(service_name, is_operational, error_message=None):
     """
     Update the ServiceStatus model based on the check result,
     and trigger emails for downtime and recovery transitions.
+    
+    Emails are only sent ONCE per outage event:
+    - Outage email: sent only when transitioning from operational -> down
+    - Recovery email: sent only when transitioning from down -> operational
     """
     service, created = ServiceStatus.objects.get_or_create(service_name=service_name)
 
     now = timezone.now()
     
-    # Status Transition Check
-    if not is_operational and service.is_operational:
-        # Went offline
-        service.is_operational = False
-        service.outage_started_at = now
-        send_outage_email(service_name, error_message)
+    if not is_operational:
+        if service.is_operational:
+            # Genuine transition: was operational, now going down
+            service.is_operational = False
+            service.outage_started_at = now
+            service.last_outage_notified_at = now
+            service.save()
+            send_outage_email(service_name, error_message)
+        else:
+            # Already known to be down — just update the timestamp, NO email
+            service.save()
     elif is_operational and not service.is_operational:
-        # Came back online
+        # Recovery: was down, now coming back online
         service.is_operational = True
         
         # Calculate downtime and add it
@@ -32,9 +41,12 @@ def check_service(service_name, is_operational, error_message=None):
             service.total_downtime_seconds += downtime
             
         service.outage_started_at = None
+        service.last_outage_notified_at = None  # Reset so next outage will trigger email
+        service.save()
         send_recovery_email(service_name, downtime)
-        
-    service.save()
+    else:
+        # Still operational — just update last_checked_at
+        service.save()
 
 def run_health_checks():
     """

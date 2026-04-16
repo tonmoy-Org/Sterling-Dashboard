@@ -24,17 +24,13 @@ class DispatcherBookedScraper(BaseScraper):
         super().__init__()
 
     async def _goto_with_fallback(self, url: str, *, timeout_ms: int = 60000):
-        """Navigate reliably for pages that keep background requests alive."""
+        """
+        Navigate reliably for pages that keep background requests alive.
+        FieldEdge SPAs never reach networkidle, so we go straight to
+        domcontentloaded to avoid wasting 90s per URL on a guaranteed timeout.
+        """
         if not url:
             return
-
-        try:
-            await self.page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-            return
-        except Exception as e:
-            print(f"⚠️ networkidle navigation failed for {url}: {e}")
-
-        # Fallback for SPA pages where network never becomes fully idle.
         await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
 
     async def _get_booked_count(self, url, status_xpath):
@@ -51,7 +47,11 @@ class DispatcherBookedScraper(BaseScraper):
         if not url:
             raise ValueError("Booked count URL is missing.")
 
+        # Navigate to the target URL
         await self._goto_with_fallback(url, timeout_ms=60000)
+
+        # Brief wait for SPA to begin rendering after domcontentloaded
+        await self.page.wait_for_timeout(2000)
 
         current_url = (self.page.url or "").lower()
         if "/account/login" in current_url:
@@ -59,11 +59,48 @@ class DispatcherBookedScraper(BaseScraper):
                 "Detected login redirect while fetching booked count. Logging in and retrying target URL..."
             )
             await self.login_fieldedge()
-            await self.page.wait_for_timeout(5000)
+            await self.page.wait_for_timeout(2000)
             await self._goto_with_fallback(url, timeout_ms=60000)
+
+        # Wait for the SPA filter UI to fully render after domcontentloaded.
+        # Without this, the date-filter dropdown may not exist yet when we try to click it.
+        try:
+            await self.page.wait_for_selector(
+                "div.secondary-filter.date-filter",
+                state="visible",
+                timeout=30000,
+            )
+        except Exception:
+            print("⚠️ Date-filter UI not visible yet, proceeding anyway...")
 
         # Apply the specific dispatcher status filter
         await self.perform_actions_by_xpaths(name=status_xpath, raise_on_error=True)
+
+        # After clicking the date-filter div, explicitly wait for the
+        # dropdown list to appear before attempting to click 'Today'.
+        # This fixes the intermittent "Element not found" failure on
+        # the last URL where the SPA renders slightly slower.
+        today_xpath = "//div[contains(@class,'date-filter-select')]//following::ul[1]//li[contains(.,'Today')]"
+        try:
+            await self.page.wait_for_selector(
+                today_xpath,
+                state="visible",
+                timeout=10000,
+            )
+        except Exception:
+            print("⚠️ 'Today' option not visible after first click — retrying dropdown open...")
+            try:
+                date_filter_div = self.page.locator("div.secondary-filter.date-filter")
+                await date_filter_div.click()
+                await self.page.wait_for_timeout(800)
+                await self.page.wait_for_selector(
+                    today_xpath,
+                    state="visible",
+                    timeout=8000,
+                )
+            except Exception:
+                print("⚠️ 'Today' option still not visible after retry, proceeding anyway...")
+
         await self.perform_actions_by_xpaths(name="submit_filter", raise_on_error=True)
         await self.page.wait_for_timeout(2000)
 
@@ -112,7 +149,7 @@ class DispatcherBookedScraper(BaseScraper):
                 await self.login_fieldedge()
 
             # Wait for page to settle after login
-            await self.page.wait_for_timeout(4000)
+            await self.page.wait_for_timeout(2000)
 
             booked_urls = self.rules.get("booked_urls", {})
             if not booked_urls:

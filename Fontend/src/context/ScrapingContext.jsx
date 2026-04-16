@@ -34,6 +34,10 @@ export const ScrapingProvider = ({ children }) => {
     // Effect to continuously check actual backend server status
     useEffect(() => {
         const checkStatus = async () => {
+            // Don't poll if the user is not authenticated
+            const token = localStorage.getItem('authToken');
+            if (!token) return;
+
             try {
                 const response = await rmeApi.getScraperStatus();
                 const isRunning = response.data?.is_running;

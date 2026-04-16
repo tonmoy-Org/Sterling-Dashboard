@@ -30,7 +30,7 @@ const dashboardCards = [
   { label: 'Locates', route: '/super-admin-dashboard/locates/work-orders', handwritten: true, image: h3, notificationPath: '/super-admin-dashboard/locates/work-orders' },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
   { label: 'Customer Center', route: '/super-admin-dashboard/customer-center', handwritten: true, image: h1, notificationPath: '/super-admin-dashboard/customer-center' },
-  // { label: 'Dispatch KPI', route: '/super-admin-dashboard/dispatch-kpi', handwritten: true, image: h6, notificationPath: '/super-admin-dashboard/dispatch-kpi' },
+  { label: 'Dispatch KPI', route: '/super-admin-dashboard/dispatch-kpi', handwritten: true, image: h6, notificationPath: '/super-admin-dashboard/dispatch-kpi' },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
 ];

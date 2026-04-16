@@ -43,7 +43,13 @@ class FieldEdgeScraper(BaseScraper):
         status_button = self.page.locator(selector)
         
         if await status_button.count() > 0:
-            await status_button.click()
+            try:
+                # Remove overlays that might block interaction
+                await self.page.evaluate('() => document.querySelectorAll("[class*=\'pendo\']").forEach(el => el.remove())')
+                # Use force=True to skip hit-test (ignore Pendo backdrops)
+                await status_button.click(timeout=1000, force=True)
+            except Exception:
+                await status_button.evaluate("el => el.click()")
             print(f"Selected status: {status_name}")
         else:
             raise Exception(f"Status button '{status_name}' not found.")
@@ -63,7 +69,11 @@ class FieldEdgeScraper(BaseScraper):
         ).first
         
         if await date_filter_dropdown.count() > 0:
-            await date_filter_dropdown.click()
+            try:
+                await self.page.evaluate('() => document.querySelectorAll("[class*=\'pendo\']").forEach(el => el.remove())')
+                await date_filter_dropdown.click(timeout=1000, force=True)
+            except Exception:
+                await date_filter_dropdown.evaluate("el => el.click()")
         
         # Fill date inputs
         start_input = self.page.locator('#start-date-filter')
@@ -79,14 +89,25 @@ class FieldEdgeScraper(BaseScraper):
     
     async def apply_filters(self):
         """Apply all selected filters."""
-        apply_button = self.page.locator('.plot-map-button:has-text("Apply")')
+        # User provided XPath for the Apply button
+        apply_xpath = '//*[@id="filter-header-bar"]/div[6]'
+        apply_button = self.page.locator(f'xpath={apply_xpath}')
         
         if await apply_button.count() > 0:
-            await apply_button.click()
+            try:
+                # Forcibly remove any Pendo overlays from the DOM
+                await self.page.evaluate('() => document.querySelectorAll("[class*=\'pendo\']").forEach(el => el.remove())')
+                # Try standard click with force=True to ignore backdrops
+                await apply_button.click(timeout=1000, force=True)
+            except Exception:
+                # Instant fallback to JS click if the above fails
+                print("⚠️ Standard click blocked by overlay. Triggering faster JS fallback...")
+                await apply_button.evaluate("el => el.click()")
+            
             print("Filters applied.")
-            await self.page.wait_for_timeout(2000)
+            await self.page.wait_for_timeout(3000)
         else:
-            raise Exception("Apply button not found.")
+            raise Exception(f"Apply button not found at XPath: {apply_xpath}")
     
     async def scrape_work_orders(self):
         """
@@ -100,7 +121,7 @@ class FieldEdgeScraper(BaseScraper):
         try:
             await self.page.wait_for_selector(
                 '.kgRow',
-                state='attached',
+                state='visible',
                 timeout=60000
             )
         except Exception as e:
@@ -171,14 +192,18 @@ class FieldEdgeScraper(BaseScraper):
         """
         target_xpath = f"//span[text()='{work_order_number}']"
         
-        # Click on work order
-        await self.perform_actions_by_xpaths(
-            action_list=[{
-                "action": "click",
-                "xpath": target_xpath
-            }],
-            raise_on_error=True
-        )
+        # Click on work order — use .first to avoid strict mode violation
+        # when the work order number appears in multiple places on the page
+        target_locator = self.page.locator(target_xpath).first
+        try:
+            await target_locator.wait_for(state="attached", timeout=10000)
+            await target_locator.click(timeout=5000)
+            print(f"Clicked element: {target_xpath}")
+        except Exception as e:
+            raise Exception(f"Action 'click' failed for xpath '{target_xpath}': {e}") from e
+        
+        import asyncio
+        await asyncio.sleep(3)
         
         # Wait for and extract status
         status_xpath = self.rules.get('locator_status_xpath')

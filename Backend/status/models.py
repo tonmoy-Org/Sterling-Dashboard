@@ -11,6 +11,7 @@ class ServiceStatus(models.Model):
     last_checked_at = models.DateTimeField(auto_now=True)
     
     outage_started_at = models.DateTimeField(null=True, blank=True)
+    last_outage_notified_at = models.DateTimeField(null=True, blank=True, help_text="When the last outage email was sent. Prevents duplicate alerts.")
     tracked_since = models.DateTimeField(default=timezone.now)
     total_downtime_seconds = models.PositiveIntegerField(default=0)
 

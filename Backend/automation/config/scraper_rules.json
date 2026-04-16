@@ -282,7 +282,7 @@
     "dispatcher_status_xpath": [
       {
         "action": "click",
-        "xpath": "//div[contains(@class, 'date-filter')][.//div[contains(text(), 'Date')]]"
+        "xpath": "//div[contains(@class, 'secondary-filter') and contains(@class, 'date-filter')]"
       },
       {
         "action": "wait",

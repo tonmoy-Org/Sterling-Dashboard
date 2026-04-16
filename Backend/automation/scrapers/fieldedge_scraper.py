@@ -19,6 +19,29 @@ class FieldEdgeScraper(BaseScraper):
         """Initialize FieldEdge scraper."""
         super().__init__()
     
+    async def _remove_overlays(self):
+        """Aggressively remove UI overlays that block interactions (Pendo, Intercom, backdrops)."""
+        js_cleaner = """() => {
+            const selectors = [
+                "[class*='pendo']", 
+                "[id*='pendo']", 
+                ".intercom-app", 
+                ".intercom-launcher-discovery-frame",
+                "[class*='backdrop']",
+                ".modal-backdrop"
+            ];
+            selectors.forEach(s => {
+                document.querySelectorAll(s).forEach(el => el.remove());
+            });
+            // Also force fix any overflow hidden on body that might prevent scrolling
+            document.body.style.overflow = 'auto';
+            document.documentElement.style.overflow = 'auto';
+        }"""
+        try:
+            await self.page.evaluate(js_cleaner)
+        except Exception:
+            pass
+
     def format_date(self, date_str):
         """
         Convert date from YYYY-MM-DD to MM/DD/YYYY format.
@@ -42,20 +65,30 @@ class FieldEdgeScraper(BaseScraper):
         Args:
             status_name: Status to filter by (e.g., "Assigned")
         """
-        selector = f'button[title="{status_name}"]'
-        status_button = self.page.locator(selector)
+        await self._remove_overlays()
         
-        if await status_button.count() > 0:
-            try:
-                # Remove overlays that might block interaction
-                await self.page.evaluate('() => document.querySelectorAll("[class*=\'pendo\']").forEach(el => el.remove())')
-                # Use force=True to skip hit-test (ignore Pendo backdrops)
-                await status_button.click(timeout=1000, force=True)
-            except Exception:
-                await status_button.evaluate("el => el.click()")
+        # Broader selector: Check title OR inner text (Removing 'button' tag requirement for flexibility)
+        selector = f'[title="{status_name}"], :has-text("{status_name}")'
+        status_button = self.page.locator(selector).first
+        
+        try:
+            # Wait for button to be available before checking count
+            await status_button.wait_for(state="attached", timeout=10000)
+            
+            # Remove overlays again right before clicking
+            await self._remove_overlays()
+            
+            # Use force=True to skip hit-test (ignore invisible overlays)
+            await status_button.click(timeout=5000, force=True)
             print(f"Selected status: {status_name}")
-        else:
-            raise Exception(f"Status button '{status_name}' not found.")
+        except Exception as e:
+            # Final fallback: JS click
+            print(f"⚠️ Standard click failed for status '{status_name}', trying JS click: {e}")
+            try:
+                await status_button.evaluate("el => el.click()")
+                print(f"Selected status (JS): {status_name}")
+            except Exception:
+                raise Exception(f"Status button '{status_name}' not found or not clickable.")
     
 
     async def set_date_filter(self, start_date, end_date):
@@ -69,7 +102,7 @@ class FieldEdgeScraper(BaseScraper):
         
         if await date_filter_dropdown.count() > 0:
             try:
-                await self.page.evaluate('() => document.querySelectorAll("[class*=\'pendo\']").forEach(el => el.remove())')
+                await self._remove_overlays()
                 await date_filter_dropdown.click(timeout=1000, force=True)
             except Exception:
                 await date_filter_dropdown.evaluate("el => el.click()")
@@ -101,25 +134,34 @@ class FieldEdgeScraper(BaseScraper):
     
     async def apply_filters(self):
         """Apply all selected filters."""
+        await self._remove_overlays()
+        
         # User provided XPath for the Apply button
         apply_xpath = '//*[@id="filter-header-bar"]/div[6]'
         apply_button = self.page.locator(f'xpath={apply_xpath}')
         
-        if await apply_button.count() > 0:
-            try:
-                # Forcibly remove any Pendo overlays from the DOM
-                await self.page.evaluate('() => document.querySelectorAll("[class*=\'pendo\']").forEach(el => el.remove())')
-                # Try standard click with force=True to ignore backdrops
-                await apply_button.click(timeout=1000, force=True)
-            except Exception:
-                # Instant fallback to JS click if the above fails
-                print("⚠️ Standard click blocked by overlay. Triggering faster JS fallback...")
-                await apply_button.evaluate("el => el.click()")
-            
+        try:
+            await apply_button.wait_for(state="visible", timeout=10000)
+            await self._remove_overlays()
+            await apply_button.click(timeout=5000, force=True)
             print("Filters applied.")
-            await self.page.wait_for_timeout(3000)
-        else:
-            raise Exception(f"Apply button not found at XPath: {apply_xpath}")
+        except Exception:
+            # Fallback for complex XPaths or overlays
+            print("⚠️ Standard Apply click blocked. Triggering JS fallback...")
+            try:
+                await apply_button.evaluate("el => el.click()")
+                print("Filters applied (JS).")
+            except Exception as e:
+                print(f"❌ Failed to reach Apply button: {e}")
+                # Try locating by text as a final ditch effort
+                try:
+                    alt_apply = self.page.locator(':has-text("Apply")').filter(has_text="Apply").last
+                    await alt_apply.evaluate("el => el.click()")
+                    print("Filters applied (Alternative selector).")
+                except:
+                    raise Exception(f"Apply button not found at XPath: {apply_xpath}")
+        
+        await self.page.wait_for_timeout(3000)
 
     async def scrape_work_orders_table(self):
         """
@@ -305,20 +347,39 @@ class FieldEdgeScraper(BaseScraper):
             # Navigate to dashboard
             url = self.rules.get('web_url')
             if url:
-                await self.page.goto(url, wait_until='domcontentloaded')
+                print(f"🚀 Navigating to: {url}")
+                await self.page.goto(url, wait_until='load', timeout=60000)
             else:
                 raise ValueError("No URL found in rules configuration.")
             
             # Login if necessary
-            if "Login" in self.page.url:
+            if "Login" in self.page.url or await self.page.locator('input[type="password"]').count() > 0:
                 await self.login_fieldedge()
+                await self.page.wait_for_load_state('load')
             
-            # Wait for UI to load
-            await self.page.wait_for_selector(
-                '.plot-map-button:has-text("Apply")',
-                state='attached',
-                timeout=60000
-            )
+            # Aggressive cleanup before UI check
+            await self._remove_overlays()
+
+            # Wait for UI to load with visibility check
+            print("⏳ Waiting for Dashboard UI readiness...")
+            try:
+                # Look for 'Apply' anywhere to confirm dashboard loaded
+                await self.page.wait_for_selector(
+                    ':has-text("Apply")',
+                    state='attached',
+                    timeout=60000
+                )
+            except Exception as e:
+                print(f"⚠️ Timeout waiting for 'Apply' button. Page content: {self.page.url}")
+                # Last resort: Try a reload if it's stuck
+                print("🔄 Stuck on loading? Trying one-time page reload...")
+                await self.page.reload(wait_until="networkidle")
+                await self._remove_overlays()
+                await self.page.wait_for_selector(
+                    '.plot-map-button:has-text("Apply")',
+                    state='attached',
+                    timeout=20000
+                )
             
             # Apply filters
             status_name = self.rules.get('status_name', "Assigned")

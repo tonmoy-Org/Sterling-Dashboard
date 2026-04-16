@@ -7,11 +7,14 @@ import sys
 import os
 import time
 import asyncio
-from automation.scrapers.fieldedge_scraper import FieldEdgeScraper
-from automation.scrapers.work_orders_scraper import WorkOrdersScraper
-from automation.scrapers.work_orders_tags_scraper import WorkOrdersTagsScraper
-from automation.scrapers.online_rme_scraper import OnlineRMEScraper
-from automation.scrapers.dispatcher_booked import DispatcherBookedScraper
+
+# Setup Django environment for standalone execution
+import django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+try:
+    django.setup()
+except RuntimeError:
+    pass # Already setup
 
 # Use a lock file to share status accurately across multiple VPS server workers
 LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scraper.lock')
@@ -32,6 +35,7 @@ def track_scraper(func):
 
 async def run_fieldedge_scraper():
     """Execute FieldEdge scraping workflow."""
+    from automation.scrapers.fieldedge_scraper import FieldEdgeScraper
     print("=== Starting FieldEdge Scraper ===")
     scraper = None
 
@@ -54,8 +58,14 @@ async def run_fieldedge_scraper():
             del scraper
 
 
+async def fieldedge_scraper():
+    """Wrapper function to execute FieldEdge scraper."""
+    await run_fieldedge_scraper()
+
+
 async def run_work_orders_scraper():
     """Execute WorkOrders scraping workflow."""
+    from automation.scrapers.work_orders_scraper import WorkOrdersScraper
     print("\n=== Starting WorkOrders Scraper ===")
     scraper = None
 
@@ -80,6 +90,7 @@ async def run_work_orders_scraper():
 
 async def run_work_orders_tags_scraper():
     """Execute WorkOrders Tags scraping workflow."""
+    from automation.scrapers.work_orders_tags_scraper import WorkOrdersTagsScraper
     print("\n=== Starting WorkOrders Tags Scraper ===")
     scraper = None
 
@@ -100,6 +111,7 @@ async def run_work_orders_tags_scraper():
 
 async def run_online_rme_scraper():
     """Execute Online RME scraping workflow."""
+    from automation.scrapers.online_rme_scraper import OnlineRMEScraper
     print("\n=== Starting Online RME Scraper ===")
     scraper = None
 
@@ -136,6 +148,7 @@ async def run_online_rme_scraper():
 
 async def run_dispatcher_booked_scraper():
     """Execute Dispatcher Booked scraping workflow."""
+    from automation.scrapers.dispatcher_booked import DispatcherBookedScraper
     print("\n=== Starting Dispatcher Booked Scraper ===")
     scraper = None
 
@@ -154,13 +167,35 @@ async def run_dispatcher_booked_scraper():
                 pass
 
 
+async def run_review_tracker_scraper():
+    """Execute Review Tracker scraping workflow."""
+    from automation.scrapers.review_tracker import ReviewTrackerScraper
+    print("\n=== Starting Review Tracker Scraper ===")
+    scraper = None
+
+    try:
+        scraper = ReviewTrackerScraper()
+        await scraper.run()
+        print("Review Tracker scraping completed.")
+
+    except Exception as e:
+        print(f"Error during Review Tracker execution: {e}")
+    finally:
+        if scraper:
+            try:
+                del scraper
+            except:
+                pass
+
+
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
-    await run_fieldedge_scraper()
-    # await run_work_orders_scraper()
-    # await run_online_rme_scraper()
-    # await run_work_orders_tags_scraper()
-    # await run_dispatcher_booked_scraper()
+    await fieldedge_scraper()
+    await run_work_orders_scraper()
+    await run_online_rme_scraper()
+    await run_work_orders_tags_scraper()
+    await run_dispatcher_booked_scraper()
+    # await run_review_tracker_scraper()
 
 @track_scraper
 def start_fieldedge_scraper():
@@ -230,6 +265,17 @@ def start_dispatcher_booked_scraper():
     print("=" * 50 + "\n")
     try:
         asyncio.run(run_dispatcher_booked_scraper())
+    except Exception as e:
+        print(f"\nCritical error: {e}")
+
+@track_scraper
+def start_review_tracker_scraper():
+    """Initialize and start the Review Tracker scraping process."""
+    print("\n" + "=" * 50)
+    print("STERLING DASHBOARD SCRAPER - REVIEW TRACKER INITIALIZED")
+    print("=" * 50 + "\n")
+    try:
+        asyncio.run(run_review_tracker_scraper())
     except Exception as e:
         print(f"\nCritical error: {e}")
 

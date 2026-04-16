@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'work_order',
     'dispatcher_booked',
     'status',
+    'reviews',
 ]
 
 MIDDLEWARE = [

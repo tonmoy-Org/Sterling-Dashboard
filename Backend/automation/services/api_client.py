@@ -23,6 +23,7 @@ class APIClient:
         # API endpoints
         self.locates_endpoint = f"{self.base_url}locates/sync/"
         self.work_orders_endpoint = f"{self.base_url}work-orders-today/"
+        self.reviews_endpoint = f"{self.base_url}reviews/reviews/"
         self.login_endpoint = f"{self.base_url}auth/login"
         
         # Request headers
@@ -366,4 +367,57 @@ class APIClient:
             return None
         except requests.RequestException as e:
             print(f"Connection error during PATCH: {e}")
+            return None
+
+    def manage_reviews(self, method_type, data=None, record_id=None, params=None):
+        """
+        Universal method for CRUD operations on reviews.
+        """
+        method = method_type.upper()
+        
+        # Build URL
+        url = self.reviews_endpoint
+        if record_id:
+            url = f"{self.reviews_endpoint}{record_id}/"
+        
+        # Ensure authentication
+        if not self._ensure_authenticated():
+            return None
+        
+        print(f"Sending {method} request to: {url}")
+        
+        try:
+            response = requests.request(
+                method=method,
+                url=url,
+                json=data,
+                params=params,
+                headers=self.headers,
+                timeout=60
+            )
+            
+            result = self._handle_response(response, method)
+            
+            # Retry once if unauthorized
+            if result is None and response.status_code == 401:
+                print("🔄 Retrying with fresh token...")
+                
+                if self._ensure_authenticated():
+                    response = requests.request(
+                        method=method,
+                        url=url,
+                        json=data,
+                        params=params,
+                        headers=self.headers,
+                        timeout=60
+                    )
+                    result = self._handle_response(response, method)
+            
+            return result
+        
+        except requests.Timeout:
+            print(f"{method} request timed out.")
+            return None
+        except requests.RequestException as e:
+            print(f"Connection error during {method}: {e}")
             return None

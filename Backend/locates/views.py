@@ -28,6 +28,7 @@ from automation.main import (
     start_online_rme_scraper,
     start_work_orders_tags_scraper,
     start_dispatcher_booked_scraper,
+    start_review_tracker_scraper,
     start_work_orders_and_rme_combined
 )
 
@@ -182,6 +183,14 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
         try:
             start_dispatcher_booked_scraper()
             return Response({'status': 'success', 'message': 'Dispatcher Booked scraping started successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='start-review-tracker-scraping', permission_classes=[IsAuthenticated])
+    def trigger_review_tracker_scraping(self, request):
+        try:
+            start_review_tracker_scraper()
+            return Response({'status': 'success', 'message': 'Review Tracker scraping started successfully'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     

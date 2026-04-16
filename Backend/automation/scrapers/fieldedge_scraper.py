@@ -163,8 +163,8 @@ class FieldEdgeScraper(BaseScraper):
         await self._remove_overlays()
         
         # User provided XPath for the Apply button
-        apply_xpath = '//*[@id="filter-header-bar"]/div[6]'
-        apply_button = self.page.locator(f'xpath={apply_xpath}')
+        apply_xpath = "//button[contains(@class, 'confirm_hsagT') and contains(., 'Apply')]"
+        apply_button = self.page.locator(apply_xpath)
         
         try:
             await apply_button.wait_for(state="visible", timeout=10000)
@@ -181,9 +181,9 @@ class FieldEdgeScraper(BaseScraper):
                 print(f"❌ Failed to reach Apply button: {e}")
                 # Try locating by text as a final ditch effort
                 try:
-                    alt_apply = self.page.locator(':has-text("Apply")').filter(has_text="Apply").last
+                    alt_apply = self.page.locator(apply_xpath).last
                     await alt_apply.evaluate("el => el.click()")
-                    print("Filters applied (Alternative selector).")
+                    print("Filters applied (Alternative locator).")
                 except:
                     raise Exception(f"Apply button not found at XPath: {apply_xpath}")
         
@@ -388,10 +388,11 @@ class FieldEdgeScraper(BaseScraper):
 
             # Wait for UI to load with visibility check
             print("⏳ Waiting for Dashboard UI readiness...")
+            apply_selector = "//button[contains(@class, 'confirm_hsagT') and contains(., 'Apply')]"
             try:
-                # Look for 'Apply' anywhere to confirm dashboard loaded
+                # Look for 'Apply' button to confirm dashboard loaded
                 await self.page.wait_for_selector(
-                    ':has-text("Apply")',
+                    apply_selector,
                     state='attached',
                     timeout=60000
                 )
@@ -402,7 +403,7 @@ class FieldEdgeScraper(BaseScraper):
                 await self.page.reload(wait_until="networkidle")
                 await self._remove_overlays()
                 await self.page.wait_for_selector(
-                    '.plot-map-button:has-text("Apply")',
+                    apply_selector,
                     state='attached',
                     timeout=20000
                 )

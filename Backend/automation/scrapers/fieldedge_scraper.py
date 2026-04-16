@@ -61,34 +61,60 @@ class FieldEdgeScraper(BaseScraper):
     async def select_status(self, status_name):
         """
         Select status filter button in the UI.
+        Uses specialized logic for footer toolbar buttons that are initially 'muted'
+        and require a hover interaction to become clickable.
         
         Args:
             status_name: Status to filter by (e.g., "Assigned")
         """
         await self._remove_overlays()
         
-        # Broader selector: Check title OR inner text (Removing 'button' tag requirement for flexibility)
-        selector = f'[title="{status_name}"], :has-text("{status_name}")'
-        status_button = self.page.locator(selector).first
+        # User discovery: Status buttons in footer toolbar often require hovering
+        # Priority 1: User-provided footer XPath structure
+        footer_xpath = '//*[@id="footer-toolbar"]/div[1]/div[3]'
+        status_in_footer = self.page.locator(f'xpath={footer_xpath}//div[contains(text(), "{status_name}")]')
         
+        # Priority 2: Direct text match in the whole toolbar
+        toolbar_fallback = self.page.locator(f'#footer-toolbar :has-text("{status_name}")').first
+        
+        # Priority 3: Broader selector (Standard buttons/titles)
+        general_selector = f'[title="{status_name}"], :has-text("{status_name}")'
+        status_button_general = self.page.locator(general_selector).first
+        
+        # Decide which locator to use
+        if await status_in_footer.count() > 0:
+            status_button = status_in_footer.first
+        elif await toolbar_fallback.count() > 0:
+            status_button = toolbar_fallback
+        else:
+            status_button = status_button_general
+
         try:
-            # Wait for button to be available before checking count
+            # Wait for button to be available in DOM
             await status_button.wait_for(state="attached", timeout=10000)
+            
+            # Robust interaction: Hover to "unmute" or activate the button (essential for headless)
+            await status_button.hover(force=True)
+            await self.page.wait_for_timeout(1000)  # Wait for hover effect/transition
             
             # Remove overlays again right before clicking
             await self._remove_overlays()
             
-            # Use force=True to skip hit-test (ignore invisible overlays)
+            # Use force=True to skip hit-test (ignore invisible overlays/muted states)
             await status_button.click(timeout=5000, force=True)
             print(f"Selected status: {status_name}")
+            
         except Exception as e:
-            # Final fallback: JS click
-            print(f"⚠️ Standard click failed for status '{status_name}', trying JS click: {e}")
+            # Final fallback: JS click (Ignores visibility/pointer-events entirely)
+            print(f"⚠️ Standard interaction failed for status '{status_name}', trying JS click... (Error: {e})")
             try:
-                await status_button.evaluate("el => el.click()")
+                await status_button.evaluate("el => { el.scrollIntoView(); el.click(); }")
                 print(f"Selected status (JS): {status_name}")
-            except Exception:
-                raise Exception(f"Status button '{status_name}' not found or not clickable.")
+            except Exception as js_e:
+                print(f"❌ Failed to reach status button: {js_e}")
+                # Log page content/error if critical
+                raise Exception(f"Status button '{status_name}' not found or clickable in footer toolbar.")
+
     
 
     async def set_date_filter(self, start_date, end_date):

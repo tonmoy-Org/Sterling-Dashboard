@@ -186,11 +186,11 @@
       },
       {
         "action": "click",
-        "xpath": "//input[@id='selected_0_5']"
+        "xpath": "//input[@id='selected_0_2']"
       },
       {
         "action": "click",
-        "xpath": "//input[@id='selected_0_7']"
+        "xpath": "//input[@id='selected_0_5']"
       },
       {
         "action": "click",

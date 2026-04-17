@@ -20,7 +20,7 @@ from .serializers import (
     BulkSeenSerializer,
     WorkOrderTodayEditSerializer
 )
-import subprocess, os, sys, json
+import subprocess, os, sys, json, threading
 from automation.main import (
     start_scraping,
     start_fieldedge_scraper,
@@ -102,95 +102,149 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
         import os, time
         lock_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'automation', 'scraper.lock')
         is_running = False
+        start_time = None
         
         if os.path.exists(lock_file):
             try:
-                mtime = os.path.getmtime(lock_file)
-                if time.time() - mtime < 1800:  # 30 mins max execution assumed
-                    is_running = True
-                else:
-                    os.remove(lock_file) # Clean up stale lock
+                with open(lock_file, 'r') as f:
+                    content = f.read().strip()
+                    if content:
+                        start_time = float(content)
+                        # If lock is less than 45 minutes old, it's running
+                        if time.time() - start_time < 2700: 
+                            is_running = True
+                        else:
+                            os.remove(lock_file) # Clean up stale lock
             except Exception:
                 pass
                 
-        return Response({'is_running': is_running}, status=status.HTTP_200_OK)
+        return Response({
+            'is_running': is_running,
+            'start_time': start_time,
+            'elapsed_minutes': round((time.time() - start_time)/60, 1) if start_time else 0
+        }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='start-scraping', permission_classes=[IsAuthenticated])
     def trigger_scraping(self, request):
         """
         Custom action to trigger scraping from WorkOrderToday endpoint
         """
+        # Check if already running first for immediate feedback
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
         try:
-            start_scraping()
+            # Run in background thread to prevent API timeout
+            thread = threading.Thread(target=start_scraping)
+            thread.daemon = True
+            thread.start()
+            
             return Response(
                 {
                     'status': 'success',
-                    'message': 'Scraping started successfully'
+                    'message': 'Scraping started in background'
                 },
                 status=status.HTTP_200_OK
             )
         except Exception as e:
-            return Response(
-                {
-                    'status': 'error',
-                    'message': str(e)
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='start-fieldedge-scraping', permission_classes=[IsAuthenticated])
     def trigger_fieldedge_scraping(self, request):
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
         try:
-            start_fieldedge_scraper()
-            return Response({'status': 'success', 'message': 'FieldEdge scraping started successfully'}, status=status.HTTP_200_OK)
+            thread = threading.Thread(target=start_fieldedge_scraper)
+            thread.daemon = True
+            thread.start()
+            return Response({'status': 'success', 'message': 'FieldEdge scraping started in background'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='start-work-orders-scraping', permission_classes=[IsAuthenticated])
     def trigger_work_orders_scraping(self, request):
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
         try:
-            start_work_orders_scraper()
-            return Response({'status': 'success', 'message': 'Work Orders scraping started successfully'}, status=status.HTTP_200_OK)
+            thread = threading.Thread(target=start_work_orders_scraper)
+            thread.daemon = True
+            thread.start()
+            return Response({'status': 'success', 'message': 'Work Orders scraping started in background'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='start-online-rme-scraping', permission_classes=[IsAuthenticated])
     def trigger_online_rme_scraping(self, request):
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
         try:
-            start_online_rme_scraper()
-            return Response({'status': 'success', 'message': 'Online RME scraping started successfully'}, status=status.HTTP_200_OK)
+            thread = threading.Thread(target=start_online_rme_scraper)
+            thread.daemon = True
+            thread.start()
+            return Response({'status': 'success', 'message': 'Online RME scraping started in background'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='start-work-orders-and-rme-scraping', permission_classes=[IsAuthenticated])
     def trigger_work_orders_and_rme_scraping(self, request):
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
         try:
-            start_work_orders_and_rme_combined()
-            return Response({'status': 'success', 'message': 'Work Orders and Online RME combined scraping started successfully'}, status=status.HTTP_200_OK)
+            thread = threading.Thread(target=start_work_orders_and_rme_combined)
+            thread.daemon = True
+            thread.start()
+            return Response({'status': 'success', 'message': 'Work Orders and Online RME combined scraping started in background'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='start-work-orders-tags-scraping', permission_classes=[IsAuthenticated])
     def trigger_work_orders_tags_scraping(self, request):
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
         try:
-            start_work_orders_tags_scraper()
-            return Response({'status': 'success', 'message': 'Work Orders Tags scraping started successfully'}, status=status.HTTP_200_OK)
+            thread = threading.Thread(target=start_work_orders_tags_scraper)
+            thread.daemon = True
+            thread.start()
+            return Response({'status': 'success', 'message': 'Work Orders Tags scraping started in background'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='start-dispatcher-booked-scraping', permission_classes=[IsAuthenticated])
     def trigger_dispatcher_booked_scraping(self, request):
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
         try:
-            start_dispatcher_booked_scraper()
-            return Response({'status': 'success', 'message': 'Dispatcher Booked scraping started successfully'}, status=status.HTTP_200_OK)
+            thread = threading.Thread(target=start_dispatcher_booked_scraper)
+            thread.daemon = True
+            thread.start()
+            return Response({'status': 'success', 'message': 'Dispatcher Booked scraping started in background'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='start-review-tracker-scraping', permission_classes=[IsAuthenticated])
     def trigger_review_tracker_scraping(self, request):
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
         try:
-            start_review_tracker_scraper()
-            return Response({'status': 'success', 'message': 'Review Tracker scraping started successfully'}, status=status.HTTP_200_OK)
+            thread = threading.Thread(target=start_review_tracker_scraper)
+            thread.daemon = True
+            thread.start()
+            return Response({'status': 'success', 'message': 'Review Tracker scraping started in background'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     

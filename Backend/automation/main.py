@@ -21,8 +21,32 @@ LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scraper.lo
 
 def track_scraper(func):
     def wrapper(*args, **kwargs):
+        # 1. Robust Locking - Prevent multiple simultaneous runs
+        # Shared across both Scheduled runs and Manual API triggers
+        if os.path.exists(LOCK_FILE):
+            try:
+                with open(LOCK_FILE, 'r') as f:
+                    content = f.read().strip()
+                    if content:
+                        lock_start_time = float(content)
+                        # If lock is less than 45 minutes old, assume it's still valid
+                        if time.time() - lock_start_time < 2700: 
+                            print(f"--- SCRAPER ALREADY RUNNING (Started {round((time.time() - lock_start_time)/60, 1)} mins ago) ---")
+                            return None
+            except (ValueError, Exception):
+                pass
+            
+            # If we reach here, lock is either stale or corrupted
+            print("--- CLEANING STALE LOCK ---")
+            try:
+                os.remove(LOCK_FILE)
+            except:
+                pass
+
+        # 2. Create new lock
         with open(LOCK_FILE, 'w') as f:
             f.write(str(time.time()))
+            
         try:
             return func(*args, **kwargs)
         finally:

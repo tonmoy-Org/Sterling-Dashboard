@@ -598,6 +598,7 @@ class WorkOrdersTagsScraper(BaseScraper):
             for data in datas:
                 try:
                     payload = self._build_work_order_payload(data)
+                    print(payload)
                     if not payload:
                         print("Skipping insertion: missing wo_number")
                         continue

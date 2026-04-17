@@ -134,7 +134,7 @@
     "submit_filter": [
       {
         "action": "click",
-        "xpath": "//button[@data-automation-id='apply-filters-button']"
+        "xpath": "//button[@data-automation-id='apply-filters-button'] | //button[contains(@class, 'confirm') and contains(., 'Apply')] | //button[contains(@class, 'plot-map-button')]"
       }
     ],
     "open_work_order_xpath": [

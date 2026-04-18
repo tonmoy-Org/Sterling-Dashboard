@@ -19,6 +19,7 @@ import { useAuth } from '../../../../auth/AuthProvider';
 import { Helmet } from 'react-helmet-async';
 import DashboardLoader from '../../../../components/Loader/DashboardLoader';
 import RefreshButton from '../../../../components/ui/RefreshButton';
+import CommonDialog from '../../../../components/ui/CommonDialog';
 import { rmeApi } from '../../../../api/services/rmeApi';
 
 // ─── Replace local snack state with the global snackbar hook ───────────────────
@@ -205,27 +206,8 @@ const NoteBlock = memo(({ note, accentColor, labelText, textColor }) => (
 ));
 NoteBlock.displayName = 'NoteBlock';
 
-/* ── Generic dialog shell ────────────────────────────────────────────────── */
-const ActionDialog = memo(({ open, onClose, color, icon, title, subtitle, children, actions }) => (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: 'white', borderRadius: '6px', border: `1px solid ${alpha(color, 0.15)}` } }}>
-        <DialogTitle sx={{ borderBottom: `1px solid ${alpha(color, 0.1)}`, pb: 1.5 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ width: 32, height: 32, borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: alpha(color, 0.1), color }}>
-                    {icon}
-                </Box>
-                <Box>
-                    <Typography sx={{ color: PALETTE.TEXT, fontSize: '0.95rem', fontWeight: 600, lineHeight: 1.2 }}>{title}</Typography>
-                    <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.75rem' }}>{subtitle}</Typography>
-                </Box>
-            </Box>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2.5, pb: 1.5 }}>{children}</DialogContent>
-        <DialogActions sx={{ p: 2, pt: 1.5 }}>{actions}</DialogActions>
-    </Dialog>
-));
-ActionDialog.displayName = 'ActionDialog';
+// ActionDialog shell removed in favor of universal CommonDialog
 
-/* ── Move-to-In-Progress dialog ──────────────────────────────────────────── */
 const MoveDialog = memo(({ open, item, onConfirm, onClose }) => {
     const [note, setNote] = useState('');
     React.useEffect(() => { if (item) setNote(''); }, [item]);
@@ -235,20 +217,10 @@ const MoveDialog = memo(({ open, item, onConfirm, onClose }) => {
     }, [note, item, onConfirm, onClose]);
 
     return (
-        <ActionDialog
-            open={open} onClose={onClose}
-            color={PALETTE.ORANGE} icon={<Clock size={18} />}
-            title="Move to In Progress"
-            subtitle={`${item?.customerName} · WO-${item?.workOrderLink?.replace('#wo-', '')}`}
-            actions={
-                <>
-                    <Button onClick={onClose} sx={{ textTransform: 'none', color: PALETTE.TEXT, fontSize: '0.85rem' }}>Cancel</Button>
-                    <Button onClick={handleConfirm} variant="contained" disabled={!note.trim()} startIcon={<ChevronRight size={16} />}
-                        sx={{ textTransform: 'none', fontSize: '0.85rem', fontWeight: 500, px: 2, bgcolor: PALETTE.ORANGE, boxShadow: 'none', '&:hover': { bgcolor: alpha(PALETTE.ORANGE, 0.9), boxShadow: 'none' } }}>
-                        Move to In Progress
-                    </Button>
-                </>
-            }
+        <CommonDialog
+            open={open} onClose={onClose} onConfirm={handleConfirm}
+            title="Move to In Progress" variant="warning" confirmText="Move to In Progress"
+            disabled={!note.trim()} icon={<Clock size={18} />}
         >
             <Box sx={{ p: 1.5, borderRadius: '6px', bgcolor: alpha(PALETTE.ORANGE, 0.05), border: `1px solid ${alpha(PALETTE.ORANGE, 0.1)}`, mb: 2 }}>
                 <Typography variant="caption" sx={{ color: PALETTE.ORANGE, fontSize: '0.8rem', fontWeight: 500 }}>
@@ -258,12 +230,11 @@ const MoveDialog = memo(({ open, item, onConfirm, onClose }) => {
             <TextField multiline rows={4} fullWidth autoFocus value={note} onChange={e => setNote(e.target.value)}
                 placeholder="Describe where this matter currently stands…"
                 sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem', borderRadius: '6px' } }} />
-        </ActionDialog>
+        </CommonDialog>
     );
 });
 MoveDialog.displayName = 'MoveDialog';
 
-/* ── Edit note dialog ────────────────────────────────────────────────────── */
 const EditNoteDialog = memo(({ open, item, onSave, onClose }) => {
     const [note, setNote] = useState('');
     React.useEffect(() => { if (item) setNote(item.note || ''); }, [item]);
@@ -273,30 +244,19 @@ const EditNoteDialog = memo(({ open, item, onSave, onClose }) => {
     }, [note, item, onSave, onClose]);
 
     return (
-        <ActionDialog
-            open={open} onClose={onClose}
-            color={PALETTE.AMBER} icon={<FileText size={18} />}
-            title="Edit Progress Note"
-            subtitle={`${item?.customerName} · WO-${item?.workOrderLink?.replace('#wo-', '')}`}
-            actions={
-                <>
-                    <Button onClick={onClose} sx={{ textTransform: 'none', color: PALETTE.TEXT, fontSize: '0.85rem' }}>Cancel</Button>
-                    <Button onClick={handleSave} variant="contained" disabled={!note.trim()}
-                        sx={{ textTransform: 'none', fontSize: '0.85rem', fontWeight: 500, px: 2, bgcolor: PALETTE.AMBER, boxShadow: 'none', '&:hover': { bgcolor: alpha(PALETTE.AMBER, 0.9), boxShadow: 'none' } }}>
-                        Save Note
-                    </Button>
-                </>
-            }
+        <CommonDialog
+            open={open} onClose={onClose} onConfirm={handleSave}
+            title="Edit Progress Note" variant="warning" confirmText="Save Note"
+            disabled={!note.trim()} icon={<FileText size={18} />}
         >
             <TextField multiline rows={4} fullWidth autoFocus value={note} onChange={e => setNote(e.target.value)}
                 placeholder="Describe current progress…"
                 sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem', borderRadius: '6px' } }} />
-        </ActionDialog>
+        </CommonDialog>
     );
 });
 EditNoteDialog.displayName = 'EditNoteDialog';
 
-/* ── Complete dialog ─────────────────────────────────────────────────────── */
 const CompleteDialog = memo(({ open, item, onConfirm, onClose }) => {
     const [note, setNote] = useState('');
     React.useEffect(() => { if (item) setNote(''); }, [item]);
@@ -306,20 +266,10 @@ const CompleteDialog = memo(({ open, item, onConfirm, onClose }) => {
     }, [note, item, onConfirm, onClose]);
 
     return (
-        <ActionDialog
-            open={open} onClose={onClose}
-            color={PALETTE.GREEN} icon={<CheckCheck size={18} />}
-            title="Mark as Completed"
-            subtitle={`${item?.customerName} · WO-${item?.workOrderLink?.replace('#wo-', '')}`}
-            actions={
-                <>
-                    <Button onClick={onClose} sx={{ textTransform: 'none', color: PALETTE.TEXT, fontSize: '0.85rem' }}>Cancel</Button>
-                    <Button onClick={handleConfirm} variant="contained" startIcon={<CheckCheck size={16} />}
-                        sx={{ textTransform: 'none', fontSize: '0.85rem', fontWeight: 500, px: 2, bgcolor: PALETTE.GREEN, boxShadow: 'none', '&:hover': { bgcolor: alpha(PALETTE.GREEN, 0.9), boxShadow: 'none' } }}>
-                        Mark Complete
-                    </Button>
-                </>
-            }
+        <CommonDialog
+            open={open} onClose={onClose} onConfirm={handleConfirm}
+            title="Mark as Completed" variant="success" confirmText="Mark Complete"
+            icon={<CheckCheck size={18} />}
         >
             <Typography variant="body2" sx={{ color: PALETTE.TEXT, fontSize: '0.85rem', mb: 2 }}>
                 Optionally add a closing note before completing.
@@ -327,53 +277,34 @@ const CompleteDialog = memo(({ open, item, onConfirm, onClose }) => {
             <TextField multiline rows={3} fullWidth value={note} onChange={e => setNote(e.target.value)}
                 placeholder="Optional — e.g. Issue resolved, customer satisfied…"
                 sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.875rem', borderRadius: '6px' } }} />
-        </ActionDialog>
+        </CommonDialog>
     );
 });
 CompleteDialog.displayName = 'CompleteDialog';
 
-/* ── Move-to-bin confirmation dialog ─────────────────────────────────────── */
 const DeleteConfirmDialog = memo(({ open, onClose, onConfirm, isBulk, item, count }) => (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth
-        PaperProps={{ sx: { bgcolor: 'white', borderRadius: '10px', border: `1px solid ${alpha(PALETTE.ORANGE, 0.15)}`, overflow: 'hidden' } }}>
-        <DialogTitle sx={{ borderBottom: `1px solid ${alpha(PALETTE.ORANGE, 0.1)}`, pb: 1.5, background: `linear-gradient(135deg, ${alpha(PALETTE.ORANGE, 0.05)} 0%, transparent 100%)` }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ width: 36, height: 36, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(PALETTE.ORANGE, 0.1), color: PALETTE.ORANGE }}>
-                    <Trash2 size={17} />
-                </Box>
-                <Box>
-                    <Typography sx={{ color: PALETTE.TEXT, fontSize: '0.92rem', fontWeight: 700, lineHeight: 1.2 }}>Move to Recycle Bin</Typography>
-                    <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.75rem' }}>Item can be restored later</Typography>
-                </Box>
-            </Box>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2.5, pb: 1.5 }}>
-            <Typography variant="body2" sx={{ color: PALETTE.TEXT, fontSize: '0.85rem', lineHeight: 1.6, mb: 2 }}>
-                {isBulk ? (
-                    <>Are you sure you want to move <Box component="strong" sx={{ color: PALETTE.ORANGE }}>{count} item(s)</Box> to the Recycle Bin?</>
-                ) : (
-                    <>Are you sure you want to move the work order for <Box component="strong">{item?.customerName}</Box> to the Recycle Bin?</>
-                )}
+    <CommonDialog
+        open={open} onClose={onClose} onConfirm={onConfirm}
+        title="Move to Recycle Bin" variant="warning" confirmText="Move to Bin"
+        icon={<Trash2 size={18} />}
+    >
+        <Typography variant="body2" sx={{ color: PALETTE.TEXT, fontSize: '0.85rem', lineHeight: 1.6, mb: 2 }}>
+            {isBulk ? (
+                <>Are you sure you want to move <Box component="strong" sx={{ color: PALETTE.ORANGE }}>{count} item(s)</Box> to the Recycle Bin?</>
+            ) : (
+                <>Are you sure you want to move the work order for <Box component="strong">{item?.customerName}</Box> to the Recycle Bin?</>
+            )}
+        </Typography>
+        <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: alpha(PALETTE.ORANGE, 0.05), border: `1px solid ${alpha(PALETTE.ORANGE, 0.12)}`, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+            <AlertCircle size={15} color={PALETTE.ORANGE} style={{ flexShrink: 0, marginTop: 1 }} />
+            <Typography variant="caption" sx={{ color: PALETTE.ORANGE, fontSize: '0.78rem', fontWeight: 500 }}>
+                Items moved to Recycle Bin can be restored later.
             </Typography>
-            <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: alpha(PALETTE.ORANGE, 0.05), border: `1px solid ${alpha(PALETTE.ORANGE, 0.12)}`, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <AlertCircle size={15} color={PALETTE.ORANGE} style={{ flexShrink: 0, marginTop: 1 }} />
-                <Typography variant="caption" sx={{ color: PALETTE.ORANGE, fontSize: '0.78rem', fontWeight: 500 }}>
-                    Items moved to Recycle Bin can be restored later.
-                </Typography>
-            </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 1.5, gap: 1 }}>
-            <Button onClick={onClose} sx={{ textTransform: 'none', color: PALETTE.GRAY, fontSize: '0.83rem', fontWeight: 500, px: 2, borderRadius: '6px', border: `1px solid ${alpha(PALETTE.GRAY, 0.25)}` }}>Cancel</Button>
-            <Button onClick={() => { onConfirm(); onClose(); }} variant="contained" startIcon={<Trash2 size={15} />}
-                sx={{ textTransform: 'none', fontSize: '0.83rem', fontWeight: 600, px: 2, borderRadius: '6px', bgcolor: PALETTE.ORANGE, boxShadow: `0 4px 14px ${alpha(PALETTE.ORANGE, 0.35)}`, '&:hover': { bgcolor: alpha(PALETTE.ORANGE, 0.88) } }}>
-                Move to Bin
-            </Button>
-        </DialogActions>
-    </Dialog>
+        </Box>
+    </CommonDialog>
 ));
 DeleteConfirmDialog.displayName = 'DeleteConfirmDialog';
 
-/* ── Permanent-delete confirmation dialog ─────────────────────────────────── */
 const PermanentDeleteDialog = memo(({ open, onClose, onConfirm, isBulk, item, count }) => {
     const [loading, setLoading] = useState(false);
 
@@ -385,43 +316,26 @@ const PermanentDeleteDialog = memo(({ open, onClose, onConfirm, isBulk, item, co
     }, [onConfirm, onClose]);
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth
-            PaperProps={{ sx: { bgcolor: 'white', borderRadius: '12px', border: `1px solid ${alpha(PALETTE.RED, 0.12)}`, overflow: 'hidden' } }}>
-            <DialogTitle sx={{ borderBottom: `1px solid ${alpha(PALETTE.RED, 0.1)}`, pb: 1.5, pt: 2, px: 2.5, background: `linear-gradient(135deg, ${alpha(PALETTE.RED, 0.05)} 0%, transparent 100%)` }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{ width: 36, height: 36, borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg, ${alpha(PALETTE.RED, 0.15)}, ${alpha(PALETTE.RED, 0.08)})`, color: PALETTE.RED, border: `1px solid ${alpha(PALETTE.RED, 0.15)}` }}>
-                        <Trash2 size={17} />
-                    </Box>
-                    <Box>
-                        <Typography sx={{ color: PALETTE.TEXT, fontSize: '0.92rem', fontWeight: 700, lineHeight: 1.2 }}>Delete Permanently</Typography>
-                        <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.75rem' }}>Permanently delete from recycle bin</Typography>
-                    </Box>
+        <CommonDialog
+            open={open} onClose={onClose} onConfirm={handleConfirm}
+            title="Delete Permanently" variant="danger" confirmText="Delete Permanently"
+            isLoading={loading} icon={<Trash2 size={18} />}
+        >
+            <Typography variant="body2" sx={{ color: PALETTE.TEXT, fontSize: '0.85rem', lineHeight: 1.6, mb: 2 }}>
+                {isBulk ? (
+                    <>Are you sure you want to permanently delete <Box component="strong" sx={{ color: PALETTE.RED }}>{count} item(s)</Box> from the recycle bin?</>
+                ) : (
+                    <>Are you sure you want to permanently delete the work order for <Box component="strong">{item?.customerName}</Box>?</>
+                )}
+            </Typography>
+            <Box sx={{ p: 1.5, borderRadius: '8px', backgroundColor: alpha(PALETTE.RED, 0.05), border: `1px solid ${alpha(PALETTE.RED, 0.12)}`, display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
+                <AlertCircle size={17} color={PALETTE.RED} style={{ flexShrink: 0, marginTop: 1 }} />
+                <Box>
+                    <Typography variant="body2" sx={{ color: PALETTE.RED, fontSize: '0.82rem', fontWeight: 600, mb: 0.25 }}>Warning — cannot be undone</Typography>
+                    <Typography variant="caption" sx={{ color: PALETTE.TEXT, fontSize: '0.78rem', opacity: 0.75 }}>This data will be permanently erased and cannot be recovered.</Typography>
                 </Box>
-            </DialogTitle>
-            <DialogContent sx={{ pt: 2.5, pb: 1.5, px: 2.5 }}>
-                <Typography variant="body2" sx={{ color: PALETTE.TEXT, fontSize: '0.85rem', lineHeight: 1.6, mb: 2 }}>
-                    {isBulk ? (
-                        <>Are you sure you want to permanently delete <Box component="strong" sx={{ color: PALETTE.RED }}>{count} item(s)</Box> from the recycle bin?</>
-                    ) : (
-                        <>Are you sure you want to permanently delete the work order for <Box component="strong">{item?.customerName}</Box>?</>
-                    )}
-                </Typography>
-                <Box sx={{ p: 1.5, borderRadius: '8px', backgroundColor: alpha(PALETTE.RED, 0.05), border: `1px solid ${alpha(PALETTE.RED, 0.12)}`, display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
-                    <AlertCircle size={17} color={PALETTE.RED} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <Box>
-                        <Typography variant="body2" sx={{ color: PALETTE.RED, fontSize: '0.82rem', fontWeight: 600, mb: 0.25 }}>Warning — cannot be undone</Typography>
-                        <Typography variant="caption" sx={{ color: PALETTE.TEXT, fontSize: '0.78rem', opacity: 0.75 }}>This data will be permanently erased and cannot be recovered.</Typography>
-                    </Box>
-                </Box>
-            </DialogContent>
-            <DialogActions sx={{ p: 2, pt: 1.5, gap: 1 }}>
-                <Button onClick={onClose} disabled={loading} sx={{ textTransform: 'none', color: PALETTE.GRAY, fontSize: '0.83rem', fontWeight: 500, px: 2, borderRadius: '7px', border: `1px solid ${alpha(PALETTE.GRAY, 0.25)}` }}>Cancel</Button>
-                <Button onClick={handleConfirm} disabled={loading} variant="contained" startIcon={loading ? null : <Trash2 size={15} />}
-                    sx={{ textTransform: 'none', fontSize: '0.83rem', fontWeight: 600, px: 2, borderRadius: '7px', bgcolor: PALETTE.RED, boxShadow: `0 4px 14px ${alpha(PALETTE.RED, 0.35)}`, '&:hover': { bgcolor: alpha(PALETTE.RED, 0.88) }, '&.Mui-disabled': { opacity: 0.6 } }}>
-                    {loading ? 'Deleting…' : 'Delete Permanently'}
-                </Button>
-            </DialogActions>
-        </Dialog>
+            </Box>
+        </CommonDialog>
     );
 });
 PermanentDeleteDialog.displayName = 'PermanentDeleteDialog';

@@ -421,3 +421,45 @@ class APIClient:
         except requests.RequestException as e:
             print(f"Connection error during {method}: {e}")
             return None
+    def insert_review(self, review_data):
+        """
+        Insert a single review.
+        Checks for existing review with same reviewer and text to avoid duplicates.
+
+        Args:
+            review_data: Dictionary containing review details
+
+        Returns:
+            bool: True if successful or skipped (duplicate), False otherwise
+        """
+        reviewer_name = review_data.get("reviewer_name")
+        review_text = review_data.get("review_text", "")
+
+        if not reviewer_name:
+            print("reviewer_name is required.")
+            return False
+
+        # 1. Check if review already exists
+        result = self.manage_reviews(
+            method_type="GET",
+            params={"reviewer_name": reviewer_name}
+        )
+
+        if result and isinstance(result, list):
+            for existing in result:
+                if existing.get("review_text") == review_text:
+                    print(f"Review by {reviewer_name} already exists. Skipping.")
+                    return True
+
+        # 2. Create new record
+        create_result = self.manage_reviews(
+            method_type="POST",
+            data=review_data
+        )
+
+        if create_result is not None:
+            print(f"Review by {reviewer_name} inserted successfully.")
+            return True
+        else:
+            print(f"Failed to insert review by {reviewer_name}.")
+            return False

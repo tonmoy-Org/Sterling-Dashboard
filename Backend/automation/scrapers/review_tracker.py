@@ -1,83 +1,270 @@
 """
 Review Tracker Scraper
-Scrapes review-related data or performs review tracking tasks.
+Scrapes Google reviews for Sterling Septic & Plumbing LLC.
 """
-
 import asyncio
 import traceback
 import time as _time
-from django.utils import timezone
+from datetime import datetime
 from asgiref.sync import sync_to_async
+from django.utils import timezone
 from automation.scrapers.base_scraper import BaseScraper
-
 
 class ReviewTrackerScraper(BaseScraper):
     """
-    Scraper for tracking reviews.
-    Currently a placeholder for tracking customer reviews or related data.
+    Scraper for Google Maps reviews.
+    Navigates to the business profile, scrolls reviews, and extracts details.
     """
 
     def __init__(self):
         """Initialize review tracker scraper."""
         super().__init__()
+        # Target URL for Sterling Septic & Plumbing LLC reviews on Google Maps
+        self.target_url = "https://www.google.com/maps/place/Sterling+Septic+%26+Plumbing+LLC/@47.1477057,-122.3684081,4154m/data=!3m1!1e3!4m10!1m2!2m1!1sSeptic+system+service!3m6!1s0x54911ceea9f5605f:0xa8488b08b377e811!8m2!3d47.1477077!4d-122.3529584!15sChVTZXB0aWMgc3lzdGVtIHNlcnZpY2VaFyIVc2VwdGljIHN5c3RlbSBzZXJ2aWNlkgEVc2VwdGljX3N5c3RlbV9zZXJ2aWNlmgEjQ2haRFNVaE5NRzluUzBWSlEwRm5TVVIxY1dOSFdGTm5FQUXgAQD6AQQIABBD!16s%2Fg%2F11dyb5zmdk?entry=ttu&g_ep=EgoyMDI2MDQxNC4wIKXMDSoASAFQAw%3D%3D"
 
-    def save_review(self, employee_name, platform_name, rating, review_text):
-        """
-        Save a review to the database, creating employee and platform if they don't exist.
-        """
+    async def open_reviews_tab(self):
+        """Navigate to the reviews tab."""
         try:
-            from reviews.models import Employee, Platform, Review
+            print("➡️ Opening reviews tab...")
+            # Look for the Reviews tab button
+            review_tab = self.page.locator("button[role='tab']:has-text('Reviews')")
             
-            # Get or create employee
-            employee, _ = Employee.objects.get_or_create(name=employee_name)
+            if await review_tab.count() == 0:
+                # Fallback: look for any tab with review text
+                review_tab = self.page.locator("button[role='tab']").filter(has_text="Reviews")
             
-            # Get or create platform
-            platform, _ = Platform.objects.get_or_create(name=platform_name)
+            if await review_tab.count() > 0:
+                await review_tab.first.click()
+                print("✅ Clicked Reviews tab")
+            else:
+                print("⚠️ Reviews tab not found")
+                return False
             
-            # Create review
-            review = Review.objects.create(
-                employee=employee,
-                platform=platform,
-                rating=rating,
-                review_text=review_text
-            )
-            print(f"✅ Saved review for {employee_name} on {platform_name}")
+            # Wait for reviews panel to load
+            await self.page.wait_for_selector("div[role='feed']", timeout=15000)
+            await asyncio.sleep(2)
+            
+            print("✅ Reviews panel opened")
             return True
+            
         except Exception as e:
-            print(f"❌ Error saving review: {e}")
+            print(f"❌ Error opening reviews tab: {e}")
             return False
 
-    async def run(self):
-        """
-        Execute the review tracking workflow.
+    async def scroll_reviews(self, scrolls=25):
+        """Scroll down the review feed to load more reviews."""
+        try:
+            print(f"➡️ Scrolling reviews ({scrolls} times)...")
+            feed = self.page.locator("div[role='feed']")
+            
+            if await feed.count() == 0:
+                print("❌ Review feed not found")
+                return
+            
+            # Hover over the feed to make sure scroll events reach it
+            await feed.first.hover()
+            
+            previous_count = 0
+            no_new_reviews_count = 0
+            
+            for i in range(scrolls):
+                # Use mouse wheel for more natural scrolling that triggers Google's lazy loading
+                await self.page.mouse.wheel(0, 8000)
+                await asyncio.sleep(2.5)
+                
+                # Check how many reviews we have now
+                current_reviews = self.page.locator("div.jftiEf")
+                current_count = await current_reviews.count()
+                
+                print(f"  Scroll {i+1}: Found {current_count} reviews so far")
+                
+                if current_count == previous_count:
+                    # Fallback: manual scroll evaluation if mouse wheel didn't trigger load
+                    await feed.first.evaluate("el => el.scrollBy(0, el.scrollHeight)")
+                    await asyncio.sleep(3)
+                    current_count = await current_reviews.count()
+                    
+                    if current_count == previous_count:
+                        no_new_reviews_count += 1
+                        if no_new_reviews_count >= 3:
+                            print("  No new reviews loading, stopping scroll")
+                            break
+                    else:
+                        no_new_reviews_count = 0
+                        previous_count = current_count
+                else:
+                    no_new_reviews_count = 0
+                    previous_count = current_count
+                
+                await asyncio.sleep(0.5)
+            
+            print(f"✅ Scrolling done. Total reviews found: {previous_count}")
+            
+        except Exception as e:
+            print(f"❌ Scroll error: {e}")
 
-        Returns:
-            bool: True if successful, False otherwise
-        """
+    async def scrape_reviews(self):
+        """Extract all loaded reviews from the page."""
+        try:
+            print("➡️ Scraping reviews...")
+            await asyncio.sleep(2)
+            
+            reviews = self.page.locator("div.jftiEf")
+            review_count = await reviews.count()
+            print(f"✅ Found {review_count} reviews in feed")
+            
+            scraped_data = []
+            
+            for i in range(review_count):
+                try:
+                    review = reviews.nth(i)
+                    
+                    # 1. REVIEWER NAME
+                    name_el = review.locator("div.d4r55")
+                    reviewer_name = await name_el.inner_text() if await name_el.count() > 0 else "N/A"
+                    
+                    # 2. RATING
+                    rating_el = review.locator("span.kvMYJc")
+                    rating_text = "N/A"
+                    rating_value = 0
+                    if await rating_el.count() > 0:
+                        aria_label = await rating_el.get_attribute("aria-label")
+                        if aria_label:
+                            rating_text = aria_label
+                            try:
+                                # Extract number from "5 stars"
+                                rating_value = int(aria_label.split()[0])
+                            except:
+                                rating_value = 0
+                    
+                    # 3. DATE
+                    date_el = review.locator("span.rsqaWe")
+                    review_date = await date_el.inner_text() if await date_el.count() > 0 else "N/A"
+                    
+                    # 4. REVIEW TEXT
+                    text_el = review.locator("span.wiI7pd").first
+                    review_text = await text_el.inner_text() if await text_el.count() > 0 else ""
+                    
+                    # Check for "More" button to expand full text
+                    # We target expandReview specifically to avoid clicking expandOwnerResponse
+                    more_button = review.locator("button.w8nwRe[jsaction*='expandReview']").first
+                    if await more_button.count() > 0:
+                        try:
+                            button_text = await more_button.inner_text()
+                            if "More" in button_text:
+                                await more_button.click()
+                                await asyncio.sleep(0.5)
+                                review_text = await text_el.inner_text() if await text_el.count() > 0 else review_text
+                        except:
+                            pass
+                    
+                    # 5. PRICE ASSESSMENT & SERVICES
+                    price_assessment = "N/A"
+                    price_range = "N/A"
+                    services_mentioned = "N/A"
+                    
+                    info_divs = review.locator("div.PBK6be")
+                    info_count = await info_divs.count()
+                    
+                    for j in range(info_count):
+                        div = info_divs.nth(j)
+                        div_text = await div.inner_text()
+                        
+                        if "Price assessment" in div_text or "Reasonable price" in div_text:
+                            spans = div.locator("span.RfDO5c")
+                            for k in range(await spans.count()):
+                                span_text = await spans.nth(k).inner_text()
+                                if "Price assessment" not in span_text and "Reasonable price" not in span_text:
+                                    if span_text and len(span_text) < 50:
+                                        price_assessment = span_text
+                                        break
+                        
+                        if "$" in div_text or "above" in div_text.lower():
+                            spans = div.locator("span.RfDO5c")
+                            for k in range(await spans.count()):
+                                span_text = await spans.nth(k).inner_text()
+                                if "$" in span_text or "above" in span_text:
+                                    price_range = span_text
+                                    break
+                        
+                        if any(service in div_text.lower() for service in ["septic", "sewer", "repair", "installation", "pumping"]):
+                            spans = div.locator("span.RfDO5c")
+                            services_list = []
+                            for k in range(await spans.count()):
+                                span_text = await spans.nth(k).inner_text()
+                                if any(service in span_text.lower() for service in ["septic", "sewer", "repair", "installation", "pumping"]):
+                                    services_list.append(span_text)
+                            if services_list:
+                                services_mentioned = ", ".join(services_list)
+                    
+                    scraped_data.append({
+                        "reviewer_name": reviewer_name,
+                        "rating_text": rating_text,
+                        "rating_value": rating_value,
+                        "review_date": review_date,
+                        "review_text": review_text,
+                        "price_assessment": price_assessment,
+                        "price_range": price_range,
+                        "services_mentioned": services_mentioned
+                    })
+                    
+                except Exception as e:
+                    print(f"⚠️ Error reading review {i+1}: {e}")
+                    continue
+            
+            return scraped_data
+            
+        except Exception as e:
+            print(f"❌ Scraping error: {e}")
+            return []
+
+    async def run(self):
+        """Execute the complete review scraping workflow."""
         _start_time = _time.time()
         _error_occurred = None
         _records_processed = 0
+        reviews_scraped_count = 0
 
         try:
             print("=== Starting Review Tracker Scraper ===")
             await self.initialize()
+            
+            print(f"Navigating to: {self.target_url}")
+            await self.page.goto(self.target_url, wait_until="domcontentloaded", timeout=60000)
+            
+            # Wait for business page load
+            try:
+                await self.page.wait_for_selector("h1.DUwDvf", timeout=30000)
+            except:
+                print("Warning: Business title not immediately visible.")
 
-            url = "https://www.google.com/search?newwindow=1&sca_esv=579903341&sxsrf=ANbL-n6C3gxwbg0-V-3Fz6H82DWO0BvU7A:1776365289055&si=AL3DRZEsmMGCryMMFSHJ3StBhOdZ2-6yYkXd_doETEE1OR-qOdRbgBiTbqWwkCt_o3OUMbuF6ssajkmu7_gtjg2zxemPcOuOu7r1IIG_HbEfL4MZIPVNOtaHC8C8aqQtktQ4uTEeWCtGeESRpFpBiYmRSYyPdRVTRQ%3D%3D&q=Sterling+Septic+%26+Plumbing+LLC+Reviews&sa=X&ved=2ahUKEwjqpa6whPOTAxUnha8BHUrxE0YQ0bkNegQINBAH"
-            print(f"Navigating to: {url}")
-            
-            await self.page.goto(url, wait_until="domcontentloaded")
-            print("Page loaded. Browser will remain open for inspection.")
-            
-            # Keep the browser open for manual inspection
-            await asyncio.sleep(3600)  # Sleep for 1 hour or until process is killed
-            
-            return True
+            # Open reviews tab and extract data
+            if await self.open_reviews_tab():
+                await self.scroll_reviews(scrolls=20)
+                reviews = await self.scrape_reviews()
+                reviews_scraped_count = len(reviews)
+                
+                if reviews:
+                    print(f"Inserting {len(reviews)} reviews into database...")
+                    for review in reviews:
+                        # Use api_client which handles auth and deduplication via reviewer_name/text
+                        success = self.api_client.insert_review(review)
+                        if success:
+                            _records_processed += 1
+                    
+                    print(f"✅ Successfully inserted/verified {_records_processed} reviews.")
+                else:
+                    print("❌ No reviews found after scrolling.")
+            else:
+                _error_occurred = "Could not navigate to the reviews tab."
+                
+            return _records_processed > 0
 
         except Exception as e:
-            print(f"Scraping error in Review Tracker: {e}")
+            print(f"Critical error in Review Tracker: {e}")
             _error_occurred = f"{str(e)}\n{traceback.format_exc()}"
-            return None
-
+            return False
+            
         finally:
             await self.cleanup()
 
@@ -85,7 +272,7 @@ class ReviewTrackerScraper(BaseScraper):
             _elapsed = _time.time() - _start_time
             try:
                 from status.models import ScraperExecutionLog, Incident
-                
+
                 def _log_execution():
                     ScraperExecutionLog.objects.create(
                         scraper_name="review-tracker-scraper",
@@ -93,16 +280,17 @@ class ReviewTrackerScraper(BaseScraper):
                         error_message=_error_occurred,
                         records_processed=_records_processed,
                         execution_time_seconds=round(_elapsed, 2),
+                        details={"reviews_found": reviews_scraped_count},
                     )
-                    
+
                     if _error_occurred:
                         incident, created = Incident.objects.get_or_create(
                             service_name="review-tracker-scraper",
                             status="active",
                             defaults={
                                 "title": "Review Tracker Scraper Error",
-                                "description": _error_occurred
-                            }
+                                "description": _error_occurred,
+                            },
                         )
                         if not created:
                             incident.description = _error_occurred
@@ -110,15 +298,19 @@ class ReviewTrackerScraper(BaseScraper):
                     else:
                         active_incidents = Incident.objects.filter(
                             service_name="review-tracker-scraper",
-                            status="active"
+                            status="active",
                         )
                         if active_incidents.exists():
                             for incident in active_incidents:
                                 incident.status = "resolved"
                                 incident.resolved_at = timezone.now()
                                 incident.save()
-                                
+
                 await sync_to_async(_log_execution)()
                 print(f"📝 Execution logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s)")
             except Exception as log_err:
                 print(f"⚠️ Failed to log execution: {log_err}")
+
+if __name__ == "__main__":
+    scraper = ReviewTrackerScraper()
+    asyncio.run(scraper.run())

@@ -7,6 +7,7 @@ import {
     Search,
     UserCog,
     BarChart3,
+    Star,
 } from 'lucide-react';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { workOrdersApi } from '../../../api/services/workOrders';
@@ -385,6 +386,12 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
             text: 'Dispatch KPI',
             icon: <BarChart3 size={18} />,
             path: '/manager-dashboard/dispatch-kpi',
+            section: 'SYSTEM',
+        },
+        {
+            text: 'Review Tracking',
+            icon: <Star size={18} />,
+            path: '/manager-dashboard/review-tracking',
             section: 'SYSTEM',
         },
         {

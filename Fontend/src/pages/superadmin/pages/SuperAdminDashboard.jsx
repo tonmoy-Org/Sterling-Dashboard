@@ -7,8 +7,10 @@ import h1 from '../../../assets/homepage/h1.jpeg';
 import h2 from '../../../assets/homepage/h2.jpeg';
 import h3 from '../../../assets/homepage/h3.jpeg';
 import h4 from '../../../assets/homepage/h4.jpeg';
-import h5 from '../../../assets/homepage/h6.jpeg';
-import h6 from '../../../assets/homepage/h7.png';
+import h5 from '../../../assets/homepage/h5.jpeg';
+import h6 from '../../../assets/homepage/h6.jpeg';
+import h7 from '../../../assets/homepage/h7.jpeg';
+import h8 from '../../../assets/homepage/h8.jpeg';
 import { useNotifications } from '../../../hooks/useNotifications';
 
 const getOneMonthAgo = () => {
@@ -26,11 +28,12 @@ const isValidDate = (dateString) => {
 const dashboardCards = [
   { label: 'Lookup Tool', route: 'https://dashboard.sterlingsepticandplumbing.com/lookup', handwritten: true, image: h4, notificationPath: null },
   { label: 'RME', route: '/super-admin-dashboard/rme/work-orders', handwritten: true, image: h2, notificationPath: '/super-admin-dashboard/rme/work-orders' },
-  { label: 'Tank Repairs', route: '/super-admin-dashboard/repairs', handwritten: true, image: h5, notificationPath: null },
+  { label: 'Tank Repairs', route: '/super-admin-dashboard/repairs', handwritten: true, image: h6, notificationPath: null },
   { label: 'Locates', route: '/super-admin-dashboard/locates/work-orders', handwritten: true, image: h3, notificationPath: '/super-admin-dashboard/locates/work-orders' },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
   { label: 'Customer Center', route: '/super-admin-dashboard/customer-center', handwritten: true, image: h1, notificationPath: '/super-admin-dashboard/customer-center' },
-  { label: 'Dispatch KPI', route: '/super-admin-dashboard/dispatch-kpi', handwritten: true, image: h6, notificationPath: '/super-admin-dashboard/dispatch-kpi' },
+  { label: 'Dispatch KPI', route: '/super-admin-dashboard/dispatch-kpi', handwritten: true, image: h7, notificationPath: '/super-admin-dashboard/dispatch-kpi' },
+  { label: 'Review Tracking', route: '/super-admin-dashboard/review-tracking', handwritten: true, image: h8, notificationPath: null },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
 ];
@@ -140,9 +143,9 @@ export const SuperAdminDashboard = () => {
           position: 'relative',
           '&:hover': card.route
             ? {
-                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
-                transform: 'translateY(-2px)',
-              }
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+              transform: 'translateY(-2px)',
+            }
             : {},
         }}
       >

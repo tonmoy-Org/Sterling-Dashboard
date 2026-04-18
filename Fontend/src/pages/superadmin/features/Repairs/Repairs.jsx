@@ -78,6 +78,7 @@ import RecycleBinModal from './RecycleBinModal';
 import { useAuth } from '../../../../auth/AuthProvider';
 import { useGlobalSnackbar } from '../../../../context/GlobalSnackbarContext';
 import { format } from 'date-fns';
+import CommonDialog from '../../../../components/ui/CommonDialog';
 
 const TEXT_COLOR = '#0F1115';
 const BLUE_COLOR = '#1976d2';
@@ -236,85 +237,7 @@ const transformToAPIFormat = (data) => {
   return apiData;
 };
 
-const DeleteConfirmationModal = ({
-  open,
-  onClose,
-  onConfirm,
-  title,
-  message,
-  confirmText = "Move to Recycle Bin",
-  cancelText = "Cancel",
-  severity = "warning"
-}) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      fullScreen={isMobile}
-      PaperProps={{
-        sx: isMobile ? {
-          margin: 0,
-          maxHeight: '100%',
-          position: 'absolute',
-          bottom: 0,
-          borderBottomLeftRadius: 0,
-          borderBottomRightRadius: 0
-        } : {}
-      }}
-    >
-      <DialogTitle sx={{ pb: 1, px: isMobile ? 2 : 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {severity === 'warning' ? (
-            <AlertTriangle size={24} color={ORANGE_COLOR} />
-          ) : (
-            <Trash2 size={24} color={RED_COLOR} />
-          )}
-          <Typography variant="h6" sx={{ fontSize: isMobile ? '0.9rem' : '0.95rem', fontWeight: 600, color: TEXT_COLOR }}>
-            {title}
-          </Typography>
-        </Box>
-      </DialogTitle>
-      <DialogContent sx={{ px: isMobile ? 2 : 3 }}>
-        <Typography variant="body2" sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem', color: TEXT_COLOR, lineHeight: 1.6 }}>
-          {message}
-        </Typography>
-        <Box sx={{ mt: 2, p: 2, bgcolor: alpha(ORANGE_COLOR, 0.05), borderRadius: 1 }}>
-          <Typography variant="caption" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem', color: ORANGE_COLOR, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Info size={14} />
-            Note: Items moved to Recycle Bin can be restored later
-          </Typography>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: isMobile ? 2 : 3, py: 2, flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 1 : 0 }}>
-        <OutlineButton
-          onClick={onClose}
-          fullWidth={isMobile}
-          sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}
-        >
-          {cancelText}
-        </OutlineButton>
-        <OutlineButton
-          variant="outlined"
-          color="error"
-          onClick={() => {
-            onConfirm();
-            onClose();
-          }}
-          startIcon={<Trash2 size={16} />}
-          fullWidth={isMobile}
-          sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem', ml: isMobile ? 0 : 1 }}
-        >
-          {confirmText}
-        </OutlineButton>
-      </DialogActions>
-    </Dialog>
-  );
-};
+// Local DeleteConfirmationModal removed in favor of universal CommonDialog
 
 const Repairs = () => {
   const theme = useTheme();
@@ -1801,30 +1724,48 @@ const Repairs = () => {
       {filterStage === 'all' ? REPAIR_STAGES.map(stage => renderStageCard(stage)) : renderStageCard(REPAIR_STAGES.find(s => s.id === filterStage))}
 
       {/* Move to Recycle Bin — single */}
-      <DeleteConfirmationModal
+      <CommonDialog
         open={deleteConfirmationOpen}
         onClose={() => setDeleteConfirmationOpen(false)}
         onConfirm={confirmSingleSoftDelete}
         title="Move to Recycle Bin"
-        message={deleteTarget.type === 'single' && deleteTarget.customerName
-          ? `Are you sure you want to move repair for "${deleteTarget.customerName}" to the Recycle Bin?`
-          : "Are you sure you want to move this repair to the Recycle Bin?"}
+        variant="warning"
         confirmText="Move to Recycle Bin"
-        cancelText="Cancel"
-        severity="warning"
-      />
+        icon={<Trash2 size={18} />}
+      >
+        <Typography variant="body2" sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem', color: TEXT_COLOR, lineHeight: 1.6 }}>
+          {deleteTarget.type === 'single' && deleteTarget.customerName
+            ? `Are you sure you want to move repair for "${deleteTarget.customerName}" to the Recycle Bin?`
+            : "Are you sure you want to move this repair to the Recycle Bin?"}
+        </Typography>
+        <Box sx={{ mt: 2, p: 2, bgcolor: alpha(ORANGE_COLOR, 0.05), borderRadius: 1 }}>
+          <Typography variant="caption" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem', color: ORANGE_COLOR, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Info size={14} />
+            Note: Items moved to Recycle Bin can be restored later
+          </Typography>
+        </Box>
+      </CommonDialog>
 
       {/* Move to Recycle Bin — bulk */}
-      <DeleteConfirmationModal
+      <CommonDialog
         open={bulkDeleteConfirmationOpen}
         onClose={() => setBulkDeleteConfirmationOpen(false)}
         onConfirm={confirmBulkSoftDelete}
         title="Move Multiple Items to Recycle Bin"
-        message={`Are you sure you want to move ${deleteTarget.count} selected repair(s) to the Recycle Bin?`}
+        variant="warning"
         confirmText={`Move ${deleteTarget.count} Items to Recycle Bin`}
-        cancelText="Cancel"
-        severity="warning"
-      />
+        icon={<Trash2 size={18} />}
+      >
+        <Typography variant="body2" sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem', color: TEXT_COLOR, lineHeight: 1.6 }}>
+          Are you sure you want to move {deleteTarget.count} selected repair(s) to the Recycle Bin?
+        </Typography>
+        <Box sx={{ mt: 2, p: 2, bgcolor: alpha(ORANGE_COLOR, 0.05), borderRadius: 1 }}>
+          <Typography variant="caption" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem', color: ORANGE_COLOR, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Info size={14} />
+            Note: Items moved to Recycle Bin can be restored later
+          </Typography>
+        </Box>
+      </CommonDialog>
 
       {/* Details dialog */}
       <Dialog open={detailsDialogOpen} onClose={() => setDetailsDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: isMobile ? { margin: 0, maxHeight: '100%', borderRadius: 0 } : {} }}>

@@ -1,20 +1,8 @@
-// modals/DeleteConfirmationModal.jsx
 import React from 'react';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Box,
-    Typography,
-    Button,
-} from '@mui/material';
-import {
-    Trash2,
-    X,
-    RefreshCw,
-} from 'lucide-react';
-import OutlineButton from '../ui/OutlineButton';
+import { Typography, Box } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import { AlertTriangle } from 'lucide-react';
+import CommonDialog from './CommonDialog';
 
 const TEXT_COLOR = '#0F1115';
 const RED_COLOR = '#ef4444';
@@ -26,95 +14,57 @@ export const DeleteConfirmationModal = ({
     onConfirm,
     item,
     isLoading = false,
-    title = "User",
+    title = "Item",
     itemNameKey = "name",
+    warningText,
+    disableConfirm = false,
 }) => {
     return (
-        <Dialog
+        <CommonDialog
             open={open}
             onClose={onClose}
-            maxWidth="xs"
-            fullWidth
-            PaperProps={{
-                sx: {
-                    borderRadius: '8px',
-                    bgcolor: 'white',
-                    border: `1px solid ${alpha(RED_COLOR, 0.15)}`,
-                }
-            }}
+            onConfirm={onConfirm}
+            title={`Confirm Delete`}
+            variant="danger"
+            confirmText={isLoading ? "Deleting..." : `Delete ${title}`}
+            isLoading={isLoading}
+            disabled={disableConfirm}
         >
-            <DialogTitle sx={{
-                p: 2,
-                borderBottom: `1px solid ${alpha(RED_COLOR, 0.1)}`,
-                bgcolor: 'white',
-            }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Trash2 size={18} color={RED_COLOR} />
-                    <Typography
-                        sx={{
-                            fontSize: '0.95rem',
-                            color: TEXT_COLOR,
-                            fontWeight: 600,
-                        }}
-                    >
-                        Confirm Delete
-                    </Typography>
-                </Box>
-            </DialogTitle>
-            <DialogContent sx={{ p: 2.5 }}>
-                <Box py={1}>
-                    <Typography
-                        variant="body2"
-                        sx={{
-                            color: TEXT_COLOR,
-                            fontSize: '0.85rem',
-                            lineHeight: 1.6,
-                        }}
-                    >
-                        Are you sure you want to delete the {title.toLowerCase()} <strong>"{item?.[itemNameKey]}"</strong>?
-                        <br />
-                        <span style={{ color: GRAY_COLOR, fontSize: '0.8rem' }}>
-                            This action cannot be undone.
-                        </span>
-                    </Typography>
-                </Box>
-            </DialogContent>
-            <DialogActions sx={{ px: 2.5, pb: 2.5, pt: 0 }}>
-                <OutlineButton
-                    onClick={onClose}
-                    startIcon={<X size={16} />}
-                >
-                    Cancel
-                </OutlineButton>
-                <Button
-                    variant="contained"
+            <Box py={0.5}>
+                <Typography
+                    variant="body2"
                     sx={{
-                        color: 'white',
-                        borderRadius: '6px',
-                        padding: '6px 20px',
-                        fontWeight: 500,
-                        fontSize: '0.85rem',
-                        textTransform: 'none',
-                        bgcolor: RED_COLOR,
-                        '&:hover': {
-                            bgcolor: alpha(RED_COLOR, 0.9),
-                        },
+                        color: TEXT_COLOR,
+                        fontSize: '0.88rem',
+                        lineHeight: 1.6,
+                        mb: 2
                     }}
-                    onClick={onConfirm}
-                    disabled={isLoading}
-                    startIcon={isLoading ? (
-                        <RefreshCw size={14} className="animate-spin" />
-                    ) : (
-                        <Trash2 size={16} />
-                    )}
                 >
-                    {isLoading ? 'Deleting...' : `Delete ${title}`}
-                </Button>
-            </DialogActions>
-        </Dialog>
-    );
-};
+                    Are you sure you want to delete the {title.toLowerCase()} <strong>"{item?.[itemNameKey] || 'this item'}"</strong>?
+                </Typography>
 
-const alpha = (color, opacity) => {
-    return color + Math.round(opacity * 255).toString(16).padStart(2, '0');
-};
+                {warningText && (
+                    <Box sx={{ 
+                        p: 1.5, 
+                        borderRadius: '8px', 
+                        bgcolor: alpha(RED_COLOR, 0.05), 
+                        border: `1px solid ${alpha(RED_COLOR, 0.1)}`,
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 1.25,
+                        mb: 2
+                    }}>
+                        <AlertTriangle size={16} color={RED_COLOR} style={{ flexShrink: 0, marginTop: 2 }} />
+                        <Typography variant="caption" sx={{ color: RED_COLOR, fontWeight: 500, lineHeight: 1.4 }}>
+                            {warningText}
+                        </Typography>
+                    </Box>
+                )}
+
+                <Typography sx={{ color: GRAY_COLOR, fontSize: '0.8rem', fontStyle: 'italic' }}>
+                    This action cannot be undone and will permanently remove the record.
+                </Typography>
+            </Box>
+        </CommonDialog>
+    );
+};

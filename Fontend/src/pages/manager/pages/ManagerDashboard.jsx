@@ -8,8 +8,10 @@ import h1 from '../../../assets/homepage/h1.jpeg';
 import h2 from '../../../assets/homepage/h2.jpeg';
 import h3 from '../../../assets/homepage/h3.jpeg';
 import h4 from '../../../assets/homepage/h4.jpeg';
-import h5 from '../../../assets/homepage/h6.jpeg';
-import h6 from '../../../assets/homepage/h7.png';
+import h5 from '../../../assets/homepage/h5.jpeg';
+import h6 from '../../../assets/homepage/h6.jpeg';
+import h7 from '../../../assets/homepage/h7.jpeg';
+import h8 from '../../../assets/homepage/h8.jpeg';
 
 const getOneMonthAgo = () => {
   const d = new Date();
@@ -26,11 +28,11 @@ const isValidDate = (dateString) => {
 const dashboardCards = [
   { label: 'Lookup Tool', route: 'https://dashboard.sterlingsepticandplumbing.com/lookup', handwritten: true, image: h4, notificationPath: null },
   { label: 'RME', route: '/manager-dashboard/rme/work-orders', handwritten: true, image: h2, notificationPath: '/manager-dashboard/rme/work-orders' },
-  { label: 'Tank Repairs', route: '/manager-dashboard/repairs', handwritten: true, image: h5, notificationPath: null },
+  { label: 'Tank Repairs', route: '/manager-dashboard/repairs', handwritten: true, image: h6, notificationPath: null },
   { label: 'Locates', route: '/manager-dashboard/locates/work-orders', handwritten: true, image: h3, notificationPath: '/manager-dashboard/locates/work-orders' },
-  { label: '', route: null, handwritten: false, image: null, notificationPath: null },
+  { label: 'Review Tracking', route: '/manager-dashboard/review-tracking', handwritten: true, image: h6, notificationPath: null },
   { label: 'Customer Center', route: '/manager-dashboard/customer-center', handwritten: true, image: h1, notificationPath: '/manager-dashboard/customer-center' },
-  { label: 'Dispatch KPI', route: '/manager-dashboard/dispatch-kpi', handwritten: true, image: h6, notificationPath: '/manager-dashboard/dispatch-kpi' },
+  { label: 'Dispatch KPI', route: '/manager-dashboard/dispatch-kpi', handwritten: true, image: h7, notificationPath: '/manager-dashboard/dispatch-kpi' },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
 ];

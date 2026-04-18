@@ -15,7 +15,8 @@ import {
 import { alpha } from '@mui/material/styles';
 import { useQueryClient } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
-import { AlertTriangle, History, RotateCcw, Trash2 } from 'lucide-react';
+import { AlertTriangle, History, RotateCcw, Trash2, Lock, XCircle, CheckCircle2 } from 'lucide-react';
+import CommonDialog from '../../../../components/ui/CommonDialog';
 
 import { useRmeData } from './hooks/useRmeData';
 import { useRmeMutations } from './hooks/useRmeMutations';
@@ -34,13 +35,6 @@ import FinalizedTable from './components/tables/FinalizedTable';
 import PDFViewerModal from './components/modals/PDFViewerModal';
 import EditFormModal from './components/modals/EditFormModal';
 import RmeRecycleBinModal from './components/modals/RmeRecycleBinModal';
-import {
-    DeleteConfirmationModal,
-    RestoreConfirmationModal,
-    PermanentDeleteConfirmationModal,
-    LockConfirmationModal,
-    DiscardConfirmationModal
-} from './components/modals/ConfirmationModals';
 
 import {
     BLUE_COLOR,
@@ -923,137 +917,129 @@ const RMEReports = () => {
                 isSmallMobile={isSmallMobile}
             />
 
-            <DeleteConfirmationModal
+            <CommonDialog
                 open={deleteDialogOpen}
                 onClose={() => setDeleteDialogOpen(false)}
-                title="Move to Recycle Bin"
-                count={selectedForDeletion.size}
-                section={deletionSection}
-                isLoading={bulkSoftDeleteMutation.isPending}
                 onConfirm={executeSoftDelete}
-            />
+                title="Move to Recycle Bin"
+                variant="warning"
+                confirmText="Move to Recycle Bin"
+                isLoading={bulkSoftDeleteMutation.isPending}
+                icon={<Trash2 size={18} />}
+            >
+                <Typography variant="body2" sx={{ color: TEXT_COLOR, fontSize: '0.85rem', mb: 2 }}>
+                    Are you sure you want to move <strong>{selectedForDeletion.size} item(s)</strong> from the <strong>{deletionSection}</strong> section to the recycle bin?
+                </Typography>
+                <Box sx={{ p: 1.5, borderRadius: '6px', bgcolor: alpha(ORANGE_COLOR, 0.05), border: `1px solid ${alpha(ORANGE_COLOR, 0.1)}`, display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                    <AlertTriangle size={18} color={ORANGE_COLOR} />
+                    <Typography variant="caption" sx={{ color: TEXT_COLOR }}>Items can be restored from the recycle bin later.</Typography>
+                </Box>
+            </CommonDialog>
 
-            <RestoreConfirmationModal
+            <CommonDialog
                 open={restoreDialogOpen}
                 onClose={() => setRestoreDialogOpen(false)}
-                count={selectedForRestore.size}
-                isLoading={bulkRestoreMutation.isPending}
                 onConfirm={executeRestore}
-            />
+                title="Restore Items"
+                variant="success"
+                confirmText="Restore Items"
+                isLoading={bulkRestoreMutation.isPending}
+                icon={<RotateCcw size={18} />}
+            >
+                <Typography variant="body2" sx={{ color: TEXT_COLOR, fontSize: '0.85rem', mb: 2 }}>
+                    Are you sure you want to restore <strong>{selectedForRestore.size}</strong> item(s) from the recycle bin?
+                </Typography>
+            </CommonDialog>
 
-            <PermanentDeleteConfirmationModal
+            <CommonDialog
                 open={permanentDeleteDialogOpen}
                 onClose={() => setPermanentDeleteDialogOpen(false)}
-                count={selectedForPermanentDeletion.size}
-                isLoading={bulkPermanentDeleteMutation.isPending}
                 onConfirm={executePermanentDelete}
-            />
+                title="Permanent Delete"
+                variant="danger"
+                confirmText="Delete Permanently"
+                isLoading={bulkPermanentDeleteMutation.isPending}
+                icon={<Trash2 size={18} />}
+            >
+                <Typography variant="body2" sx={{ color: TEXT_COLOR, fontSize: '0.85rem', mb: 2 }}>
+                    Are you sure you want to permanently delete <strong>{selectedForPermanentDeletion.size}</strong> item(s)? This action is irreversible.
+                </Typography>
+            </CommonDialog>
 
-            <LockConfirmationModal
+            <CommonDialog
                 open={lockedConfirmModal.open}
                 onClose={() => setLockedConfirmModal({ ...lockedConfirmModal, open: false })}
-                itemData={lockedConfirmModal.itemData}
-                isLoading={lockedConfirmModal.isLoading}
                 onConfirm={confirmLockedAction}
-            />
+                title="Confirm Lock Action"
+                variant="success"
+                confirmText="Lock Report"
+                isLoading={lockedConfirmModal.isLoading}
+                icon={<Lock size={18} />}
+            >
+                <Typography variant="body2" sx={{ color: TEXT_COLOR, fontSize: '0.85rem', mb: 2 }}>
+                    Lock this report and move it to the Finalized section? Locked reports cannot be edited.
+                </Typography>
+                {lockedConfirmModal.itemData && (
+                    <Box sx={{ p: 1.5, borderRadius: '6px', bgcolor: alpha(GREEN_COLOR, 0.05), border: `1px solid ${alpha(GREEN_COLOR, 0.1)}`, mb: 2 }}>
+                        <Typography sx={{ fontSize: '0.75rem', color: TEXT_COLOR }}><strong>WO#:</strong> {lockedConfirmModal.itemData.woNumber || lockedConfirmModal.itemData.wo_number}</Typography>
+                        <Typography sx={{ fontSize: '0.75rem', color: TEXT_COLOR }}><strong>Address:</strong> {lockedConfirmModal.itemData.street}, {lockedConfirmModal.itemData.city}</Typography>
+                    </Box>
+                )}
+            </CommonDialog>
 
-            <DiscardConfirmationModal
+            <CommonDialog
                 open={discardConfirmModal.open}
                 onClose={() => setDiscardConfirmModal({ ...discardConfirmModal, open: false })}
-                itemData={discardConfirmModal.itemData}
-                isLoading={discardConfirmModal.isLoading}
                 onConfirm={confirmDiscardAction}
-            />
+                title="Confirm Discard Action"
+                variant="danger"
+                confirmText="Discard Report"
+                isLoading={discardConfirmModal.isLoading}
+                icon={<XCircle size={18} />}
+            >
+                <Typography variant="body2" sx={{ color: TEXT_COLOR, fontSize: '0.85rem', mb: 2 }}>
+                    Discard this report and mark it as "DELETED"? This action is irreversible.
+                </Typography>
+                {discardConfirmModal.itemData && (
+                    <Box sx={{ p: 1.5, borderRadius: '6px', bgcolor: alpha(RED_COLOR, 0.05), border: `1px solid ${alpha(RED_COLOR, 0.1)}`, mb: 2 }}>
+                        <Typography sx={{ fontSize: '0.75rem', color: TEXT_COLOR }}><strong>WO#:</strong> {discardConfirmModal.itemData.woNumber || discardConfirmModal.itemData.wo_number}</Typography>
+                        <Typography sx={{ fontSize: '0.75rem', color: TEXT_COLOR }}><strong>Address:</strong> {discardConfirmModal.itemData.street}, {discardConfirmModal.itemData.city}</Typography>
+                    </Box>
+                )}
+            </CommonDialog>
 
-            <Dialog
+            <CommonDialog
                 open={singleRestoreDialogOpen}
                 onClose={() => { setSingleRestoreDialogOpen(false); setSelectedSingleItem(null); }}
-                maxWidth="sm"
-                fullWidth
-                PaperProps={{ sx: { bgcolor: 'white', borderRadius: '6px' } }}
+                onConfirm={executeSingleRestore}
+                title="Restore Item"
+                variant="success"
+                confirmText="Restore"
+                isLoading={restoreFromRecycleBinMutation.isPending}
+                icon={<RotateCcw size={18} />}
             >
-                <DialogTitle>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <RotateCcw size={20} color={GREEN_COLOR} />
-                        <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
-                            Restore Item
-                        </Typography>
-                    </Box>
-                </DialogTitle>
-                <DialogContent>
-                    <Typography variant="body2" sx={{ mb: 2, fontSize: '0.85rem' }}>
-                        Are you sure you want to restore work order <strong>{selectedSingleItem?.wo_number}</strong>?
-                    </Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button
-                        onClick={() => { setSingleRestoreDialogOpen(false); setSelectedSingleItem(null); }}
-                        sx={{ textTransform: 'none', color: TEXT_COLOR, fontSize: '0.85rem', fontWeight: 400, px: 2 }}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="success"
-                        onClick={executeSingleRestore}
-                        disabled={restoreFromRecycleBinMutation.isPending}
-                        startIcon={restoreFromRecycleBinMutation.isPending ? <CircularProgress size={16} /> : <RotateCcw size={16} />}
-                        sx={{
-                            textTransform: 'none', fontSize: '0.85rem', fontWeight: 500, px: 2,
-                            bgcolor: GREEN_COLOR, boxShadow: 'none',
-                            '&:hover': { bgcolor: alpha(GREEN_COLOR, 0.9), boxShadow: 'none' },
-                        }}
-                    >
-                        {restoreFromRecycleBinMutation.isPending ? 'Restoring...' : 'Restore'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                <Typography variant="body2" sx={{ color: TEXT_COLOR, fontSize: '0.85rem' }}>
+                    Are you sure you want to restore work order <strong>{selectedSingleItem?.wo_number}</strong>?
+                </Typography>
+            </CommonDialog>
 
-            <Dialog
+            <CommonDialog
                 open={singleDeleteDialogOpen}
                 onClose={() => { setSingleDeleteDialogOpen(false); setSelectedSingleItem(null); }}
-                maxWidth="sm"
-                fullWidth
-                PaperProps={{ sx: { bgcolor: 'white', borderRadius: '6px' } }}
+                onConfirm={executeSinglePermanentDelete}
+                title="Permanent Delete"
+                variant="danger"
+                confirmText="Delete Permanently"
+                isLoading={permanentDeleteFromRecycleBinMutation.isPending}
+                icon={<Trash2 size={18} />}
             >
-                <DialogTitle>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Trash2 size={20} color={RED_COLOR} />
-                        <Typography variant="h6" sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
-                            Permanent Delete
-                        </Typography>
-                    </Box>
-                </DialogTitle>
-                <DialogContent>
-                    <Typography variant="body2" sx={{ mb: 2, fontSize: '0.85rem' }}>
-                        Are you sure you want to permanently delete work order <strong>{selectedSingleItem?.wo_number}</strong>?
-                        This action cannot be undone.
-                    </Typography>
-                    <Alert severity="warning" icon={<AlertTriangle size={20} />} sx={{ fontSize: '0.85rem' }}>
-                        Item will be permanently removed and cannot be recovered.
-                    </Alert>
-                </DialogContent>
-                <DialogActions>
-                    <Button
-                        onClick={() => { setSingleDeleteDialogOpen(false); setSelectedSingleItem(null); }}
-                        variant='outlined'
-                        color='error'
-                        sx={{ textTransform: 'none', fontSize: '0.85rem', fontWeight: 400 }}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="error"
-                        onClick={executeSinglePermanentDelete}
-                        disabled={permanentDeleteFromRecycleBinMutation.isPending}
-                        startIcon={permanentDeleteFromRecycleBinMutation.isPending ? <CircularProgress size={16} /> : <Trash2 size={16} />}
-                        sx={{ textTransform: 'none', fontSize: '0.85rem', fontWeight: 500 }}
-                    >
-                        {permanentDeleteFromRecycleBinMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                <Typography variant="body2" sx={{ color: TEXT_COLOR, fontSize: '0.85rem', mb: 2 }}>
+                    Are you sure you want to permanently delete work order <strong>{selectedSingleItem?.wo_number}</strong>?
+                </Typography>
+                <Alert severity="error" icon={<AlertTriangle size={20} />} sx={{ borderRadius: '6px', bgcolor: alpha(RED_COLOR, 0.05), color: TEXT_COLOR }}>
+                    Warning: This action is irreversible and cannot be recovered.
+                </Alert>
+            </CommonDialog>
         </Box>
     );
 };

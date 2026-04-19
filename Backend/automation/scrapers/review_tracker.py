@@ -50,31 +50,65 @@ class ReviewTrackerScraper(BaseScraper):
         try:
             print("➡️ Opening reviews tab...")
             
-            # 1. Give Google Maps some extra time to load the sidebar components
-            await self.page.wait_for_timeout(5000)
+            # 1. Give Google Maps extra time to load especially on slow VPS connections
+            await self.page.wait_for_timeout(8000)
             
-            # 2. List of possible Review tab selectors (Google changes these often)
+            # 2. Dismiss Pendo/Overlay if they appear (Maps sometimes has tour/intro)
+            try:
+                pendo = self.page.locator("button:has-text('Skip'), button:has-text('Got it')").first
+                if await pendo.is_visible():
+                    await pendo.click()
+            except:
+                pass
+
+            # 3. Robust list of tab selectors
             tab_selectors = [
+                "button[role='tab'][aria-label^='Reviews']",
                 "button[role='tab']:has-text('Reviews')",
-                "button[aria-label^='Reviews']",
+                "div[role='tab']:has-text('Reviews')",
                 "button:has-text('Reviews')",
-                "div[role='tab']:has-text('Reviews')"
+                "span:has-text('Reviews')"
             ]
             
             review_tab = None
-            for selector in tab_selectors:
-                loc = self.page.locator(selector)
-                if await loc.count() > 0:
-                    review_tab = loc.first
-                    print(f"✅ Found Reviews tab using selector: {selector}")
-                    break
+            
+            # Try searching by role first (standard ARIA)
+            try:
+                tab_role = self.page.get_by_role("tab", name="Reviews")
+                if await tab_role.count() > 0:
+                    for i in range(await tab_role.count()):
+                        if await tab_role.nth(i).is_visible():
+                            review_tab = tab_role.nth(i)
+                            print("✅ Found Reviews tab using get_by_role")
+                            break
+            except:
+                pass
+
+            if not review_tab:
+                for selector in tab_selectors:
+                    loc = self.page.locator(selector)
+                    count = await loc.count()
+                    for i in range(count):
+                        item = loc.nth(i)
+                        # Avoid huge divs like the one in the VPS error
+                        text_content = await item.inner_text()
+                        if await item.is_visible() and len(text_content or "") < 50:
+                            review_tab = item
+                            print(f"✅ Found Reviews tab using selector: {selector}")
+                            break
+                    if review_tab: break
             
             if not review_tab:
-                # Last resort: search for anything with "Reviews" text
-                loc = self.page.get_by_text("Reviews", exact=False)
+                # Last resort: search for text "Reviews" but only short strings (tab labels)
+                loc = self.page.get_by_text("Reviews", exact=True)
                 if await loc.count() > 0:
-                    review_tab = loc.first
-                    print("✅ Found Reviews tab using text search")
+                    for i in range(await loc.count()):
+                        item = loc.nth(i)
+                        text = await item.inner_text()
+                        if await item.is_visible() and len(text or "") < 20:
+                            review_tab = item
+                            print("✅ Found Reviews tab using exact text search")
+                            break
 
             if review_tab:
                 # Check if it's already selected

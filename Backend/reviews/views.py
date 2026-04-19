@@ -11,15 +11,19 @@ class ReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['is_deleted', 'rating_value', 'business_name']
+    filterset_fields = ['rating_value', 'business_name']
     search_fields = ['reviewer_name', 'review_text', 'price_assessment', 'services_mentioned']
     ordering_fields = '__all__'
 
     def get_queryset(self):
         queryset = Review.objects.all()
+        # Only apply automatic filtering by is_deleted for the list action.
+        # This prevents 404 errors on destroy/retrieve/patch for objects that are soft-deleted.
         if self.action == 'list':
-            is_deleted = self.request.query_params.get('is_deleted', 'false').lower() == 'true'
+            is_deleted_str = self.request.query_params.get('is_deleted', 'false').lower()
+            is_deleted = is_deleted_str == 'true'
             queryset = queryset.filter(is_deleted=is_deleted)
+            
         return queryset.order_by('-created_at')
 
     @action(detail=False, methods=['get'])

@@ -145,14 +145,28 @@ class ReviewTrackerScraper(BaseScraper):
         """Scroll down the review feed to load more reviews."""
         try:
             print(f"➡️ Scrolling reviews ({scrolls} times)...")
-            feed = self.page.locator("div[role='feed']")
             
-            if await feed.count() == 0:
-                print("❌ Review feed not found")
-                return
+            # Google Maps main scrollable containers
+            feed_selectors = [
+                "div.dS8AEf[scrollable='true']",
+                "div.m6QErb.DxyBCb.kA9KIf.dS8AEf",
+                "div[role='feed']",
+                "div.dS8AEf",
+            ]
             
-            # Hover over the feed to make sure scroll events reach it
-            await feed.first.hover()
+            feed = None
+            for selector in feed_selectors:
+                loc = self.page.locator(selector)
+                if await loc.count() > 0:
+                    feed = loc.first
+                    print(f"✅ Found scrollable feed using: {selector}")
+                    break
+            
+            if not feed:
+                print("⚠️ Review feed container not found, trying generic scroll...")
+            else:
+                # Hover over the feed to make sure scroll events reach it
+                await feed.hover()
             
             previous_count = 0
             no_new_reviews_count = 0
@@ -169,8 +183,12 @@ class ReviewTrackerScraper(BaseScraper):
                 print(f"  Scroll {i+1}: Found {current_count} reviews so far")
                 
                 if current_count == previous_count:
-                    # Fallback: manual scroll evaluation if mouse wheel didn't trigger load
-                    await feed.first.evaluate("el => el.scrollBy(0, el.scrollHeight)")
+                    # Fallback: manual scroll evaluation
+                    if feed:
+                        await feed.evaluate("el => el.scrollBy(0, el.scrollHeight)")
+                    else:
+                        await self.page.evaluate("window.scrollBy(0, 5000)")
+                    
                     await asyncio.sleep(3)
                     current_count = await current_reviews.count()
                     
@@ -199,6 +217,7 @@ class ReviewTrackerScraper(BaseScraper):
             print("➡️ Scraping reviews...")
             await asyncio.sleep(2)
             
+            # Main review card selector
             reviews = self.page.locator("div.jftiEf")
             review_count = await reviews.count()
             print(f"✅ Found {review_count} reviews in feed")
@@ -209,34 +228,44 @@ class ReviewTrackerScraper(BaseScraper):
                 try:
                     review = reviews.nth(i)
                     
-                    # 1. REVIEWER NAME
-                    name_el = review.locator("div.d4r55")
-                    reviewer_name = await name_el.inner_text() if await name_el.count() > 0 else "N/A"
+                    # 1. REVIEWER NAME (Multiple possible selectors)
+                    name_selectors = ["div.d4r50", "div.d4r55", "div.XEAFd", "div[role='heading']"]
+                    reviewer_name = "N/A"
+                    for sel in name_selectors:
+                        loc = review.locator(sel)
+                        if await loc.count() > 0:
+                            reviewer_name = await loc.first.inner_text()
+                            if reviewer_name: break
                     
                     # 2. RATING
-                    rating_el = review.locator("span.kvMYJc")
+                    rating_selectors = ["span.kvMYyc", "span.kvMYJc", "span.G_P8"]
                     rating_text = "N/A"
                     rating_value = 0
-                    if await rating_el.count() > 0:
-                        aria_label = await rating_el.get_attribute("aria-label")
-                        if aria_label:
-                            rating_text = aria_label
-                            try:
-                                # Extract number from "5 stars"
-                                rating_value = int(aria_label.split()[0])
-                            except:
-                                rating_value = 0
+                    for sel in rating_selectors:
+                        loc = review.locator(sel)
+                        if await loc.count() > 0:
+                            aria_label = await loc.first.get_attribute("aria-label")
+                            if aria_label:
+                                rating_text = aria_label
+                                try:
+                                    rating_value = int(aria_label.split()[0])
+                                    break
+                                except: pass
                     
                     # 3. DATE
-                    date_el = review.locator("span.rsqaWe")
-                    review_date = await date_el.inner_text() if await date_el.count() > 0 else "N/A"
+                    date_selectors = ["span.rsqSbe", "span.rsqaWe", "span.ODZ07"]
+                    review_date = "N/A"
+                    for sel in date_selectors:
+                        loc = review.locator(sel)
+                        if await loc.count() > 0:
+                            review_date = await loc.first.inner_text()
+                            if review_date: break
                     
                     # 4. REVIEW TEXT
                     text_el = review.locator("span.wiI7pd").first
                     review_text = await text_el.inner_text() if await text_el.count() > 0 else ""
                     
                     # Check for "More" button to expand full text
-                    # We target expandReview specifically to avoid clicking expandOwnerResponse
                     more_button = review.locator("button.w8nwRe[jsaction*='expandReview']").first
                     if await more_button.count() > 0:
                         try:

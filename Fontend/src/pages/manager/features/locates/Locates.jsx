@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -16,6 +16,8 @@ import {
 import { alpha } from '@mui/material/styles';
 import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../../../../auth/AuthProvider';
+import { useLocation } from 'react-router-dom';
+import { useNotifications } from '../../../../hooks/useNotifications';
 import DashboardLoader from '../../../../components/Loader/DashboardLoader';
 import OutlineButton from '../../../../components/ui/OutlineButton';
 import {
@@ -31,6 +33,7 @@ import { useSelections } from './hooks/useSelections';
 import LocateTable from './components/LocateTable';
 import SearchInput from './components/SearchInput';
 import RecycleBinModal from './components/RecycleBinModal';
+import LocateDetailDialog from './components/LocateDetailDialog';
 import {
   DeleteDialog,
   RestoreDialog,
@@ -97,6 +100,10 @@ const Locates = () => {
   const [singleRestoreDialogOpen, setSingleRestoreDialogOpen] = useState(false);
   const [singleDeleteDialogOpen, setSingleDeleteDialogOpen] = useState(false);
   const [selectedSingleItem, setSelectedSingleItem] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState(null);
+  const highlightedRef = useRef(null);
+  const location = useLocation();
 
   // Remove local snackbar state - now using global
 
@@ -119,8 +126,11 @@ const Locates = () => {
       bulkRestoreMutation,
       permanentDeleteFromRecycleBinMutation,
       bulkPermanentDeleteMutation,
+      markSeenMutation,
     },
   } = useLocates(currentUserName, currentUserEmail);
+
+  const { invalidateCache } = useNotifications();
 
   const {
     selected: selectedPending,
@@ -385,6 +395,31 @@ const Locates = () => {
     }
   };
 
+  const handleViewDetails = useCallback((item) => {
+    setDetailItem(item);
+    setDetailOpen(true);
+    
+    // Mark as seen if it hasn't been seen by this user yet
+    if (item && (!item.user_seen_records || item.user_seen_records.length === 0)) {
+        markSeenMutation.mutate({ locate_id: item.id }, {
+            onSuccess: () => invalidateCache()
+        });
+    }
+  }, [markSeenMutation, invalidateCache]);
+
+  useEffect(() => {
+    const targetId = location.state?.highlightLocateId;
+    const allLocates = [...allPending, ...inProgress, ...completed];
+    
+    if (targetId && allLocates.length > 0 && highlightedRef.current !== targetId) {
+      const item = allLocates.find(l => l.id === targetId || l.workOrderId === targetId);
+      if (item) {
+        highlightedRef.current = targetId;
+        handleViewDetails(item);
+      }
+    }
+  }, [location.state, allPending, inProgress, completed, handleViewDetails]);
+
   const pendingPageItems = filteredPending.slice(
     pagePending * rowsPerPagePending,
     pagePending * rowsPerPagePending + rowsPerPagePending
@@ -551,6 +586,7 @@ const Locates = () => {
           onToggleSelect={toggleSelectionPending}
           onToggleAll={() => toggleAllSelectionPending(pendingPageItems)}
           onMarkCalled={handleMarkCalled}
+          onView={handleViewDetails}
           color={BLUE_COLOR}
           showCallAction
           totalCount={filteredPending.length}
@@ -677,6 +713,7 @@ const Locates = () => {
           onToggleSelect={toggleSelectionInProgress}
           onToggleAll={() => toggleAllSelectionInProgress(inProgressPageItems)}
           onManualComplete={handleManualCompletion}
+          onView={handleViewDetails}
           color={ORANGE_COLOR}
           showTimerColumn
           showCalledBy
@@ -784,6 +821,7 @@ const Locates = () => {
           selected={selectedCompleted}
           onToggleSelect={toggleSelectionCompleted}
           onToggleAll={() => toggleAllSelectionCompleted(completedPageItems)}
+          onView={handleViewDetails}
           color={GREEN_COLOR}
           showCalledBy
           showTimerColumn={false}
@@ -823,6 +861,7 @@ const Locates = () => {
         bulkPermanentDeleteMutation={bulkPermanentDeleteMutation}
         isMobile={isMobile}
         isSmallMobile={isSmallMobile}
+        onView={handleViewDetails}
       />
 
       {/* Confirmation Dialogs */}
@@ -892,6 +931,11 @@ const Locates = () => {
       />
 
       {/* Remove local Snackbar component - now using global */}
+      <LocateDetailDialog
+        open={detailOpen}
+        item={detailItem}
+        onClose={() => setDetailOpen(false)}
+      />
     </Box>
   );
 };

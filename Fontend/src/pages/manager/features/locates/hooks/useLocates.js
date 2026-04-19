@@ -138,6 +138,11 @@ export const useLocates = (currentUserName = '', currentUserEmail = '') => {
     onSuccess: invalidateAndRefetch,
   });
 
+  const markSeenMutation = useMutation({
+    mutationFn: async (data) => locatesApi.markSeen(data),
+    onSuccess: invalidateAndRefetch,
+  });
+
   // ✅ NEW: Auto-expire mutation — writes completed_at to DB when timer runs out
   const autoExpireMutation = useMutation({
     mutationFn: async (ids) => {
@@ -310,6 +315,7 @@ export const useLocates = (currentUserName = '', currentUserEmail = '') => {
       bulkRestoreMutation,
       permanentDeleteFromRecycleBinMutation,
       bulkPermanentDeleteMutation,
+      markSeenMutation,
     },
     invalidateAndRefetch,
   };

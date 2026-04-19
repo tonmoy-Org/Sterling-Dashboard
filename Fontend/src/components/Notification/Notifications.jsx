@@ -26,6 +26,7 @@ import {
   Check,
   X,
   BarChart3,
+  Star,
 } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { Helmet } from 'react-helmet-async';
@@ -34,6 +35,7 @@ import { locatesApi } from '../../api/services/locatesApi';
 import { rmeApi } from '../../api/services/rmeApi';
 import { workOrdersApi } from '../../api/services/workOrders';
 import { dispatchKpiApi } from '../../api/services/dispatchKpi';
+import { reviewsApi } from '../../api/services/reviews';
 import { useNavigate } from 'react-router-dom';
 import { useGlobalSnackbar } from '../../context/GlobalSnackbarContext';
 import DashboardLoader from '../Loader/DashboardLoader';
@@ -146,7 +148,7 @@ export default function Notifications() {
   const notifications = useMemo(() => {
     if (!combinedData) return [];
 
-    const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [] } = combinedData;
+    const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [] } = combinedData;
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
@@ -222,12 +224,12 @@ export default function Notifications() {
     // FIXED: Handle null createdAt with fallback to current date
     allWorkOrders.forEach((workOrder) => {
       let createdAt = workOrder?.createdAt;
-      
+
       // If createdAt is null, use current date as fallback
       if (!createdAt) {
         createdAt = new Date().toISOString();
       }
-      
+
       if (workOrder.is_deleted) return;
 
       try {
@@ -237,7 +239,7 @@ export default function Notifications() {
           const addr = parseDashboardAddress(workOrder.workOrderAddress || '');
           const customerName = workOrder.customerName || 'Customer';
           const statusColor = getStatusColor(workOrder.status);
-          
+
           // Handle tag - can be array or string
           const tagArray = Array.isArray(workOrder.tag) ? workOrder.tag : workOrder.tag ? [workOrder.tag] : [];
           const tagName = tagArray[0] || null;
@@ -303,6 +305,35 @@ export default function Notifications() {
       }
     });
 
+    // Process reviews
+    reviews.forEach((review) => {
+      const createdAt = review.created_at || review.review_date;
+      if (!createdAt || review.is_deleted) return;
+
+      try {
+        const createdDate = new Date(createdAt);
+        if (createdDate >= oneMonthAgo) {
+          allNotifications.push({
+            id: `review-${review.id}`,
+            type: 'review',
+            title: `New ${review.rating}-Star Review`,
+            description: `${review.reviewer_name} Left A ${review.rating_value} Star Review From ${review.business_name || 'Customer'}`,
+            rating: review.rating,
+            customerName: review.author_name || 'Customer',
+            timestamp: createdDate,
+            formattedTime: formatDate(createdAt),
+            icon: Star,
+            color: ORANGE_COLOR,
+            rawData: review,
+            is_seen: review.is_seen || false,
+            entityId: review.id
+          });
+        }
+      } catch (e) {
+        console.error('Error parsing review date:', e);
+      }
+    });
+
     return allNotifications.sort((a, b) => b.timestamp - a.timestamp);
   }, [combinedData]);
 
@@ -325,6 +356,8 @@ export default function Notifications() {
             message = `New work order: ${notification.workOrderNumber}`;
           } else if (notification.type === 'dispatch-kpi') {
             message = `Dispatch KPI updated`;
+          } else if (notification.type === 'review') {
+            message = `New ${notification.rating}-star review from ${notification.customerName}`;
           }
 
           showSnackbar(message, 'info');
@@ -374,6 +407,7 @@ export default function Notifications() {
     const rmeCount = notifications.filter(n => n.type === 'RME').length;
     const woCount = notifications.filter(n => n.type === 'work-order').length;
     const dkpiCount = notifications.filter(n => n.type === 'dispatch-kpi').length;
+    const reviewCount = notifications.filter(n => n.type === 'review').length;
     const unseenCount = notifications.filter(n => !n.is_seen).length;
     const seenCount = notifications.filter(n => n.is_seen).length;
 
@@ -383,6 +417,7 @@ export default function Notifications() {
       rmeCount,
       woCount,
       dkpiCount,
+      reviewCount,
       unseenCount,
       seenCount
     };
@@ -409,6 +444,8 @@ export default function Notifications() {
           user: user?.id,
           dispatcher_booked: notification.entityId,
         });
+      } else if (notification.type === 'review') {
+        await reviewsApi.markSeen(notification.entityId);
       }
     },
     onMutate: async (notification) => {
@@ -427,31 +464,37 @@ export default function Notifications() {
           locates:
             notification.type === 'locate'
               ? old.locates.map((item) =>
-                  item.id === notification.entityId ? { ...item, is_seen: true } : item
-                )
+                item.id === notification.entityId ? { ...item, is_seen: true } : item
+              )
               : old.locates,
           workOrders:
             notification.type === 'RME'
               ? old.workOrders.map((item) =>
-                  item.id === notification.entityId ? { ...item, is_seen: true } : item
-                )
+                item.id === notification.entityId ? { ...item, is_seen: true } : item
+              )
               : old.workOrders,
           allWorkOrders:
             notification.type === 'work-order'
               ? old.allWorkOrders.map((item) =>
-                  item.id === notification.entityId
-                    ? { ...item, user_seen_records: [{ user: user?.id }] }
-                    : item
-                )
+                item.id === notification.entityId
+                  ? { ...item, user_seen_records: [{ user: user?.id }] }
+                  : item
+              )
               : old.allWorkOrders,
           dispatchKpi:
             notification.type === 'dispatch-kpi'
               ? (old.dispatchKpi || []).map((item) =>
-                  item.id === notification.entityId
-                    ? { ...item, user_seen_records: [{ user: user?.id }] }
-                    : item
-                )
+                item.id === notification.entityId
+                  ? { ...item, user_seen_records: [{ user: user?.id }] }
+                  : item
+              )
               : old.dispatchKpi,
+          reviews:
+            notification.type === 'review'
+              ? (old.reviews || []).map((item) =>
+                item.id === notification.entityId ? { ...item, is_seen: true } : item
+              )
+              : old.reviews,
         };
       });
 
@@ -492,6 +535,10 @@ export default function Notifications() {
         .filter((n) => n.type === 'dispatch-kpi' && !n.is_seen)
         .map((n) => n.entityId);
 
+      const reviewIds = notifications
+        .filter((n) => n.type === 'review' && !n.is_seen)
+        .map((n) => n.entityId);
+
       const promises = [];
 
       if (locateIds.length > 0) {
@@ -516,6 +563,10 @@ export default function Notifications() {
             dispatchKpiApi.markSeen({ user: user?.id, dispatcher_booked: id })
           )
         );
+      }
+
+      if (reviewIds.length > 0) {
+        promises.push(reviewsApi.markAllSeen());
       }
 
       await Promise.all(promises);
@@ -546,6 +597,7 @@ export default function Notifications() {
                 ? item.user_seen_records
                 : [{ user: user?.id }],
           })),
+          reviews: (old.reviews || []).map((item) => ({ ...item, is_seen: true })),
         };
       });
 
@@ -563,17 +615,18 @@ export default function Notifications() {
       // Use the snapshot count before optimistic update for the message
       const unseenBefore = context?.previous
         ? (() => {
-            const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [] } = context.previous;
-            const unseenLocates = locates.filter((i) => !i.is_seen).length;
-            const unseenWO = workOrders.filter((i) => !i.is_seen).length;
-            const unseenAllWO = allWorkOrders.filter(
-              (i) => Array.isArray(i.user_seen_records) && i.user_seen_records.length === 0
-            ).length;
-            const unseenDkpi = dispatchKpi.filter(
-              (i) => Array.isArray(i.user_seen_records) && i.user_seen_records.length === 0
-            ).length;
-            return unseenLocates + unseenWO + unseenAllWO + unseenDkpi;
-          })()
+          const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [] } = context.previous;
+          const unseenLocates = locates.filter((i) => !i.is_seen).length;
+          const unseenWO = workOrders.filter((i) => !i.is_seen).length;
+          const unseenAllWO = allWorkOrders.filter(
+            (i) => Array.isArray(i.user_seen_records) && i.user_seen_records.length === 0
+          ).length;
+          const unseenDkpi = dispatchKpi.filter(
+            (i) => Array.isArray(i.user_seen_records) && i.user_seen_records.length === 0
+          ).length;
+          const unseenReviews = reviews.filter((i) => !i.is_seen).length;
+          return unseenLocates + unseenWO + unseenAllWO + unseenDkpi + unseenReviews;
+        })()
         : counts.unseenCount;
 
       showSnackbar(`Marked ${unseenBefore} notification(s) as read`, 'success');
@@ -636,6 +689,14 @@ export default function Notifications() {
       navigate(`${dashboardBasePath}/dispatch-kpi`, {
         state: {
           highlightDispatchKpiId: notification.entityId,
+          fromNotifications: true,
+          scrollToTop: true,
+        },
+      });
+    } else if (notification.type === 'review') {
+      navigate(`${dashboardBasePath}/review-tracking`, {
+        state: {
+          highlightReviewId: notification.entityId,
           fromNotifications: true,
           scrollToTop: true,
         },
@@ -964,10 +1025,10 @@ export default function Notifications() {
                                   notification.type === 'locate'
                                     ? 'Locate'
                                     : notification.type === 'RME'
-                                    ? 'RME'
-                                    : notification.type === 'dispatch-kpi'
-                                    ? 'KPI'
-                                    : 'WO'
+                                      ? 'RME'
+                                      : notification.type === 'dispatch-kpi'
+                                        ? 'KPI'
+                                        : 'WO'
                                 }
                                 size="small"
                                 sx={{
@@ -1076,7 +1137,7 @@ export default function Notifications() {
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: INDIGO_COLOR }} />
               <span>{counts.woCount} Work Orders</span>
             </Box>
-            
+
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: GREEN_COLOR }} />
               <span>{counts.dkpiCount} KPI</span>

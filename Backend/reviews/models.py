@@ -11,7 +11,7 @@ class Review(models.Model):
     price_range = models.CharField(max_length=255, blank=True, null=True)
     services_mentioned = models.TextField(blank=True, null=True)
     
-    business_name = models.CharField(max_length=255, default="Sterling Septic & Plumbing LLC")
+    business_name = models.CharField(max_length=255, default="Google - Sterling Septic & Plumbing LLC")
     
     # Soft deletion fields
     deleted_by = models.CharField(max_length=255, null=True, blank=True, help_text="User who deleted the record")
@@ -27,3 +27,16 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.reviewer_name} - {self.rating_value} stars"
+
+
+class ReviewSeen(models.Model):
+    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='seen_reviews')
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='user_seen_records')
+    seen_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'review_user_seen'
+        unique_together = ('user', 'review')
+
+    def __str__(self):
+        return f"{self.user} saw {self.review}"

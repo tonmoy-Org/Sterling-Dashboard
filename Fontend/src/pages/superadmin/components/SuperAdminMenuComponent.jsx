@@ -14,6 +14,7 @@ import {
 import { useNotifications } from '../../../hooks/useNotifications';
 import { workOrdersApi } from '../../../api/services/workOrders';
 import { dispatchKpiApi } from '../../../api/services/dispatchKpi';
+import { reviewsApi } from '../../../api/services/reviews';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../auth/AuthProvider';
@@ -23,6 +24,7 @@ const NOTIFICATION_PATHS = [
     '/super-admin-dashboard/rme/work-orders',
     '/super-admin-dashboard/customer-center',
     '/super-admin-dashboard/dispatch-kpi',
+    '/super-admin-dashboard/review-tracking',
 ];
 
 const MARK_SEEN_TIMEOUT = 5000;
@@ -118,6 +120,14 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                 })
                 .map(dkpi => dkpi.id);
         }
+        else if (path === '/super-admin-dashboard/review-tracking') {
+            ids = (notifications.reviews || [])
+                .filter(r => {
+                    const dateValue = r.created_at || r.review_date;
+                    return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !r.is_seen;
+                })
+                .map(r => r.id);
+        }
 
         if (ids.length === 0) return;
 
@@ -177,6 +187,19 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                             ids.includes(dkpi.id)
                                 ? { ...dkpi, user_seen_records: [{ user: user?.id }] }
                                 : dkpi
+                        ),
+                    };
+                });
+            } else if (path === '/super-admin-dashboard/review-tracking') {
+                await reviewsApi.markAllSeen();
+
+                clearLocalCache?.();
+                queryClient.setQueryData(['notifications', user?.role], (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        reviews: (old.reviews || []).map(r =>
+                            ids.includes(r.id) ? { ...r, is_seen: true } : r
                         ),
                     };
                 });
@@ -244,6 +267,11 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                         const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
                         return isRecent && isUnseen;
                     });
+                } else if (path === '/super-admin-dashboard/review-tracking') {
+                    hasUnseen = (notifications.reviews || []).some(r => {
+                        const dateValue = r.created_at || r.review_date;
+                        return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !r.is_seen;
+                    });
                 }
 
                 if (!hasUnseen) next.delete(path);
@@ -285,6 +313,7 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
         const rmePath = '/super-admin-dashboard/rme/work-orders';
         const ccPath = '/super-admin-dashboard/customer-center';
         const dkpiPath = '/super-admin-dashboard/dispatch-kpi';
+        const reviewPath = '/super-admin-dashboard/review-tracking';
 
         return {
             [locatesPath]: optimisticallyCleared.has(locatesPath)
@@ -319,6 +348,13 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                     const isRecent = ts === null || (!isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD);
                     const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
                     return isRecent && isUnseen;
+                }).length,
+
+            [reviewPath]: optimisticallyCleared.has(reviewPath)
+                ? 0
+                : (notifications.reviews || []).filter(r => {
+                    const dateValue = r.created_at || r.review_date;
+                    return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !r.is_seen;
                 }).length,
         };
     }, [notifications, optimisticallyCleared]);

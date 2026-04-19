@@ -5,6 +5,7 @@ import { locatesApi } from '../api/services/locatesApi';
 import { rmeApi } from '../api/services/rmeApi';
 import { workOrdersApi } from '../api/services/workOrders';
 import { dispatchKpiApi } from '../api/services/dispatchKpi';
+import { reviewsApi } from '../api/services/reviews';
 import { useEffect, useCallback } from 'react';
 
 const NOTIFICATIONS_CACHE_KEY = 'notifications-cache';
@@ -25,16 +26,19 @@ const EMPTY_RESPONSE = {
     workOrders: [],
     allWorkOrders: [],
     dispatchKpi: [],
+    reviews: [],
     latestNotifications: [],
     locatesCount: 0,
     workOrdersCount: 0,
     allWorkOrdersCount: 0,
     dispatchKpiCount: 0,
+    reviewsCount: 0,
     totalActualCount: 0,
     unseenLocateIds: [],
     unseenRmeIds: [],
     unseenAllWoIds: [],
     unseenDispatchKpiIds: [],
+    unseenReviewIds: [],
     unseenIds: [],
     count: 0,
 };
@@ -140,37 +144,63 @@ const processDispatchKpi = (dispatchKpiData) => {
     };
 };
 
-const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData) => {
+const processReviews = (reviewsData) => {
+    const unseenReviews = reviewsData.filter(review => !review.is_seen && !review.is_deleted);
+
+    return {
+        count: unseenReviews.length,
+        ids: unseenReviews.map(r => `review-${r.id}`),
+        notifications: unseenReviews.map(r => ({
+            id: `review-${r.id}`,
+            type: 'review',
+            timestamp: formatDate(r.created_at),
+            data: r,
+        })),
+    };
+};
+
+const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData) => {
     const locatesResult = processLocates(locatesData);
     const workOrdersResult = processWorkOrders(workOrdersData);
     const allWorkOrdersResult = processAllWorkOrders(allWorkOrdersData);
     const dispatchKpiResult = processDispatchKpi(dispatchKpiData);
+    const reviewsResult = processReviews(reviewsData);
 
     const latestNotifications = [
         ...locatesResult.notifications,
         ...workOrdersResult.notifications,
         ...allWorkOrdersResult.notifications,
         ...dispatchKpiResult.notifications,
+        ...reviewsResult.notifications,
     ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
 
-    const totalCount = locatesResult.count + workOrdersResult.count + allWorkOrdersResult.count + dispatchKpiResult.count;
+    const totalCount = locatesResult.count + workOrdersResult.count + allWorkOrdersResult.count + dispatchKpiResult.count + reviewsResult.count;
 
     return {
         locates: locatesData,
         workOrders: workOrdersData,
         allWorkOrders: allWorkOrdersData,
         dispatchKpi: dispatchKpiData,
+        reviews: reviewsData,
         latestNotifications,
         locatesCount: locatesResult.count,
         workOrdersCount: workOrdersResult.count,
         allWorkOrdersCount: allWorkOrdersResult.count,
         dispatchKpiCount: dispatchKpiResult.count,
+        reviewsCount: reviewsResult.count,
         totalActualCount: totalCount,
         unseenLocateIds: locatesResult.ids,
         unseenRmeIds: workOrdersResult.ids,
         unseenAllWoIds: allWorkOrdersResult.ids,
         unseenDispatchKpiIds: dispatchKpiResult.ids,
-        unseenIds: [...locatesResult.ids, ...workOrdersResult.ids, ...allWorkOrdersResult.ids, ...dispatchKpiResult.ids],
+        unseenReviewIds: reviewsResult.ids,
+        unseenIds: [
+            ...locatesResult.ids, 
+            ...workOrdersResult.ids, 
+            ...allWorkOrdersResult.ids, 
+            ...dispatchKpiResult.ids,
+            ...reviewsResult.ids
+        ],
         count: totalCount,
         lastUpdated: Date.now(),
     };
@@ -232,11 +262,12 @@ export const useNotifications = () => {
             if (localCache) return localCache;
 
             try {
-                const [locatesResult, workOrdersResult, allWorkOrdersResult, dispatchKpiResult] = await Promise.allSettled([
+                const [locatesResult, workOrdersResult, allWorkOrdersResult, dispatchKpiResult, reviewsResult] = await Promise.allSettled([
                     locatesApi.getAll(),
                     rmeApi.getAll(),
                     workOrdersApi.getAll(),
                     dispatchKpiApi.getAll(),
+                    reviewsApi.getAll(),
                 ]);
 
                 const locatesData = locatesResult.status === 'fulfilled'
@@ -263,7 +294,13 @@ export const useNotifications = () => {
                         : dispatchKpiResult.value.data?.data || [])
                     : [];
 
-                const response = buildResponse(locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData);
+                const reviewsData = reviewsResult.status === 'fulfilled'
+                    ? (Array.isArray(reviewsResult.value.data)
+                        ? reviewsResult.value.data
+                        : (reviewsResult.value.data?.results || reviewsResult.value.data?.data || []))
+                    : [];
+
+                const response = buildResponse(locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData);
                 setLocalCache(response);
                 return response;
             } catch (err) {
@@ -318,13 +355,16 @@ export const useNotifications = () => {
         rmeCount: data?.workOrdersCount || 0,
         allWorkOrdersCount: data?.allWorkOrdersCount || 0,
         dispatchKpiCount: data?.dispatchKpiCount || 0,
+        reviewsCount: data?.reviewsCount || 0,
         unseenLocateIds: data?.unseenLocateIds || [],
         unseenRmeIds: data?.unseenRmeIds || [],
         unseenAllWoIds: data?.unseenAllWoIds || [],
         unseenDispatchKpiIds: data?.unseenDispatchKpiIds || [],
+        unseenReviewIds: data?.unseenReviewIds || [],
         unseenIds: data?.unseenIds || [],
         latestNotifications: data?.latestNotifications || [],
         allWorkOrders: data?.allWorkOrders || [],
         dispatchKpi: data?.dispatchKpi || [],
+        reviews: data?.reviews || [],
     };
 };

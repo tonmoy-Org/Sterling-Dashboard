@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, memo } from 'react';
+import React, { useMemo, useState, useCallback, memo, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import {
     Box,
@@ -35,15 +35,19 @@ import {
     Search,
     PhoneCall,
     TrendingUp,
+    Eye,
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../../../../auth/AuthProvider';
+import { useLocation } from 'react-router-dom';
+import { useNotifications } from '../../../../hooks/useNotifications';
 import { dispatchKpiApi } from '../../../../api/services/dispatchKpi';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import DashboardLoader from '../../../../components/Loader/DashboardLoader';
 import RefreshButton from '../../../../components/ui/RefreshButton';
 import CommonDialog from '../../../../components/ui/CommonDialog';
 import { rmeApi } from '../../../../api/services/rmeApi';
+import DispatchKpiDetailDialog from './DispatchKpiDetailDialog';
 
 // ─── Replace local snack state with the global snackbar hook ───────────────────
 import { useGlobalSnackbar } from '../../../../context/GlobalSnackbarContext';
@@ -226,6 +230,7 @@ const RecycleBinModal = memo(({
     open, onClose, items,
     onRestore, onBulkRestore,
     onPermanentDelete, onBulkPermanentDelete,
+    onView,
 }) => {
     const [search,          setSearch]          = useState('');
     const [page,            setPage]            = useState(0);
@@ -469,12 +474,17 @@ const RecycleBinModal = memo(({
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Stack direction="row" spacing={0.25}>
-                                                            <Tooltip title="Restore" arrow>
-                                                                <IconButton size="small" onClick={() => handleSingleRestore(item)} sx={{ color: PALETTE.GREEN, borderRadius: '6px', p: 0.75, '&:hover': { bgcolor: alpha(PALETTE.GREEN, 0.1) } }}>
-                                                                    <RotateCcw size={15} />
-                                                                </IconButton>
-                                                            </Tooltip>
+                                                    <Stack direction="row" spacing={0.25}>
+                                                        <Tooltip title="View Details" arrow>
+                                                            <IconButton size="small" onClick={() => onView(item)} sx={{ color: PALETTE.BLUE, borderRadius: '6px', p: 0.75, '&:hover': { bgcolor: alpha(PALETTE.BLUE, 0.1) } }}>
+                                                                <Eye size={15} />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Restore" arrow>
+                                                            <IconButton size="small" onClick={() => handleSingleRestore(item)} sx={{ color: PALETTE.GREEN, borderRadius: '6px', p: 0.75, '&:hover': { bgcolor: alpha(PALETTE.GREEN, 0.1) } }}>
+                                                                <RotateCcw size={15} />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                             <Tooltip title="Delete Permanently" arrow>
                                                                 <IconButton size="small" onClick={() => setPermDeleteModal({ open: true, item, isBulk: false })} sx={{ color: PALETTE.RED, borderRadius: '6px', p: 0.75, '&:hover': { bgcolor: alpha(PALETTE.RED, 0.1) } }}>
                                                                     <Trash2 size={15} />
@@ -538,6 +548,7 @@ export default function DispatchKpi() {
 
     // ── Use the global snackbar instead of managing local state ──────────────
     const { showSnackbar } = useGlobalSnackbar();
+    const { invalidateCache } = useNotifications();
 
     const [page,            setPage]            = useState(0);
     const [rowsPerPage,     setRowsPerPage]     = useState(10);
@@ -545,6 +556,10 @@ export default function DispatchKpi() {
     const [tableSearch,     setTableSearch]     = useState('');
     const [selectedIds,     setSelectedIds]     = useState(new Set());
     const [moveToBinDialog, setMoveToBinDialog] = useState({ open: false, item: null, isBulk: false });
+    const [detailOpen,      setDetailOpen]      = useState(false);
+    const [detailItem,      setDetailItem]      = useState(null);
+    const highlightedRef = useRef(null);
+    const location = useLocation();
 
     // ── Data fetching ─────────────────────────────────────────────────────────
     const { data: serverData = [], isLoading } = useQuery({
@@ -698,6 +713,15 @@ export default function DispatchKpi() {
         onSettled: () => queryClient.invalidateQueries({ queryKey: ['dispatcher-booked'] }),
     });
 
+    // ── Mark as seen ──────────────────────────────────────────────────────────
+    const markSeenMutation = useMutation({
+        mutationFn: async (data) => dispatchKpiApi.markSeen(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['dispatcher-booked'] });
+            invalidateCache();
+        },
+    });
+
     // ── Derived data ──────────────────────────────────────────────────────────
     const activeData  = useMemo(() => serverData.filter(i => !i.isDeleted), [serverData]);
     const deletedData = useMemo(() => serverData.filter(i =>  i.isDeleted), [serverData]);
@@ -780,6 +804,27 @@ export default function DispatchKpi() {
 
     // Reset table to first page when search changes
     React.useEffect(() => { setPage(0); }, [tableSearch]);
+
+    const handleViewDetails = useCallback((item) => {
+        setDetailItem(item);
+        setDetailOpen(true);
+
+        // Mark as seen if it hasn't been seen by this user yet
+        if (item && (!item.user_seen_records || item.user_seen_records.length === 0)) {
+            markSeenMutation.mutate({ dispatch_kpi_id: item.id });
+        }
+    }, [markSeenMutation]);
+
+    useEffect(() => {
+        const targetId = location.state?.highlightDispatchKpiId;
+        if (targetId && serverData.length > 0 && highlightedRef.current !== targetId) {
+            const item = serverData.find(d => d.id === targetId);
+            if (item) {
+                highlightedRef.current = targetId;
+                handleViewDetails(item);
+            }
+        }
+    }, [location.state, serverData, handleViewDetails]);
 
     if (isLoading) return <DashboardLoader />;
 
@@ -1059,7 +1104,7 @@ export default function DispatchKpi() {
                                     { label: 'Total Jobs Booked', align: 'center', width: 145 },
                                     { label: 'All Leads',         align: 'center', width: 100 },
                                     { label: 'Pickup Ratio',      align: 'center', width: 110 },
-                                    { label: 'Actions',           align: 'center', width: 90  },
+                                    { label: 'Actions',           align: 'center', width: 110 },
                                 ].map(col => (
                                     <TableCell
                                         key={col.label}
@@ -1141,11 +1186,18 @@ export default function DispatchKpi() {
                                                 <Chip label={`${pickupRatio}%`} size="small" sx={{ fontSize: '0.75rem', height: '22px', bgcolor: alpha(PALETTE.TEAL, 0.08), color: PALETTE.TEAL, border: `1px solid ${alpha(PALETTE.TEAL, 0.2)}`, '& .MuiChip-label': { px: 1 } }} />
                                             </TableCell>
                                             <TableCell align="center" sx={{ py: 1.5 }}>
-                                                <Tooltip title="Move to Recycle Bin">
-                                                    <IconButton size="small" onClick={() => handleSingleMoveToBin(row)} sx={{ color: PALETTE.RED, p: '6px', '&:hover': { bgcolor: alpha(PALETTE.RED, 0.08) } }}>
-                                                        <Trash2 size={15} />
-                                                    </IconButton>
-                                                </Tooltip>
+                                                <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
+                                                    <Tooltip title="View Details">
+                                                        <IconButton size="small" onClick={() => handleViewDetails(row)} sx={{ color: PALETTE.BLUE, p: '6px', '&:hover': { bgcolor: alpha(PALETTE.BLUE, 0.08) } }}>
+                                                            <Eye size={15} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title="Move to Recycle Bin">
+                                                        <IconButton size="small" onClick={() => handleSingleMoveToBin(row)} sx={{ color: PALETTE.RED, p: '6px', '&:hover': { bgcolor: alpha(PALETTE.RED, 0.08) } }}>
+                                                            <Trash2 size={15} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </Stack>
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -1192,6 +1244,13 @@ export default function DispatchKpi() {
                 onBulkRestore={handleBulkRestore}
                 onPermanentDelete={handlePermanentDelete}
                 onBulkPermanentDelete={handleBulkPermanentDelete}
+                onView={handleViewDetails}
+            />
+
+            <DispatchKpiDetailDialog
+                open={detailOpen}
+                item={detailItem}
+                onClose={() => setDetailOpen(false)}
             />
         </Box>
     );

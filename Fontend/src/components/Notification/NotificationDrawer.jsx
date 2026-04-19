@@ -21,24 +21,25 @@ import { rmeApi } from '../../api/services/rmeApi';
 import { workOrdersApi } from '../../api/services/workOrders';
 import { dispatchKpiApi } from '../../api/services/dispatchKpi';
 import { useAuth } from '../../auth/AuthProvider';
-import { Bell, X, Clock, MapPin, Wrench, ArrowRight, Check, BarChart3 } from 'lucide-react';
+import { Bell, X, Clock, MapPin, Wrench, ArrowRight, Check, BarChart3, Star } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
+import { reviewsApi } from '../../api/services/reviews';
 
-const GREEN_COLOR  = '#10b981';
-const BLUE_COLOR   = '#1976d2';
+const GREEN_COLOR = '#10b981';
+const BLUE_COLOR = '#1976d2';
 const ORANGE_COLOR = '#f59e0b';
 const PURPLE_COLOR = '#8b5cf6';
-const TEAL_COLOR   = '#0891b2';
-const RED_COLOR    = '#ef4444';
+const TEAL_COLOR = '#0891b2';
+const RED_COLOR = '#ef4444';
 
 const TAG_CONFIG = {
-    'FOLLOWUP-ASAP':             { label: 'Follow-Up ASAP',      color: RED_COLOR },
-    'JOB NOT COMPLETED':         { label: 'Job Not Completed',   color: ORANGE_COLOR },
-    'OFFICE QUOTE NEEDED':       { label: 'Office Quote Needed', color: PURPLE_COLOR },
-    'QUOTE-CREATED':             { label: 'Quote Created',       color: TEAL_COLOR },
-    'QUOTE CREATED':             { label: 'Quote Created',       color: TEAL_COLOR },
-    'ROUTINE SERVICE REQUESTED': { label: 'Routine Service',     color: GREEN_COLOR },
-    'LOCATES':                   { label: 'Locates',             color: BLUE_COLOR },
+    'FOLLOWUP-ASAP': { label: 'Follow-Up ASAP', color: RED_COLOR },
+    'JOB NOT COMPLETED': { label: 'Job Not Completed', color: ORANGE_COLOR },
+    'OFFICE QUOTE NEEDED': { label: 'Office Quote Needed', color: PURPLE_COLOR },
+    'QUOTE-CREATED': { label: 'Quote Created', color: TEAL_COLOR },
+    'QUOTE CREATED': { label: 'Quote Created', color: TEAL_COLOR },
+    'ROUTINE SERVICE REQUESTED': { label: 'Routine Service', color: GREEN_COLOR },
+    'LOCATES': { label: 'Locates', color: BLUE_COLOR },
 };
 
 const NOTIFICATION_COLORS = {
@@ -126,6 +127,8 @@ const NotificationDrawer = ({ onClose }) => {
                 await workOrdersApi.markSeen({ user: user?.id, work_order: notification.entityId });
             } else if (notification.type === 'dispatch-kpi') {
                 await dispatchKpiApi.markSeen({ user: user?.id, dispatcher_booked: notification.entityId });
+            } else if (notification.type === 'review') {
+                await reviewsApi.markSeen(notification.entityId);
             }
         },
         onMutate: async (notification) => {
@@ -152,6 +155,10 @@ const NotificationDrawer = ({ onClose }) => {
                         notification.type === 'dispatch-kpi'
                             ? (old.dispatchKpi || []).map(item => item.id === notification.entityId ? { ...item, user_seen_records: [{ user: user?.id }] } : item)
                             : old.dispatchKpi,
+                    reviews:
+                        notification.type === 'review'
+                            ? (old.reviews || []).map(item => item.id === notification.entityId ? { ...item, is_seen: true } : item)
+                            : old.reviews,
                 };
             });
 
@@ -173,6 +180,7 @@ const NotificationDrawer = ({ onClose }) => {
             const workOrderIds = notificationsArray.filter(n => n.type === 'RME').map(n => n.entityId);
             const allWoIds = notificationsArray.filter(n => n.type === 'work-order').map(n => n.entityId);
             const dkpiIds = notificationsArray.filter(n => n.type === 'dispatch-kpi').map(n => n.entityId);
+            const reviewIds = notificationsArray.filter(n => n.type === 'review');
 
             const promises = [];
             if (locateIds.length > 0) promises.push(locatesApi.markSeen({ ids: locateIds }));
@@ -182,6 +190,9 @@ const NotificationDrawer = ({ onClose }) => {
             }
             if (dkpiIds.length > 0) {
                 dkpiIds.forEach(id => promises.push(dispatchKpiApi.markSeen({ user: user?.id, dispatcher_booked: id })));
+            }
+            if (reviewIds.length > 0) {
+                promises.push(reviewsApi.markAllSeen());
             }
             await Promise.all(promises);
         },
@@ -209,6 +220,7 @@ const NotificationDrawer = ({ onClose }) => {
                                 ? item.user_seen_records
                                 : [{ user: user?.id }],
                     })),
+                    reviews: (old.reviews || []).map(item => ({ ...item, is_seen: true })),
                 };
             });
 
@@ -226,7 +238,7 @@ const NotificationDrawer = ({ onClose }) => {
     /* ── Build notification list from all three sources ── */
     const latestNotifications = React.useMemo(() => {
         if (!notifications) return [];
-        const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [] } = notifications;
+        const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [] } = notifications;
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
         const all = [];
@@ -292,18 +304,18 @@ const NotificationDrawer = ({ onClose }) => {
                 createdAt = new Date().toISOString();
             }
             if (workOrder.is_deleted) return;
-            
+
             const createdDate = new Date(createdAt);
             if (createdDate >= oneMonthAgo) {
                 const addr = parseDashboardAddress(workOrder.workOrderAddress || '');
                 const isSeen = Array.isArray(workOrder.user_seen_records) && workOrder.user_seen_records.length > 0;
-                
+
                 // Handle tag - it can be an array or single value
                 const tagArray = Array.isArray(workOrder.tag) ? workOrder.tag : workOrder.tag ? [workOrder.tag] : [];
                 const tagName = tagArray[0] || null;
                 const tagLabel = tagName ? (TAG_CONFIG[tagName]?.label || tagName) : null;
                 const tagColor = tagName ? (TAG_CONFIG[tagName]?.color || ORANGE_COLOR) : ORANGE_COLOR;
-                
+
                 const displayAddress = addr.street || addr.original || null;
                 all.push({
                     id: `wo-${workOrder.id}`,
@@ -349,6 +361,31 @@ const NotificationDrawer = ({ onClose }) => {
                     rawData: dkpi,
                     entityId: dkpi.id,
                     is_seen: isSeen,
+                });
+            }
+        });
+
+        // Reviews
+        reviews.forEach((review) => {
+            const createdAt = review.created_at || review.review_date;
+            if (!createdAt || review.is_deleted) return;
+            const createdDate = new Date(createdAt);
+            if (createdDate >= oneMonthAgo) {
+                all.push({
+                    id: `review-${review.id}`,
+                    type: 'review',
+                    title: `New ${review.rating}-Star Review`,
+                    description: `${review.reviewer_name} Left A ${review.rating_value} Star Review From ${review.business_name || 'Customer'}`,
+                    address: review.platform || 'Google',
+                    workOrderNumber: 'N/A',
+                    customerName: review.author_name || 'Customer',
+                    timestamp: createdDate,
+                    formattedTime: formatDate(createdAt),
+                    icon: Star,
+                    color: ORANGE_COLOR,
+                    rawData: review,
+                    entityId: review.id,
+                    is_seen: review.is_seen || false,
                 });
             }
         });
@@ -412,6 +449,8 @@ const NotificationDrawer = ({ onClose }) => {
             navigate(`${basePath}/customer-center`, { state: { highlightWorkOrderId: notification.entityId, fromNotifications: true } });
         } else if (notification.type === 'dispatch-kpi') {
             navigate(`${basePath}/dispatch-kpi`, { state: { highlightDispatchKpiId: notification.entityId, fromNotifications: true } });
+        } else if (notification.type === 'review') {
+            navigate(`${basePath}/review-tracking`, { state: { highlightReviewId: notification.entityId, fromNotifications: true } });
         }
     };
 
@@ -488,7 +527,7 @@ const NotificationDrawer = ({ onClose }) => {
                         <Bell size={48} color={alpha(NOTIFICATION_COLORS.gray, 0.3)} />
                         <Typography variant="body1" sx={{ mt: 2, color: NOTIFICATION_COLORS.textSecondary, fontWeight: 600 }}>No notifications</Typography>
                         <Typography variant="caption" sx={{ color: NOTIFICATION_COLORS.textTertiary, mt: 1, display: 'block', maxWidth: '80%' }}>
-                            No locates, RMEs, or work orders found in the last 30 days.
+                            No locates, RMEs, work orders, or reviews found in the last 30 days.
                         </Typography>
                     </Box>
                 ) : (
@@ -542,7 +581,13 @@ const NotificationDrawer = ({ onClose }) => {
                                                                     />
                                                                 )}
                                                                 <Chip
-                                                                    label={notification.type === 'locate' ? 'Locate' : notification.type === 'RME' ? 'RME' : notification.type === 'dispatch-kpi' ? 'KPI' : 'WO'}
+                                                                    label={
+                                                                        notification.type === 'locate' ? 'Locate' :
+                                                                            notification.type === 'RME' ? 'RME' :
+                                                                                notification.type === 'dispatch-kpi' ? 'KPI' :
+                                                                                    notification.type === 'review' ? 'Review' :
+                                                                                        'WO'
+                                                                    }
                                                                     size="small"
                                                                     sx={{ height: '20px', fontSize: '0.65rem', fontWeight: 600, backgroundColor: alpha(notification.color, 0.1), color: notification.color, border: `1px solid ${alpha(notification.color, 0.2)}` }}
                                                                 />
@@ -555,10 +600,10 @@ const NotificationDrawer = ({ onClose }) => {
                                                             {notification.type === 'locate'
                                                                 ? `WO: ${notification.workOrderNumber}`
                                                                 : notification.type === 'RME'
-                                                                ? `WO: ${notification.rmeNumber}`
-                                                                : notification.type === 'dispatch-kpi'
-                                                                ? `KPI`
-                                                                : `WO: ${notification.workOrderNumber}`}
+                                                                    ? `WO: ${notification.rmeNumber}`
+                                                                    : notification.type === 'dispatch-kpi'
+                                                                        ? `KPI`
+                                                                        : `WO: ${notification.workOrderNumber}`}
                                                             <Box sx={{ mx: 0.5 }}>•</Box>
                                                             {notification.formattedTime}
                                                         </Typography>

@@ -26,6 +26,7 @@ import {
     PhoneCall,
     AlertTriangle,
     AlertCircle,
+    Eye,
 } from 'lucide-react';
 import {
     formatDate,
@@ -49,6 +50,7 @@ const LocateTable = ({
     onToggleAll,
     onMarkCalled,
     onManualComplete,
+    onView,
     color,
     showCallAction = false,
     showCalledBy = false,
@@ -70,7 +72,7 @@ const LocateTable = ({
         let count = 1;
         if (showCallAction) count++;
         if (showTimerColumn) count++;
-        count += 4;
+        count += 5; // Customer, Address, Date, Tech, View
         if (showCalledBy) count++;
         if (showManualCompleteAction && tableType === 'inProgress') count++;
         return count;
@@ -389,6 +391,7 @@ const LocateTable = ({
                                 {isMobile ? 'Act' : 'Actions'}
                             </TableCell>
                         )}
+                        <TableCell sx={{ width: 60 }}>View</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -498,6 +501,13 @@ const LocateTable = ({
                                         {renderManualCompleteButton(item)}
                                     </TableCell>
                                 )}
+                                <TableCell sx={{ py: 1.5 }}>
+                                    <Tooltip title="View Details">
+                                        <IconButton size="small" onClick={() => onView(item)} sx={{ color: BLUE_COLOR, '&:hover': { bgcolor: alpha(BLUE_COLOR, 0.05) } }}>
+                                            <Eye size={16} />
+                                        </IconButton>
+                                    </Tooltip>
+                                </TableCell>
                             </TableRow>
                         );
                     })}

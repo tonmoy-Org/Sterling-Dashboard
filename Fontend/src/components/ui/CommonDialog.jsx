@@ -126,6 +126,7 @@ const CommonDialog = memo(({
           </Button>
         )}
         <Button
+          autoFocus
           onClick={onConfirm}
           disabled={isLoading || disabled}
           variant="contained"

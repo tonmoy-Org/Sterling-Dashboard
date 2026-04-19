@@ -22,30 +22,86 @@ class ReviewTrackerScraper(BaseScraper):
         # Target URL for Sterling Septic & Plumbing LLC reviews on Google Maps
         self.target_url = "https://www.google.com/maps/place/Sterling+Septic+%26+Plumbing+LLC/@47.1477057,-122.3684081,4154m/data=!3m1!1e3!4m10!1m2!2m1!1sSeptic+system+service!3m6!1s0x54911ceea9f5605f:0xa8488b08b377e811!8m2!3d47.1477077!4d-122.3529584!15sChVTZXB0aWMgc3lzdGVtIHNlcnZpY2VaFyIVc2VwdGljIHN5c3RlbSBzZXJ2aWNlkgEVc2VwdGljX3N5c3RlbV9zZXJ2aWNlmgEjQ2haRFNVaE5NRzluUzBWSlEwRm5TVVIxY1dOSFdGTm5FQUXgAQD6AQQIABBD!16s%2Fg%2F11dyb5zmdk?entry=ttu&g_ep=EgoyMDI2MDQxNC4wIKXMDSoASAFQAw%3D%3D"
 
+    async def dismiss_google_consent(self):
+        """Handle Google's 'Before you continue' cookie consent dialog."""
+        try:
+            # Common selectors for Google consent buttons
+            consent_selectors = [
+                "button:has-text('Accept all')",
+                "button:has-text('I agree')",
+                "button:has-text('Accept')",
+                "button[aria-label='Accept all']",
+                "form[action*='consent'] button"
+            ]
+            
+            for selector in consent_selectors:
+                btn = self.page.locator(selector)
+                if await btn.count() > 0:
+                    print(f"➡️ Dismissing Google consent dialog using: {selector}")
+                    await btn.first.click()
+                    await asyncio.sleep(2)
+                    return True
+            return False
+        except Exception:
+            return False
+
     async def open_reviews_tab(self):
         """Navigate to the reviews tab."""
         try:
             print("➡️ Opening reviews tab...")
-            # Look for the Reviews tab button
-            review_tab = self.page.locator("button[role='tab']:has-text('Reviews')")
             
-            if await review_tab.count() == 0:
-                # Fallback: look for any tab with review text
-                review_tab = self.page.locator("button[role='tab']").filter(has_text="Reviews")
+            # 1. Give Google Maps some extra time to load the sidebar components
+            await self.page.wait_for_timeout(5000)
             
-            if await review_tab.count() > 0:
-                await review_tab.first.click()
-                print("✅ Clicked Reviews tab")
+            # 2. List of possible Review tab selectors (Google changes these often)
+            tab_selectors = [
+                "button[role='tab']:has-text('Reviews')",
+                "button[aria-label^='Reviews']",
+                "button:has-text('Reviews')",
+                "div[role='tab']:has-text('Reviews')"
+            ]
+            
+            review_tab = None
+            for selector in tab_selectors:
+                loc = self.page.locator(selector)
+                if await loc.count() > 0:
+                    review_tab = loc.first
+                    print(f"✅ Found Reviews tab using selector: {selector}")
+                    break
+            
+            if not review_tab:
+                # Last resort: search for anything with "Reviews" text
+                loc = self.page.get_by_text("Reviews", exact=False)
+                if await loc.count() > 0:
+                    review_tab = loc.first
+                    print("✅ Found Reviews tab using text search")
+
+            if review_tab:
+                # Check if it's already selected
+                aria_selected = await review_tab.get_attribute("aria-selected")
+                if aria_selected == "true":
+                    print("ℹ️ Reviews tab is already selected")
+                else:
+                    await review_tab.click()
+                    print("✅ Clicked Reviews tab")
+                
+                # Wait for reviews panel to load
+                # Google Maps uses div[role='feed'] for the reviews list
+                try:
+                    await self.page.wait_for_selector("div[role='feed']", timeout=15000)
+                    print("✅ Reviews panel opened")
+                    return True
+                except:
+                    # Even if selector doesn't appear, check if some reviews loaded
+                    if await self.page.locator("div.jftiEf").count() > 0:
+                        print("✅ Reviews detected even without role='feed'")
+                        return True
+                    print("⚠️ Clicked tab but feed didn't load")
+                    return False
             else:
                 print("⚠️ Reviews tab not found")
+                # DEBUG: Take a screenshot if possible? (not in this env)
                 return False
-            
-            # Wait for reviews panel to load
-            await self.page.wait_for_selector("div[role='feed']", timeout=15000)
-            await asyncio.sleep(2)
-            
-            print("✅ Reviews panel opened")
-            return True
             
         except Exception as e:
             print(f"❌ Error opening reviews tab: {e}")
@@ -232,6 +288,9 @@ class ReviewTrackerScraper(BaseScraper):
             print(f"Navigating to: {self.target_url}")
             await self.page.goto(self.target_url, wait_until="domcontentloaded", timeout=60000)
             
+            # Dismiss any Google cookie consent popups (common on VPS/clean browsers)
+            await self.dismiss_google_consent()
+
             # Wait for business page load
             try:
                 await self.page.wait_for_selector("h1.DUwDvf", timeout=30000)

@@ -250,6 +250,14 @@
       },
       {
         "action": "click",
+        "xpath": "//*[@id='CompletedDatelabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
         "xpath": "(//div[@class='add-filter-container']//button)[last()]"
       },
       {

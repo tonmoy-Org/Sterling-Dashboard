@@ -80,8 +80,15 @@ def incident_list(request):
         qs = qs.filter(service_name__icontains=service_name)
 
     status_filter = request.query_params.get('status')
-    if status_filter:
+    if (status_filter):
         qs = qs.filter(status=status_filter)
+
+    try:
+        limit = int(request.query_params.get('limit', 50))
+    except ValueError:
+        limit = 50
+
+    qs = qs[:limit]
 
     serializer = IncidentSerializer(qs, many=True)
     return Response(serializer.data)

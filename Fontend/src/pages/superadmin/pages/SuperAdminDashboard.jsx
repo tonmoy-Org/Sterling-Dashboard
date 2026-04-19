@@ -33,7 +33,7 @@ const dashboardCards = [
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
   { label: 'Customer Center', route: '/super-admin-dashboard/customer-center', handwritten: true, image: h1, notificationPath: '/super-admin-dashboard/customer-center' },
   { label: 'Dispatch KPI', route: '/super-admin-dashboard/dispatch-kpi', handwritten: true, image: h7, notificationPath: '/super-admin-dashboard/dispatch-kpi' },
-  { label: 'Review Tracking', route: '/super-admin-dashboard/review-tracking', handwritten: true, image: h8, notificationPath: null },
+  { label: 'Review Tracking', route: '/super-admin-dashboard/review-tracking', handwritten: true, image: h8, notificationPath: '/super-admin-dashboard/review-tracking' },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
 ];
@@ -103,6 +103,12 @@ export const SuperAdminDashboard = () => {
         const isRecent = ts === null || !isNaN(ts) && (now - ts) <= WO_STALE_THRESHOLD;
         const isUnseen = Array.isArray(dkpi.user_seen_records) && dkpi.user_seen_records.length === 0;
         return isRecent && isUnseen;
+      }).length,
+
+      // Reviews count
+      '/super-admin-dashboard/review-tracking': (notifications.reviews || []).filter(r => {
+        const dateValue = r.created_at || r.review_date;
+        return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !r.is_seen;
       }).length,
     };
   }, [notifications]);

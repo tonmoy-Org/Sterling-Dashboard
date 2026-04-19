@@ -23,6 +23,7 @@ import {
   X,
   RotateCcw,
   Trash2,
+  Eye,
 } from 'lucide-react';
 import SearchInput from '../SearchInput';
 import {
@@ -56,6 +57,7 @@ const RecycleBinModal = ({
   permanentDeleteFromRecycleBinMutation,
   bulkRestoreMutation,
   bulkPermanentDeleteMutation,
+  onView,
   isMobile,
   isSmallMobile,
 }) => {
@@ -447,6 +449,18 @@ const RecycleBinModal = ({
                         </TableCell>
                         <TableCell>
                           <Stack direction="row" spacing={0.5}>
+                            <Tooltip title="View Details">
+                              <IconButton
+                                size="small"
+                                onClick={() => onView(item)}
+                                sx={{
+                                  color: alpha(TEXT_COLOR, 0.7),
+                                  '&:hover': { backgroundColor: alpha(TEXT_COLOR, 0.05) },
+                                }}
+                              >
+                                <Eye size={16} />
+                              </IconButton>
+                            </Tooltip>
                             <Tooltip title="Restore">
                               <IconButton
                                 size="small"

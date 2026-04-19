@@ -9,6 +9,7 @@ import { alpha } from '@mui/material/styles';
 import {
   Star, Search, X, Users, User, BarChart2, List, ChevronDown, ChevronUp,
   Award, MessageSquare, Trash2, History, RotateCcw, AlertCircle, Wrench,
+  Check,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reviewsApi } from '../../../../api/services/reviews';
@@ -19,6 +20,7 @@ import RefreshButton from '../../../../components/ui/RefreshButton';
 import CommonDialog from '../../../../components/ui/CommonDialog';
 import { useAuth } from '../../../../auth/AuthProvider';
 import { useGlobalSnackbar } from '../../../../context/GlobalSnackbarContext';
+import { useLocation } from 'react-router-dom';
 
 const PALETTE = {
   TEXT: '#0F1115',
@@ -103,6 +105,7 @@ const transformReview = (item) => ({
   deletedBy: item.deleted_by || null,
   deletedByEmail: item.deleted_by_email || null,
   employees: extractEmployees(item.review_text),
+  isSeen: item.is_seen || false,
 });
 
 const AVATAR_COLORS = [PALETTE.BLUE, PALETTE.GREEN, PALETTE.ORANGE, PALETTE.TEAL, PALETTE.PURPLE, PALETTE.PINK, PALETTE.AMBER];
@@ -288,6 +291,7 @@ const RecycleBinModal = memo(({
               </Box>
             </Box>
             <IconButton 
+              autoFocus
               size="small" 
               onClick={onClose} 
               sx={{ 
@@ -682,47 +686,142 @@ EmployeeBarChart.displayName = 'EmployeeBarChart';
 const ReviewDetailDialog = memo(({ open, review, onClose }) => {
   if (!review) return null;
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
-      PaperProps={{ sx: { bgcolor: 'white', borderRadius: '8px', border: `1px solid ${alpha(PALETTE.AMBER, 0.2)}` } }}>
-      <DialogTitle sx={{ borderBottom: `1px solid ${alpha(PALETTE.AMBER, 0.1)}`, pb: 1.5 }}>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{ 
+        sx: { 
+          borderRadius: '12px',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+        } 
+      }}
+    >
+      <DialogTitle sx={{ p: 2, borderBottom: `1px solid ${alpha(PALETTE.TEXT, 0.05)}` }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box>
-            <Typography sx={{ fontSize: '0.95rem', fontWeight: 600, color: PALETTE.TEXT }}>{review.reviewer}</Typography>
-            <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.75rem' }}>{review.date}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ 
+              width: 40, height: 40, borderRadius: '10px', bgcolor: alpha(PALETTE.AMBER, 0.1), 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: PALETTE.AMBER 
+            }}>
+              <MessageSquare size={22} />
+            </Box>
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', color: PALETTE.TEXT }}>
+                Review Details
+              </Typography>
+              <Typography variant="caption" sx={{ color: PALETTE.GRAY }}>
+                Source: Google Reviews
+              </Typography>
+            </Box>
           </Box>
-          <IconButton size="small" onClick={onClose} sx={{ color: PALETTE.GRAY }}><X size={16} /></IconButton>
+          <IconButton autoFocus onClick={onClose} size="small" sx={{ color: PALETTE.GRAY }}>
+            <X size={20} />
+          </IconButton>
         </Box>
       </DialogTitle>
-      <DialogContent sx={{ pt: 2 }}>
-        <Stars value={review.rating} size={16} />
-        <Typography variant="body2" sx={{ mt: 1.5, fontSize: '0.875rem', color: PALETTE.TEXT, lineHeight: 1.7, fontStyle: 'italic', opacity: 0.9 }}>
-          "{review.text}"
-        </Typography>
-        {review.employees.length > 0 && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" sx={{ fontSize: '0.75rem', color: PALETTE.GRAY, fontWeight: 600, display: 'block', mb: 0.75 }}>Employees mentioned</Typography>
-            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-              {review.employees.map(e => <EmpChip key={e} name={e} />)}
+
+      <DialogContent sx={{ p: 3 }}>
+        <Stack spacing={3}>
+          {/* Reviewer & Rating Section */}
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: PALETTE.GRAY, textTransform: 'uppercase', mb: 1.5, display: 'block' }}>
+              Reviewer & Rating
+            </Typography>
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: alpha(PALETTE.GRAY, 0.02), borderRadius: '8px' }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: PALETTE.TEXT, mb: 0.5 }}>
+                    {review.reviewer}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: PALETTE.GRAY, display: 'block' }}>
+                    {review.date}
+                  </Typography>
+                </Box>
+                <Stars value={review.rating} size={18} />
+              </Stack>
+            </Paper>
+          </Box>
+
+          {/* Feedback Section */}
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: PALETTE.GRAY, textTransform: 'uppercase', mb: 1, display: 'block' }}>
+              Customer Feedback
+            </Typography>
+            <Typography variant="body2" sx={{ 
+              fontSize: '0.9rem', 
+              color: PALETTE.TEXT, 
+              lineHeight: 1.8, 
+              fontStyle: 'italic',
+              bgcolor: alpha(PALETTE.AMBER, 0.03),
+              p: 2,
+              borderRadius: '8px',
+              borderLeft: `3px solid ${PALETTE.AMBER}`
+            }}>
+              "{review.text}"
+            </Typography>
+          </Box>
+
+          {/* Mentions & Services */}
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: PALETTE.GRAY, textTransform: 'uppercase', mb: 1.5, display: 'block' }}>
+              Insights
+            </Typography>
+            <Stack spacing={2}>
+              {review.employees.length > 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Box sx={{ p: 0.75, borderRadius: '6px', bgcolor: alpha(PALETTE.BLUE, 0.08) }}>
+                    <Users size={16} color={PALETTE.BLUE} />
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: PALETTE.GRAY, display: 'block', mb: 0.5 }}>Staff Recognized</Typography>
+                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                      {review.employees.map(e => <EmpChip key={e} name={e} />)}
+                    </Stack>
+                  </Box>
+                </Box>
+              )}
+              
+              {review.services !== 'N/A' && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Box sx={{ p: 0.75, borderRadius: '6px', bgcolor: alpha(PALETTE.TEAL, 0.08) }}>
+                    <Wrench size={16} color={PALETTE.TEAL} />
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: PALETTE.GRAY, display: 'block', mb: 0.25 }}>Services Mentioned</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: PALETTE.TEAL }}>{review.services}</Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {review.price !== 'N/A' && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Box sx={{ p: 0.75, borderRadius: '6px', bgcolor: alpha(PALETTE.GREEN, 0.08) }}>
+                    <Award size={16} color={PALETTE.GREEN} />
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: PALETTE.GRAY, display: 'block', mb: 0.25 }}>Price Assessment</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: PALETTE.GREEN }}>{review.price} · {review.priceLabel}</Typography>
+                  </Box>
+                </Box>
+              )}
             </Stack>
           </Box>
-        )}
-        {review.price !== 'N/A' && (
-          <Box sx={{ mt: 2, p: 1.25, borderRadius: '6px', bgcolor: alpha(PALETTE.GREEN, 0.06), border: `1px solid ${alpha(PALETTE.GREEN, 0.15)}` }}>
-            <Typography variant="caption" sx={{ fontSize: '0.75rem', color: PALETTE.GREEN, fontWeight: 600 }}>
-              Price range: {review.price} · {review.priceLabel}
-            </Typography>
-          </Box>
-        )}
-        {review.services !== 'N/A' && (
-          <Box sx={{ mt: 2, p: 1.25, borderRadius: '6px', bgcolor: alpha(PALETTE.TEAL, 0.06), border: `1px solid ${alpha(PALETTE.TEAL, 0.15)}` }}>
-            <Typography variant="caption" sx={{ fontSize: '0.75rem', color: PALETTE.TEAL, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Wrench size={12} /> Services: {review.services}
-            </Typography>
-          </Box>
-        )}
+        </Stack>
       </DialogContent>
-      <DialogActions sx={{ p: 2, pt: 1 }}>
-        <Button onClick={onClose} sx={{ textTransform: 'none', color: PALETTE.TEXT, fontSize: '0.85rem' }}>Close</Button>
+
+      <DialogActions sx={{ p: 2, mt: 1, borderTop: `1px solid ${alpha(PALETTE.TEXT, 0.03)}` }}>
+        <Button onClick={onClose} variant="contained" sx={{ 
+          bgcolor: PALETTE.TEXT, 
+          color: 'white', 
+          textTransform: 'none', 
+          borderRadius: '6px',
+          fontWeight: 500,
+          '&:hover': { bgcolor: alpha(PALETTE.TEXT, 0.8) }
+        }}>
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   );
@@ -768,9 +867,26 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
                 </TableCell>
                 <TableCell sx={{ py: 1.5 }}>
                   <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem', color: PALETTE.TEXT }}>
-                      {r.reviewer}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem', color: PALETTE.TEXT }}>
+                        {r.reviewer}
+                      </Typography>
+                      {!r.isSeen && (
+                        <Chip
+                          label="NEW"
+                          size="small"
+                          sx={{
+                            height: 16,
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            bgcolor: PALETTE.ORANGE,
+                            color: 'white',
+                            borderRadius: '4px',
+                            '& .MuiChip-label': { px: 0.5 }
+                          }}
+                        />
+                      )}
+                    </Box>
                     <Box sx={{ mt: 0.5 }}>
                       <Stars value={r.rating} size={12} />
                       <Typography variant="caption" sx={{ fontSize: '0.7rem', color: PALETTE.GRAY, mt: 0.5 }}>
@@ -932,6 +1048,7 @@ export default function Review() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { showSnackbar } = useGlobalSnackbar();
+  const location = useLocation();
 
   // Fetch active reviews
   const { data: rawReviews = [], isLoading, refetch } = useQuery({
@@ -942,6 +1059,24 @@ export default function Review() {
       return raw.map(transformReview);
     },
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Seen status mutations
+  const markSeenMutation = useMutation({
+    mutationFn: (id) => reviewsApi.markSeen(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    }
+  });
+
+  const markAllSeenMutation = useMutation({
+    mutationFn: () => reviewsApi.markAllSeen(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      showSnackbar('All reviews marked as read', 'success');
+    }
   });
 
   // Fetch deleted reviews for recycle bin
@@ -970,7 +1105,26 @@ export default function Review() {
   const [binPage, setBinPage] = useState(0);
   const [binRpp, setBinRpp] = useState(10);
 
-  const openDetail = useCallback((r) => { setDetailItem(r); setDetailOpen(true); }, []);
+  const openDetail = useCallback((r) => {
+    setDetailItem(r);
+    setDetailOpen(true);
+    if (!r.isSeen) {
+      markSeenMutation.mutate(r.id);
+    }
+  }, [markSeenMutation]);
+
+  const highlightedRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const targetId = location.state?.highlightReviewId;
+    if (targetId && rawReviews.length > 0 && highlightedRef.current !== targetId) {
+      const review = rawReviews.find(r => r.id === targetId);
+      if (review) {
+        highlightedRef.current = targetId;
+        openDetail(review);
+      }
+    }
+  }, [location.state, rawReviews, openDetail]);
   
   const toggleSelect = useCallback((id) => setSelected(prev => {
     const next = new Set(prev);
@@ -1129,6 +1283,27 @@ export default function Review() {
             refetch();
             refetchBin();
           }} />
+          {rawReviews.some(r => !r.isSeen) && (
+            <Button
+              variant="outlined"
+              startIcon={<Check size={16} />}
+              onClick={() => markAllSeenMutation.mutate()}
+              disabled={markAllSeenMutation.isPending}
+              sx={{
+                textTransform: 'none',
+                color: PALETTE.ORANGE,
+                borderColor: alpha(PALETTE.ORANGE, 0.3),
+                height: '36px',
+                px: 2,
+                '&:hover': {
+                  bgcolor: alpha(PALETTE.ORANGE, 0.05),
+                  borderColor: PALETTE.ORANGE
+                }
+              }}
+            >
+              Mark all read
+            </Button>
+          )}
           <Button variant="outlined" startIcon={<History size={16} />} onClick={() => setBinOpen(true)}
             sx={{ textTransform: 'none', color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.3), height: '36px', px: 2, '&:hover': { bgcolor: alpha(PALETTE.PURPLE, 0.05), borderColor: PALETTE.PURPLE } }}>
             Recycle Bin ({binItems.length})

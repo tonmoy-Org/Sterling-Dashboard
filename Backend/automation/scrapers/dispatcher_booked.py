@@ -101,6 +101,13 @@ class DispatcherBookedScraper(BaseScraper):
             except Exception:
                 print("⚠️ 'Today' option still not visible after retry, proceeding anyway...")
 
+        # Robust wait for the Submit/Apply button before clicking
+        try:
+            submit_xpath = self.rules.get("submit_filter")[0].get("xpath")
+            await self.page.wait_for_selector(submit_xpath, state="visible", timeout=10000)
+        except Exception:
+            print("⚠️ Submit button not visible after Today selection — attempting to continue...")
+
         await self.perform_actions_by_xpaths(name="submit_filter", raise_on_error=True)
         await self.page.wait_for_timeout(2000)
 

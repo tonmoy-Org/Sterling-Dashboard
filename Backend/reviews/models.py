@@ -1,23 +1,29 @@
 from django.db import models
-
-class Employee(models.Model):
-    name = models.CharField(max_length=255)
-    
-    def __str__(self):
-        return self.name
-
-class Platform(models.Model):
-    name = models.CharField(max_length=100)
-    
-    def __str__(self):
-        return self.name
+from django.utils import timezone
 
 class Review(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='reviews')
-    platform = models.ForeignKey(Platform, on_delete=models.CASCADE, related_name='reviews')
-    rating = models.IntegerField()
-    review_text = models.TextField()
+    reviewer_name = models.CharField(max_length=255, default="")
+    rating_text = models.CharField(max_length=50, blank=True, null=True)
+    rating_value = models.IntegerField(default=0)
+    review_date = models.CharField(max_length=100, blank=True, null=True)
+    review_text = models.TextField(blank=True, null=True)
+    price_assessment = models.CharField(max_length=255, blank=True, null=True)
+    price_range = models.CharField(max_length=255, blank=True, null=True)
+    services_mentioned = models.TextField(blank=True, null=True)
+    
+    business_name = models.CharField(max_length=255, default="Sterling Septic & Plumbing LLC")
+    
+    # Soft deletion fields
+    deleted_by = models.CharField(max_length=255, null=True, blank=True, help_text="User who deleted the record")
+    deleted_by_email = models.EmailField(max_length=255, null=True, blank=True, help_text="Email of the user who deleted the record")
+    deleted_date = models.DateTimeField(null=True, blank=True, help_text="Date of deletion")
+    is_deleted = models.BooleanField(null=True, blank=True, default=False, help_text="Soft delete flag")
+    
+    scraped_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['-created_at']
+
     def __str__(self):
-        return f"Review for {self.employee.name} on {self.platform.name} - Rating: {self.rating}"
+        return f"{self.reviewer_name} - {self.rating_value} stars"

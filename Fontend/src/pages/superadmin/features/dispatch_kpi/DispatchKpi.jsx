@@ -42,6 +42,7 @@ import { dispatchKpiApi } from '../../../../api/services/dispatchKpi';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import DashboardLoader from '../../../../components/Loader/DashboardLoader';
 import RefreshButton from '../../../../components/ui/RefreshButton';
+import CommonDialog from '../../../../components/ui/CommonDialog';
 import { rmeApi } from '../../../../api/services/rmeApi';
 
 // ─── Replace local snack state with the global snackbar hook ───────────────────
@@ -172,210 +173,51 @@ const PermanentDeleteDialog = memo(({ open, onClose, onConfirm, isBulk, item, co
     }, [onConfirm, onClose]);
 
     return (
-        <Dialog
-            open={open}
-            onClose={onClose}
-            maxWidth="xs"
-            fullWidth
-            PaperProps={{
-                sx: {
-                    bgcolor: 'white',
-                    borderRadius: '12px',
-                    border: `1px solid ${alpha(PALETTE.RED, 0.12)}`,
-                    overflow: 'hidden',
-                },
-            }}
+        <CommonDialog
+            open={open} onClose={onClose} onConfirm={handleConfirm}
+            title="Delete Permanently" variant="danger" confirmText="Delete Permanently"
+            isLoading={loading} icon={<Trash2 size={18} />}
         >
-            <DialogTitle sx={{
-                borderBottom: `1px solid ${alpha(PALETTE.RED, 0.1)}`,
-                pb: 1.5, pt: 2, px: 2.5,
-                background: `linear-gradient(135deg, ${alpha(PALETTE.RED, 0.05)} 0%, transparent 100%)`,
-            }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{
-                        width: 36, height: 36, borderRadius: '9px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: `linear-gradient(135deg, ${alpha(PALETTE.RED, 0.15)}, ${alpha(PALETTE.RED, 0.08)})`,
-                        color: PALETTE.RED,
-                        border: `1px solid ${alpha(PALETTE.RED, 0.15)}`,
-                    }}>
-                        <Trash2 size={17} />
-                    </Box>
-                    <Box>
-                        <Typography sx={{ color: PALETTE.TEXT, fontSize: '0.92rem', fontWeight: 700, lineHeight: 1.2 }}>
-                            Delete Permanently
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.75rem' }}>
-                            Permanently delete from recycle bin
-                        </Typography>
-                    </Box>
+            <Typography variant="body2" sx={{ color: PALETTE.TEXT, fontSize: '0.85rem', lineHeight: 1.6, mb: 2 }}>
+                {isBulk ? (
+                    <>Are you sure you want to permanently delete <Box component="strong" sx={{ color: PALETTE.RED }}>{count} item(s)</Box> from the recycle bin?</>
+                ) : (
+                    <>Are you sure you want to permanently delete the dispatch record for <Box component="strong">{item?.date || 'N/A'}</Box>?</>
+                )}
+            </Typography>
+            <Box sx={{ p: 1.5, borderRadius: '8px', backgroundColor: alpha(PALETTE.RED, 0.05), border: `1px solid ${alpha(PALETTE.RED, 0.12)}`, display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
+                <AlertCircle size={17} color={PALETTE.RED} style={{ flexShrink: 0, marginTop: 1 }} />
+                <Box>
+                    <Typography variant="body2" sx={{ color: PALETTE.RED, fontSize: '0.82rem', fontWeight: 600, mb: 0.25 }}>Warning — cannot be undone</Typography>
+                    <Typography variant="caption" sx={{ color: PALETTE.TEXT, fontSize: '0.78rem', opacity: 0.75 }}>This data will be permanently erased and cannot be recovered.</Typography>
                 </Box>
-            </DialogTitle>
-
-            <DialogContent sx={{ pt: 2.5, pb: 1.5, px: 2.5 }}>
-                <Typography variant="body2" sx={{ color: PALETTE.TEXT, fontSize: '0.85rem', lineHeight: 1.6, mb: 2 }}>
-                    {isBulk ? (
-                        <>
-                            Are you sure you want to permanently delete{' '}
-                            <Box component="strong" sx={{ color: PALETTE.RED }}>{count} item(s)</Box>{' '}
-                            from the recycle bin?
-                        </>
-                    ) : (
-                        <>
-                            Are you sure you want to permanently delete the dispatch record for{' '}
-                            <Box component="strong">{item?.date || 'N/A'}</Box>?
-                        </>
-                    )}
-                </Typography>
-                <Box sx={{
-                    p: 1.5, borderRadius: '8px',
-                    backgroundColor: alpha(PALETTE.RED, 0.05),
-                    border: `1px solid ${alpha(PALETTE.RED, 0.12)}`,
-                    display: 'flex', alignItems: 'flex-start', gap: 1.25,
-                }}>
-                    <AlertCircle size={17} color={PALETTE.RED} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <Box>
-                        <Typography variant="body2" sx={{ color: PALETTE.RED, fontSize: '0.82rem', fontWeight: 600, mb: 0.25 }}>
-                            Warning — cannot be undone
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: PALETTE.TEXT, fontSize: '0.78rem', opacity: 0.75 }}>
-                            This data will be permanently erased and cannot be recovered.
-                        </Typography>
-                    </Box>
-                </Box>
-            </DialogContent>
-
-            <DialogActions sx={{ p: 2, pt: 1.5, gap: 1 }}>
-                <Button
-                    onClick={onClose}
-                    disabled={loading}
-                    sx={{
-                        textTransform: 'none', color: PALETTE.GRAY,
-                        fontSize: '0.83rem', fontWeight: 500, px: 2,
-                        borderRadius: '7px',
-                        border: `1px solid ${alpha(PALETTE.GRAY, 0.25)}`,
-                    }}
-                >
-                    Cancel
-                </Button>
-                <Button
-                    onClick={handleConfirm}
-                    disabled={loading}
-                    variant="contained"
-                    startIcon={loading ? null : <Trash2 size={15} />}
-                    sx={{
-                        textTransform: 'none', fontSize: '0.83rem',
-                        fontWeight: 600, px: 2, borderRadius: '7px',
-                        bgcolor: PALETTE.RED,
-                        boxShadow: `0 4px 14px ${alpha(PALETTE.RED, 0.35)}`,
-                        '&:hover': { bgcolor: alpha(PALETTE.RED, 0.88) },
-                        '&.Mui-disabled': { opacity: 0.6 },
-                    }}
-                >
-                    {loading ? 'Deleting…' : 'Delete Permanently'}
-                </Button>
-            </DialogActions>
-        </Dialog>
+            </Box>
+        </CommonDialog>
     );
 });
 PermanentDeleteDialog.displayName = 'PermanentDeleteDialog';
 
 // ─── Move-to-bin confirmation dialog ──────────────────────────────────────────
 const MoveToBinDialog = memo(({ open, onClose, onConfirm, isBulk, item, count }) => (
-    <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{
-            sx: {
-                bgcolor: 'white',
-                borderRadius: '10px',
-                border: `1px solid ${alpha(PALETTE.ORANGE, 0.15)}`,
-                overflow: 'hidden',
-            },
-        }}
+    <CommonDialog
+        open={open} onClose={onClose} onConfirm={onConfirm}
+        title="Move to Recycle Bin" variant="warning" confirmText="Move to Bin"
+        icon={<Trash2 size={18} />}
     >
-        <DialogTitle sx={{
-            borderBottom: `1px solid ${alpha(PALETTE.ORANGE, 0.1)}`,
-            pb: 1.5,
-            background: `linear-gradient(135deg, ${alpha(PALETTE.ORANGE, 0.05)} 0%, transparent 100%)`,
-        }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{
-                    width: 36, height: 36, borderRadius: '8px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    bgcolor: alpha(PALETTE.ORANGE, 0.1), color: PALETTE.ORANGE,
-                }}>
-                    <Trash2 size={17} />
-                </Box>
-                <Box>
-                    <Typography sx={{ color: PALETTE.TEXT, fontSize: '0.92rem', fontWeight: 700, lineHeight: 1.2 }}>
-                        Move to Recycle Bin
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.75rem' }}>
-                        Item can be restored later
-                    </Typography>
-                </Box>
-            </Box>
-        </DialogTitle>
-
-        <DialogContent sx={{ pt: 2.5, pb: 1.5 }}>
-            <Typography variant="body2" sx={{ color: PALETTE.TEXT, fontSize: '0.85rem', lineHeight: 1.6, mb: 2 }}>
-                {isBulk ? (
-                    <>
-                        Are you sure you want to move{' '}
-                        <Box component="strong" sx={{ color: PALETTE.ORANGE }}>{count} item(s)</Box>{' '}
-                        to the Recycle Bin?
-                    </>
-                ) : (
-                    <>
-                        Are you sure you want to move the dispatch record for{' '}
-                        <Box component="strong">{item?.date}</Box> to the Recycle Bin?
-                    </>
-                )}
+        <Typography variant="body2" sx={{ color: PALETTE.TEXT, fontSize: '0.85rem', lineHeight: 1.6, mb: 2 }}>
+            {isBulk ? (
+                <>Are you sure you want to move <Box component="strong" sx={{ color: PALETTE.ORANGE }}>{count} item(s)</Box> to the Recycle Bin?</>
+            ) : (
+                <>Are you sure you want to move the dispatch record for <Box component="strong">{item?.date}</Box> to the Recycle Bin?</>
+            )}
+        </Typography>
+        <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: alpha(PALETTE.ORANGE, 0.05), border: `1px solid ${alpha(PALETTE.ORANGE, 0.12)}`, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+            <AlertCircle size={15} color={PALETTE.ORANGE} style={{ flexShrink: 0, marginTop: 1 }} />
+            <Typography variant="caption" sx={{ color: PALETTE.ORANGE, fontSize: '0.78rem', fontWeight: 500 }}>
+                Items moved to Recycle Bin can be restored later.
             </Typography>
-            <Box sx={{
-                p: 1.5, borderRadius: '8px',
-                bgcolor: alpha(PALETTE.ORANGE, 0.05),
-                border: `1px solid ${alpha(PALETTE.ORANGE, 0.12)}`,
-                display: 'flex', alignItems: 'flex-start', gap: 1,
-            }}>
-                <AlertCircle size={15} color={PALETTE.ORANGE} style={{ flexShrink: 0, marginTop: 1 }} />
-                <Typography variant="caption" sx={{ color: PALETTE.ORANGE, fontSize: '0.78rem', fontWeight: 500 }}>
-                    Items moved to Recycle Bin can be restored later.
-                </Typography>
-            </Box>
-        </DialogContent>
-
-        <DialogActions sx={{ p: 2, pt: 1.5, gap: 1 }}>
-            <Button
-                onClick={onClose}
-                sx={{
-                    textTransform: 'none', color: PALETTE.GRAY,
-                    fontSize: '0.83rem', fontWeight: 500, px: 2,
-                    borderRadius: '6px',
-                    border: `1px solid ${alpha(PALETTE.GRAY, 0.25)}`,
-                }}
-            >
-                Cancel
-            </Button>
-            <Button
-                onClick={() => { onConfirm(); onClose(); }}
-                variant="contained"
-                startIcon={<Trash2 size={15} />}
-                sx={{
-                    textTransform: 'none', fontSize: '0.83rem',
-                    fontWeight: 600, px: 2, borderRadius: '6px',
-                    bgcolor: PALETTE.ORANGE,
-                    boxShadow: `0 4px 14px ${alpha(PALETTE.ORANGE, 0.35)}`,
-                    '&:hover': { bgcolor: alpha(PALETTE.ORANGE, 0.88) },
-                }}
-            >
-                Move to Bin
-            </Button>
-        </DialogActions>
-    </Dialog>
+        </Box>
+    </CommonDialog>
 ));
 MoveToBinDialog.displayName = 'MoveToBinDialog';
 

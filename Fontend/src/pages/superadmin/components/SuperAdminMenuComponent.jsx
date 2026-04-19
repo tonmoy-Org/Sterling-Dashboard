@@ -8,6 +8,7 @@ import {
     Wrench,
     UserCog,
     BarChart3,
+    Star,
 } from 'lucide-react';
 
 import { useNotifications } from '../../../hooks/useNotifications';
@@ -323,19 +324,22 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
     }, [notifications, optimisticallyCleared]);
 
     const menuItems = [
+        // /super-admin-dashboard → DASHBOARD
         {
             text: 'Dashboard',
             icon: <LayoutDashboard size={18} />,
             path: '/super-admin-dashboard',
-            section: 'GENERAL',
+            section: 'DASHBOARD',
         },
+
+        // /super-admin-dashboard/locates/... and /repairs → OPERATIONS
         {
             text: 'Locates',
             icon: <MapPin size={18} />,
             path: '/super-admin-dashboard/locates/work-orders',
             parent: 'Operations',
             indent: 1,
-            section: 'GENERAL',
+            section: 'OPERATIONS',
         },
         {
             text: 'Tank Repairs',
@@ -343,14 +347,18 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
             path: '/super-admin-dashboard/repairs',
             parent: 'Work Orders',
             indent: 1,
-            section: 'GENERAL',
+            section: 'OPERATIONS',
         },
+
+        // /super-admin-dashboard/users → MANAGEMENT
         {
             text: 'Users',
             icon: <Users size={18} />,
             path: '/super-admin-dashboard/users',
             section: 'MANAGEMENT',
         },
+
+        // /super-admin-dashboard/rme/..., /customer-center, /dispatch-kpi, /review-tracking → SYSTEM
         {
             text: 'RME Reports',
             icon: <ClipboardCheck size={18} />,
@@ -372,6 +380,14 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
             path: '/super-admin-dashboard/dispatch-kpi',
             section: 'SYSTEM',
         },
+        {
+            text: 'Review Tracking',
+            icon: <Star size={18} />,
+            path: '/super-admin-dashboard/review-tracking',
+            section: 'SYSTEM',
+        },
+
+        // external URL → RESOURCES
         {
             text: 'Lookup',
             icon: <Search size={18} />,

@@ -480,7 +480,8 @@ class WorkOrdersTagsScraper(BaseScraper):
             await self.perform_actions_by_xpaths(name="tags_edit_filter_xpath")
             await self.perform_actions_by_xpaths(name="workorder_tags_status_xpath")
             await self.perform_actions_by_xpaths(name="tags_select_all_xpath")
-            # await self.perform_actions_by_xpaths(name="test_scheduled_date_filter_xpath")
+            await self.perform_actions_by_xpaths(name="scheduled_date_filter_xpath")
+            await self.perform_actions_by_xpaths(name="completed_date_filter_xpath")
             await self.perform_actions_by_xpaths(name="submit_filter")
 
             # Wait for table to reload with new column
@@ -598,6 +599,7 @@ class WorkOrdersTagsScraper(BaseScraper):
             for data in datas:
                 try:
                     payload = self._build_work_order_payload(data)
+                    print(payload)
                     if not payload:
                         print("Skipping insertion: missing wo_number")
                         continue

@@ -17,7 +17,7 @@ const StyledRefreshButton = styled(Button)(({ theme }) => ({
     },
     padding: '6px 16px',
     height: '34px',
-    fontWeight: 600,
+    fontWeight: 500,
     fontSize: '13px',
     textTransform: 'none',
     borderRadius: '5px',

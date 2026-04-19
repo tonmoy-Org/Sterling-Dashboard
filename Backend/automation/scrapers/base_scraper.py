@@ -81,7 +81,7 @@ class BaseScraper:
             
             # Launch browser with headless-safe arguments for Linux VPS
             self.browser = await self.playwright.chromium.launch(
-                headless=True,
+                headless=False,
                 slow_mo=50,
                 args=[
                     "--start-maximized",
@@ -208,6 +208,15 @@ class BaseScraper:
                 # On a headless VPS, we must explicitly wait for the element to attach first.
                 wait_timeout = item.get("timeout", 15000)
                 try:
+                    # Proactively dismiss any Pendo overlays that might intercept clicks or delay rendering
+                    try:
+                        await self.page.evaluate("""() => {
+                            const pendo = document.querySelectorAll('[id^="pendo-"], ._pendo-backdrop');
+                            pendo.forEach(el => el.remove());
+                        }""")
+                    except:
+                        pass
+                    await element.first.wait_for(state="attached", timeout=wait_timeout)
                     await element.first.wait_for(state="visible", timeout=wait_timeout)
                 except Exception:
                     pass  # Let the count() check below handle the failure properly

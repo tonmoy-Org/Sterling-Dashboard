@@ -134,7 +134,7 @@
     "submit_filter": [
       {
         "action": "click",
-        "xpath": "//button[@data-automation-id='apply-filters-button']"
+        "xpath": "//button[@data-automation-id='apply-filters-button'] | //button[contains(@class, 'confirm') and contains(., 'Apply')] | //button[contains(@class, 'plot-map-button')]"
       }
     ],
     "open_work_order_xpath": [
@@ -186,11 +186,11 @@
       },
       {
         "action": "click",
-        "xpath": "//input[@id='selected_0_5']"
+        "xpath": "//input[@id='selected_0_2']"
       },
       {
         "action": "click",
-        "xpath": "//input[@id='selected_0_7']"
+        "xpath": "//input[@id='selected_0_5']"
       },
       {
         "action": "click",
@@ -243,6 +243,14 @@
       {
         "action": "click",
         "xpath": "//*[@id='Tagslabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//*[@id='CompletedDatelabel']"
       },
       {
         "action": "wait",

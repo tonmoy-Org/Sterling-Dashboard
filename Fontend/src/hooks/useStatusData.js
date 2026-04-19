@@ -107,6 +107,7 @@ export function useIncidentLogs(query = {}, refreshInterval = 0) {
       const params = {};
       if (query.service_name) params.service_name = query.service_name;
       if (query.status)       params.status       = query.status;
+      if (query.limit)        params.limit        = query.limit;
 
       const { data } = await api.get('/health-check/incidents/', { params });
       setIncidents(data);
@@ -116,7 +117,7 @@ export function useIncidentLogs(query = {}, refreshInterval = 0) {
     } finally {
       setLoading(false);
     }
-  }, [query.service_name, query.status]);
+  }, [query.service_name, query.status, query.limit]);
 
   useEffect(() => {
     fetchIncidents();

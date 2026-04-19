@@ -32,7 +32,7 @@ import { Inventory } from '../pages/superadmin/pages/Inventory';
 import { RiskManagement } from '../pages/superadmin/pages/RiskManagement';
 import { Scorecards } from '../pages/superadmin/pages/Scorecards';
 import { Forms } from '../pages/superadmin/pages/Forms';
-import { ReviewForms } from '../pages/superadmin/pages/ReviewForms';
+import Review from '../pages/superadmin/features/review-tracking/Review';
 import { Approvals } from '../pages/superadmin/pages/Approvals';
 import { Training } from '../pages/superadmin/pages/Training';
 import { Tasks } from '../pages/superadmin/pages/Tasks';
@@ -62,6 +62,7 @@ import { ResourcesLibrary } from '../pages/tech/pages/ResourcesLibrary';
 import Repairs from '../pages/superadmin/features/Repairs/Repairs';
 import CustomerCenter from '../pages/superadmin/features/customer-center/CustomerCenter';
 import DispatchKpi from '../pages/superadmin/features/dispatch_kpi/DispatchKpi';
+
 
 export const AppRoutes = () => {
   const { user } = useAuth();
@@ -135,7 +136,7 @@ export const AppRoutes = () => {
           <Route path="risk-management" element={<RiskManagement />} />
           <Route path="scorecards" element={<Scorecards />} />
           <Route path="forms" element={<Forms />} />
-          <Route path="review-forms" element={<ReviewForms />} />
+          <Route path="review-tracking" element={<Review />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="training" element={<Training />} />
           <Route path="tasks" element={<Tasks />} />
@@ -178,7 +179,7 @@ export const AppRoutes = () => {
           <Route path="risk-management" element={<RiskManagement />} />
           <Route path="scorecards" element={<Scorecards />} />
           <Route path="forms" element={<Forms />} />
-          <Route path="review-forms" element={<ReviewForms />} />
+          <Route path="review-tracking" element={<Review />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="training" element={<Training />} />
           <Route path="tasks" element={<Tasks />} />

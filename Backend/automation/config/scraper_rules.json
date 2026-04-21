@@ -98,7 +98,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[@id='vs2__option-0']"
+        "xpath": "//li[@id='vs2__option-3']"
       },
       {
         "action": "wait",
@@ -276,7 +276,7 @@
       },
       {
         "action": "js_code_run",
-        "js_code": "(async () => { const sleep = (ms) => new Promise(r => setTimeout(r, ms)); const tagsFilter = Array.from(document.querySelectorAll(\".secondary-filter\")).find(el => (el.querySelector(\".filter-name\")?.textContent || \"\").trim() === \"Tags\"); if (!tagsFilter) return; const root = tagsFilter.querySelector(\".filter-popup\") || tagsFilter; const boxes = Array.from(root.querySelectorAll(\".filter-multiselect input[type='checkbox'][id]\")); for (const cb of boxes) { if (cb.checked) continue; const label = root.querySelector(`label[for=\"${cb.id}\"]`); const target = label || cb; target.scrollIntoView({ block: \"nearest\" }); [\"pointerdown\",\"mousedown\",\"pointerup\",\"mouseup\"].forEach(type => target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }))); target.click(); cb.dispatchEvent(new Event(\"input\", { bubbles: true })); cb.dispatchEvent(new Event(\"change\", { bubbles: true })); await sleep(120); } })();"
+        "js_code": "(async () => { const sleep = (ms) => new Promise(r => setTimeout(r, ms)); let boxes = []; for (let i = 0; i < 50; i++) { boxes = document.querySelectorAll(\".filter-multiselect .checkbox\"); if (boxes.length > 0) break; await sleep(100); } if (boxes.length === 0) return; for (const item of boxes) { const cb = item.querySelector(\"input\"); if (!cb || cb.checked) continue; item.scrollIntoView({ block: \"center\" }); await sleep(50); const trigger = (el) => { [\"mousedown\", \"mouseup\", \"click\"].forEach(n => el.dispatchEvent(new MouseEvent(n, { bubbles: true, cancelable: true, view: window }))); }; trigger(item); if (cb && !cb.checked) trigger(cb); if (cb && !cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('input', { bubbles: true })); cb.dispatchEvent(new Event('change', { bubbles: true })); } await sleep(100); } })();"
       },
       {
         "action": "wait",

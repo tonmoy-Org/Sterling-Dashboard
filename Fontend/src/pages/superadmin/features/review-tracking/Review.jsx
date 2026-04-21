@@ -42,6 +42,8 @@ const EMPLOYEES = [
   { id: '04', name: 'Ahkeem', role: 'Technician' },
   { id: '05', name: 'Cris', role: 'Technician' },
   { id: '06', name: 'Danny', role: 'Technician' },
+  { id: '07', name: 'Jason', role: 'Technician' },
+  { id: '08', name: 'Damien', role: 'Technician' },
 ];
 
 const EMPLOYEE_NAMES = EMPLOYEES.map(e => e.name);

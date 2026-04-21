@@ -352,41 +352,46 @@ class WorkOrdersTagsScraper(BaseScraper):
                     print("No XPath configured for opening work orders.")
                     continue
 
-                # Prepare XPath with work order number (title search + text fallback)
+                # Prepare XPath with work order number (Broad row search + fallback)
                 xpath_config = copy.deepcopy(base_xpath_config)
-                wo_xpath_pattern = f"//span[@title='{wo_number}'] | //span[normalize-space(text())='{wo_number}'] | //td[normalize-space(text())='{wo_number}']"
+                # Find any row that contains the work order number text
+                wo_xpath_pattern = f"//tr[.//text()[contains(., '{wo_number}')]]//span[contains(@class, 'title')] | //span[@title='{wo_number}'] | //*[text()='{wo_number}']"
                 xpath_config[0]["xpath"] = wo_xpath_pattern
 
                 # Proactively scroll to find the element (especially important for virtualized tables on VPS)
                 try:
-                    await self.page.evaluate(f"""async (xpath) => {{
+                    await self.page.evaluate(f"""async (xpath, wo) => {{
+                        console.log('Seeking WO:', wo);
                         const getEl = () => document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                         let el = getEl();
                         if (el) {{
+                            console.log('Found immediately:', wo);
                             el.scrollIntoView({{ block: 'center' }});
                             return true;
                         }}
                         
-                        // Find the scrollable table container - FieldEdge often has these nested
                         const container = document.querySelector('tbody.fixed-body')?.closest('div') || 
                                           document.querySelector('.fixed-body')?.parentElement || 
                                           document.querySelector('.table-container') ||
                                           window;
+                        
+                        console.log('Scrolling container:', container === window ? 'window' : container.className);
 
-                        // Scroll down incrementally to trigger virtualization loading
-                        for (let i = 0; i < 20; i++) {{
-                            if (container.scrollBy) container.scrollBy(0, 700);
-                            else window.scrollBy(0, 700);
+                        for (let i = 0; i < 30; i++) {{
+                            if (container.scrollBy) container.scrollBy(0, 800);
+                            else window.scrollBy(0, 800);
                             
-                            await new Promise(r => setTimeout(r, 600));
+                            await new Promise(r => setTimeout(r, 500));
                             el = getEl();
                             if (el) {{
+                                console.log('Found after scroll:', wo, 'on attempt', i);
                                 el.scrollIntoView({{ block: 'center' }});
                                 return true;
                             }}
                         }}
+                        console.warn('WO not found after 30 scrolls:', wo);
                         return false;
-                    }}""", wo_xpath_pattern)
+                    }}""", wo_xpath_pattern, wo_number)
                     await asyncio.sleep(1)
                 except Exception as e:
                     print(f"Scroll seeking error: {e}")

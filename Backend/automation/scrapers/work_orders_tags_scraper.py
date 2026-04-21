@@ -353,17 +353,28 @@ class WorkOrdersTagsScraper(BaseScraper):
                 # Prepare XPath with work order number
                 xpath_config = copy.deepcopy(base_xpath_config)
                 wo_xpath = xpath_config[0]["xpath"]
-                xpath_config[0]["xpath"] = wo_xpath.replace(
+                final_wo_xpath = wo_xpath.replace(
                     "{work_order_number}", wo_number
                 )
+                xpath_config[0]["xpath"] = final_wo_xpath
+
+                # Proactively scroll the row into view to ensure it's in the DOM and clickable
+                try:
+                    await self.page.evaluate(f"""(xpath) => {{
+                        const el = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        if (el) el.scrollIntoView({{ block: 'center' }});
+                    }}""", final_wo_xpath)
+                    await asyncio.sleep(1)
+                except:
+                    pass
 
                 # Open work order in new tab
                 try:
                     async with self.page.context.expect_page() as new_page_info:
-                        await self.perform_actions_by_xpaths(action_list=xpath_config)
+                        await self.perform_actions_by_xpaths(action_list=xpath_config, raise_on_error=True)
 
                     new_page = await new_page_info.value
-                    await new_page.wait_for_load_state()
+                    await new_page.wait_for_load_state(state="domcontentloaded", timeout=60000)
 
                     current_url = new_page.url
                     if "https://login.fieldedge.com/Account/Login?ReturnUrl=" in current_url:

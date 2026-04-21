@@ -87,6 +87,7 @@ class WorkOrdersTagsScraper(BaseScraper):
                                     technician: getText(9),
                                     completed_date: getText(10),
                                     tags: getText(11),
+                                    link: row.querySelector('a[href*="/DispatchSummary/"]')?.href || row.querySelector('a')?.href || null
                                 };
                                 
                                 dataList.push(workOrder);
@@ -352,58 +353,68 @@ class WorkOrdersTagsScraper(BaseScraper):
                     print("No XPath configured for opening work orders.")
                     continue
 
-                # Prepare XPath with work order number (Broad row search + fallback)
-                xpath_config = copy.deepcopy(base_xpath_config)
-                # Find any row that contains the work order number text
-                wo_xpath_pattern = f"//tr[.//text()[contains(., '{wo_number}')]]//span[contains(@class, 'title')] | //span[@title='{wo_number}'] | //*[text()='{wo_number}']"
-                xpath_config[0]["xpath"] = wo_xpath_pattern
+                wo_link = work_order.get("link")
 
-                # Proactively scroll to find the element (especially important for virtualized tables on VPS)
-                try:
-                    await self.page.evaluate(f"""async (xpath, wo) => {{
-                        console.log('Seeking WO:', wo);
-                        const getEl = () => document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                        let el = getEl();
-                        if (el) {{
-                            console.log('Found immediately:', wo);
-                            el.scrollIntoView({{ block: 'center' }});
-                            return true;
-                        }}
-                        
-                        const container = document.querySelector('tbody.fixed-body')?.closest('div') || 
-                                          document.querySelector('.fixed-body')?.parentElement || 
-                                          document.querySelector('.table-container') ||
-                                          window;
-                        
-                        console.log('Scrolling container:', container === window ? 'window' : container.className);
+                # Try direct navigation if link is available (much more robust)
+                if wo_link:
+                    try:
+                        new_page = await self.page.context.new_page()
+                        await new_page.goto(wo_link, wait_until="domcontentloaded", timeout=60000)
+                        print(f"Directly navigated to {wo_number}")
+                    except Exception as e:
+                        print(f"Direct navigation failed for {wo_number}: {e}")
+                        work_order["try_later"] = retry_count + 1
+                        work_orders.append(work_order)
+                        continue
+                else:
+                    # Fallback to the scroll-seek and right-click method
+                    # Prepare XPath with work order number (Broad row search + fallback)
+                    xpath_config = copy.deepcopy(base_xpath_config)
+                    wo_xpath_pattern = f"//tr[.//text()[contains(., '{wo_number}')]]//span[contains(@class, 'title')] | //span[@title='{wo_number}'] | //*[text()='{wo_number}']"
+                    xpath_config[0]["xpath"] = wo_xpath_pattern
 
-                        for (let i = 0; i < 30; i++) {{
-                            if (container.scrollBy) container.scrollBy(0, 800);
-                            else window.scrollBy(0, 800);
-                            
-                            await new Promise(r => setTimeout(r, 500));
-                            el = getEl();
+                    try:
+                        await self.page.evaluate(f"""async (xpath, wo) => {{
+                            const getEl = () => document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                            let el = getEl();
                             if (el) {{
-                                console.log('Found after scroll:', wo, 'on attempt', i);
                                 el.scrollIntoView({{ block: 'center' }});
                                 return true;
                             }}
-                        }}
-                        console.warn('WO not found after 30 scrolls:', wo);
-                        return false;
-                    }}""", wo_xpath_pattern, wo_number)
-                    await asyncio.sleep(1)
-                except Exception as e:
-                    print(f"Scroll seeking error: {e}")
+                            const container = document.querySelector('tbody.fixed-body')?.closest('div') || 
+                                            document.querySelector('.fixed-body')?.parentElement || 
+                                            document.querySelector('.table-container') ||
+                                            window;
+                            for (let i = 0; i < 30; i++) {{
+                                if (container.scrollBy) container.scrollBy(0, 800);
+                                else window.scrollBy(0, 800);
+                                await new Promise(r => setTimeout(r, 500));
+                                el = getEl();
+                                if (el) {{
+                                    el.scrollIntoView({{ block: 'center' }});
+                                    return true;
+                                }}
+                            }}
+                            return false;
+                        }}""", wo_xpath_pattern, wo_number)
+                        await asyncio.sleep(1)
+                    except Exception as e:
+                        print(f"Scroll seeking error: {e}")
 
-                # Open work order in new tab
+                    # Open work order in new tab via context menu
+                    try:
+                        async with self.page.context.expect_page() as new_page_info:
+                            await self.perform_actions_by_xpaths(action_list=xpath_config, raise_on_error=True)
+                        new_page = await new_page_info.value
+                        await new_page.wait_for_load_state(state="domcontentloaded", timeout=60000)
+                    except Exception as e:
+                        print(f"Failed to open context menu for {wo_number}: {e}")
+                        work_order["try_later"] = retry_count + 1
+                        work_orders.append(work_order)
+                        continue
+
+                # Once the page is open (via link or click), extract data
                 try:
-                    async with self.page.context.expect_page() as new_page_info:
-                        await self.perform_actions_by_xpaths(action_list=xpath_config, raise_on_error=True)
-
-                    new_page = await new_page_info.value
-                    await new_page.wait_for_load_state(state="domcontentloaded", timeout=60000)
-
                     current_url = new_page.url
                     if "https://login.fieldedge.com/Account/Login?ReturnUrl=" in current_url:
                         print("Session expired, logging in again...")

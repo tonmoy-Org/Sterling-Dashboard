@@ -5,6 +5,7 @@ Updated to include Add Column functionality for Completed Date.
 Updated to print all table data after filters are applied.
 """
 
+import asyncio
 import copy
 from datetime import datetime
 from typing import List, Dict, Optional
@@ -31,12 +32,13 @@ class WorkOrdersTagsScraper(BaseScraper):
             return
 
         try:
-            await self.page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+            # Use a shorter timeout for the strict 'load' or 'networkidle' state
+            await self.page.goto(url, wait_until="load", timeout=25000)
             return
         except Exception as e:
-            print(f"⚠️ networkidle navigation failed for {url}: {e}")
+            print(f"⚠️ Initial navigation attempt failed for {url} (expected for SPAs): {e}")
 
-        # Fallback for SPA pages where network never becomes fully idle.
+        # Fallback to domcontentloaded which is much faster and reliable for FieldEdge
         await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
 
     async def scrape_work_orders_table(self):
@@ -350,13 +352,10 @@ class WorkOrdersTagsScraper(BaseScraper):
                     print("No XPath configured for opening work orders.")
                     continue
 
-                # Prepare XPath with work order number
+                # Prepare XPath with work order number (title search + text fallback)
                 xpath_config = copy.deepcopy(base_xpath_config)
-                wo_xpath = xpath_config[0]["xpath"]
-                final_wo_xpath = wo_xpath.replace(
-                    "{work_order_number}", wo_number
-                )
-                xpath_config[0]["xpath"] = final_wo_xpath
+                wo_xpath_pattern = f"//span[@title='{wo_number}'] | //span[normalize-space(text())='{wo_number}'] | //td[normalize-space(text())='{wo_number}']"
+                xpath_config[0]["xpath"] = wo_xpath_pattern
 
                 # Proactively scroll to find the element (especially important for virtualized tables on VPS)
                 try:
@@ -368,13 +367,17 @@ class WorkOrdersTagsScraper(BaseScraper):
                             return true;
                         }}
                         
-                        // Find the scrollable table container
-                        const container = document.querySelector('tbody.fixed-body')?.closest('div') || document.querySelector('.fixed-body')?.parentElement;
-                        if (!container) return false;
+                        // Find the scrollable table container - FieldEdge often has these nested
+                        const container = document.querySelector('tbody.fixed-body')?.closest('div') || 
+                                          document.querySelector('.fixed-body')?.parentElement || 
+                                          document.querySelector('.table-container') ||
+                                          window;
 
                         // Scroll down incrementally to trigger virtualization loading
-                        for (let i = 0; i < 15; i++) {{
-                            container.scrollBy(0, 600);
+                        for (let i = 0; i < 20; i++) {{
+                            if (container.scrollBy) container.scrollBy(0, 700);
+                            else window.scrollBy(0, 700);
+                            
                             await new Promise(r => setTimeout(r, 600));
                             el = getEl();
                             if (el) {{
@@ -383,10 +386,10 @@ class WorkOrdersTagsScraper(BaseScraper):
                             }}
                         }}
                         return false;
-                    }}""", final_wo_xpath)
+                    }}""", wo_xpath_pattern)
                     await asyncio.sleep(1)
                 except Exception as e:
-                    print(f"Scroll seeking error: {{e}}")
+                    print(f"Scroll seeking error: {e}")
 
                 # Open work order in new tab
                 try:

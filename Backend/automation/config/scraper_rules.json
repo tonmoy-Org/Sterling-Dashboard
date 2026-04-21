@@ -140,7 +140,7 @@
     "open_work_order_xpath": [
       {
         "action": "right_click",
-        "xpath": "//span[@title='{work_order_number}']"
+        "xpath": "//span[@title='{work_order_number}'] | //tr[contains(., '{work_order_number}')]//span | //td[normalize-space()='{work_order_number}']"
       },
       {
         "action": "wait",

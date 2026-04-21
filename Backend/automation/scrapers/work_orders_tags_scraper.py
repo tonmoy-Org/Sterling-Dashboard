@@ -5,8 +5,8 @@ Updated to include Add Column functionality for Completed Date.
 Updated to print all table data after filters are applied.
 """
 
-import asyncio
 import copy
+import asyncio
 from datetime import datetime
 from typing import List, Dict, Optional
 from asgiref.sync import sync_to_async
@@ -32,13 +32,12 @@ class WorkOrdersTagsScraper(BaseScraper):
             return
 
         try:
-            # Use a shorter timeout for the strict 'load' or 'networkidle' state
-            await self.page.goto(url, wait_until="load", timeout=25000)
+            await self.page.goto(url, wait_until="networkidle", timeout=timeout_ms)
             return
         except Exception as e:
-            print(f"⚠️ Initial navigation attempt failed for {url} (expected for SPAs): {e}")
+            print(f"⚠️ networkidle navigation failed for {url}: {e}")
 
-        # Fallback to domcontentloaded which is much faster and reliable for FieldEdge
+        # Fallback for SPA pages where network never becomes fully idle.
         await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
 
     async def scrape_work_orders_table(self):
@@ -87,11 +86,6 @@ class WorkOrdersTagsScraper(BaseScraper):
                                     technician: getText(9),
                                     completed_date: getText(10),
                                     tags: getText(11),
-                                    // Search for any link in the row that might be the WO detail page
-                                    link: row.querySelector('a[href*="/DispatchSummary/"]')?.href || 
-                                          row.querySelector('a[href*="/Dispatch/"]')?.href ||
-                                          Array.from(row.querySelectorAll('a')).find(a => a.href)?.href || 
-                                          null
                                 };
                                 
                                 dataList.push(workOrder);
@@ -357,70 +351,33 @@ class WorkOrdersTagsScraper(BaseScraper):
                     print("No XPath configured for opening work orders.")
                     continue
 
-                wo_link = work_order.get("link")
+                # Prepare XPath with work order number
+                xpath_config = copy.deepcopy(base_xpath_config)
+                wo_xpath = xpath_config[0]["xpath"]
+                final_wo_xpath = wo_xpath.replace(
+                    "{work_order_number}", wo_number
+                )
+                xpath_config[0]["xpath"] = final_wo_xpath
 
-                # Try direct navigation if link is available (much more robust)
-                if wo_link:
-                    try:
-                        new_page = await self.page.context.new_page()
-                        await new_page.goto(wo_link, wait_until="domcontentloaded", timeout=60000)
-                        print(f"Directly navigated to {wo_number}")
-                    except Exception as e:
-                        print(f"Direct navigation failed for {wo_number}: {e}")
-                        work_order["try_later"] = retry_count + 1
-                        work_orders.append(work_order)
-                        continue
-                else:
-                    # Fallback to the scroll-seek and right-click method
-                    # Prepare XPath with work order number (Broad row search + fallback)
-                    xpath_config = copy.deepcopy(base_xpath_config)
-                    wo_xpath_pattern = f"//tr[.//text()[contains(., '{wo_number}')]]//span[contains(@class, 'title')] | //span[@title='{wo_number}'] | //*[text()='{wo_number}']"
-                    xpath_config[0]["xpath"] = wo_xpath_pattern
-
-                    try:
-                        await self.page.evaluate(f"""async (args) => {{
-                            const xpath = args.xpath;
-                            const wo = args.wo;
-                            const getEl = () => document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                            let el = getEl();
-                            if (el) {{
-                                el.scrollIntoView({{ block: 'center' }});
-                                return true;
-                            }}
-                            const container = document.querySelector('tbody.fixed-body')?.closest('div') || 
-                                            document.querySelector('.fixed-body')?.parentElement || 
-                                            document.querySelector('.table-container') ||
-                                            window;
-                            for (let i = 0; i < 30; i++) {{
-                                if (container.scrollBy) container.scrollBy(0, 800);
-                                else window.scrollBy(0, 800);
-                                await new Promise(r => setTimeout(r, 500));
-                                el = getEl();
-                                if (el) {{
-                                    el.scrollIntoView({{ block: 'center' }});
-                                    return true;
-                                }}
-                            }}
-                            return false;
-                        }}""", {"xpath": wo_xpath_pattern, "wo": wo_number})
-                        await asyncio.sleep(1)
-                    except Exception as e:
-                        print(f"Scroll seeking error: {e}")
-
-                    # Open work order in new tab via context menu
-                    try:
-                        async with self.page.context.expect_page() as new_page_info:
-                            await self.perform_actions_by_xpaths(action_list=xpath_config, raise_on_error=True)
-                        new_page = await new_page_info.value
-                        await new_page.wait_for_load_state(state="domcontentloaded", timeout=60000)
-                    except Exception as e:
-                        print(f"Failed to open context menu for {wo_number}: {e}")
-                        work_order["try_later"] = retry_count + 1
-                        work_orders.append(work_order)
-                        continue
-
-                # Once the page is open (via link or click), extract data
+                # Ensure we are on the main page and table is stable (Matching work_orders_scraper style)
                 try:
+                    await self.page.bring_to_front()
+                    # Wait for ANY row to be visible to ensure table is loaded
+                    await self.page.wait_for_selector("tbody.fixed-body tr", state="visible", timeout=10000)
+                except:
+                    pass
+
+                # Open work order in new tab
+                try:
+                    async with self.page.context.expect_page() as new_page_info:
+                        # Attempt to click the specific work order
+                        # If the span isn't found, try a broader row search as fallback
+                        await self.perform_actions_by_xpaths(action_list=xpath_config)
+
+                    new_page = await new_page_info.value
+                    # Wait for domcontentloaded (faster and more stable than full load)
+                    await new_page.wait_for_load_state(state="domcontentloaded", timeout=60000)
+
                     current_url = new_page.url
                     if "https://login.fieldedge.com/Account/Login?ReturnUrl=" in current_url:
                         print("Session expired, logging in again...")
@@ -535,8 +492,8 @@ class WorkOrdersTagsScraper(BaseScraper):
             # await asyncio.sleep(3)
             await self.perform_actions_by_xpaths(name="tags_edit_filter_xpath")
             await self.perform_actions_by_xpaths(name="workorder_tags_status_xpath")
-            await self.perform_actions_by_xpaths(name="scheduled_date_filter_xpath")
             await self.perform_actions_by_xpaths(name="tags_select_all_xpath")
+            await self.perform_actions_by_xpaths(name="scheduled_date_filter_xpath")
             # await self.perform_actions_by_xpaths(name="completed_date_filter_xpath")
             await self.perform_actions_by_xpaths(name="submit_filter")
 

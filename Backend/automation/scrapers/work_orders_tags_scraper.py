@@ -358,15 +358,35 @@ class WorkOrdersTagsScraper(BaseScraper):
                 )
                 xpath_config[0]["xpath"] = final_wo_xpath
 
-                # Proactively scroll the row into view to ensure it's in the DOM and clickable
+                # Proactively scroll to find the element (especially important for virtualized tables on VPS)
                 try:
-                    await self.page.evaluate(f"""(xpath) => {{
-                        const el = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                        if (el) el.scrollIntoView({{ block: 'center' }});
+                    await self.page.evaluate(f"""async (xpath) => {{
+                        const getEl = () => document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        let el = getEl();
+                        if (el) {{
+                            el.scrollIntoView({{ block: 'center' }});
+                            return true;
+                        }}
+                        
+                        // Find the scrollable table container
+                        const container = document.querySelector('tbody.fixed-body')?.closest('div') || document.querySelector('.fixed-body')?.parentElement;
+                        if (!container) return false;
+
+                        // Scroll down incrementally to trigger virtualization loading
+                        for (let i = 0; i < 15; i++) {{
+                            container.scrollBy(0, 600);
+                            await new Promise(r => setTimeout(r, 600));
+                            el = getEl();
+                            if (el) {{
+                                el.scrollIntoView({{ block: 'center' }});
+                                return true;
+                            }}
+                        }}
+                        return false;
                     }}""", final_wo_xpath)
                     await asyncio.sleep(1)
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Scroll seeking error: {{e}}")
 
                 # Open work order in new tab
                 try:

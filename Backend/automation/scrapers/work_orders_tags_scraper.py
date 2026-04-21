@@ -87,7 +87,11 @@ class WorkOrdersTagsScraper(BaseScraper):
                                     technician: getText(9),
                                     completed_date: getText(10),
                                     tags: getText(11),
-                                    link: row.querySelector('a[href*="/DispatchSummary/"]')?.href || row.querySelector('a')?.href || null
+                                    # Search for any link in the row that might be the WO detail page
+                                    link: row.querySelector('a[href*="/DispatchSummary/"]')?.href || 
+                                          row.querySelector('a[href*="/Dispatch/"]')?.href ||
+                                          Array.from(row.querySelectorAll('a')).find(a => a.href)?.href || 
+                                          null
                                 };
                                 
                                 dataList.push(workOrder);
@@ -374,7 +378,9 @@ class WorkOrdersTagsScraper(BaseScraper):
                     xpath_config[0]["xpath"] = wo_xpath_pattern
 
                     try:
-                        await self.page.evaluate(f"""async (xpath, wo) => {{
+                        await self.page.evaluate(f"""async (args) => {{
+                            const xpath = args.xpath;
+                            const wo = args.wo;
                             const getEl = () => document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                             let el = getEl();
                             if (el) {{
@@ -396,7 +402,7 @@ class WorkOrdersTagsScraper(BaseScraper):
                                 }}
                             }}
                             return false;
-                        }}""", wo_xpath_pattern, wo_number)
+                        }}""", {"xpath": wo_xpath_pattern, "wo": wo_number})
                         await asyncio.sleep(1)
                     except Exception as e:
                         print(f"Scroll seeking error: {e}")

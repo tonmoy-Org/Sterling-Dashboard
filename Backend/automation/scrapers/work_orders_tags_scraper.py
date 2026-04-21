@@ -87,7 +87,7 @@ class WorkOrdersTagsScraper(BaseScraper):
                                     technician: getText(9),
                                     completed_date: getText(10),
                                     tags: getText(11),
-                                    # Search for any link in the row that might be the WO detail page
+                                    // Search for any link in the row that might be the WO detail page
                                     link: row.querySelector('a[href*="/DispatchSummary/"]')?.href || 
                                           row.querySelector('a[href*="/Dispatch/"]')?.href ||
                                           Array.from(row.querySelectorAll('a')).find(a => a.href)?.href || 

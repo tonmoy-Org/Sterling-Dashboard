@@ -151,10 +151,12 @@ const applyFilter = (arr, q) => {
     if (!q) return arr;
     const lq = q.toLowerCase();
     return arr.filter(i =>
-        i.customerName.toLowerCase().includes(lq)       ||
-        i.workOrderAddress.toLowerCase().includes(lq)   ||
-        i.workOrderSummary.toLowerCase().includes(lq)   ||
-        i.technicianName.toLowerCase().includes(lq)
+        (i.customerName || '').toLowerCase().includes(lq)       ||
+        (i.workOrderAddress || '').toLowerCase().includes(lq)   ||
+        (i.workOrderSummary || '').toLowerCase().includes(lq)   ||
+        (i.tag || '').toLowerCase().includes(lq)                ||
+        (i.wo || '').toLowerCase().includes(lq)                 ||
+        (i.technicianName || '').toLowerCase().includes(lq)
     );
 };
 
@@ -1053,11 +1055,12 @@ export default function CustomerCenter() {
         if (!recycleBinSearch) return deleted;
         const lq = recycleBinSearch.toLowerCase();
         return deleted.filter(i =>
-            i.customerName?.toLowerCase().includes(lq)    ||
-            i.workOrderAddress?.toLowerCase().includes(lq)||
-            i.deletedBy?.toLowerCase().includes(lq)       ||
-            i.deletedByEmail?.toLowerCase().includes(lq)  ||
-            `WO-${i.id}`.toLowerCase().includes(lq)
+            (i.customerName || '').toLowerCase().includes(lq)    ||
+            (i.workOrderAddress || '').toLowerCase().includes(lq)||
+            (i.tag || '').toLowerCase().includes(lq)             ||
+            (i.wo || '').toLowerCase().includes(lq)              ||
+            (i.deletedBy || '').toLowerCase().includes(lq)       ||
+            (i.deletedByEmail || '').toLowerCase().includes(lq)
         );
     }, [deleted, recycleBinSearch]);
 

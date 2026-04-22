@@ -5,6 +5,7 @@ Scrapes Google reviews for Sterling Septic & Plumbing LLC.
 import asyncio
 import traceback
 import time as _time
+import re
 from datetime import datetime
 from asgiref.sync import sync_to_async
 from django.utils import timezone
@@ -177,12 +178,18 @@ class ReviewTrackerScraper(BaseScraper):
                 await asyncio.sleep(2.5)
                 
                 # Check how many reviews we have now
-                # Broad selectors for review cards: jftiEf is standard, role='article' is fallback
-                card_selectors = "div.jftiEf, div[role='article'], div[data-review-id], div[jsaction*='review']"
+                # Broad selectors for review cards: jftiEf is standard
+                card_selectors = "div.jftiEf"
                 current_reviews = self.page.locator(card_selectors)
                 current_count = await current_reviews.count()
                 
                 print(f"  Scroll {i+1}: Found {current_count} reviews so far")
+
+                # STOP if we have found at least 50 reviews as requested
+                if current_count >= 50:
+                    print(f"✅ Found {current_count} reviews (target 50 reached). Stopping scroll.")
+                    previous_count = current_count
+                    break
                 
                 if current_count == previous_count:
                     # Fallback: manual scroll evaluation
@@ -219,9 +226,9 @@ class ReviewTrackerScraper(BaseScraper):
             print("➡️ Scraping reviews...")
             await asyncio.sleep(2)
             
-            # Use a more robust selector set for the review cards
-            # div.jftiEf is common, div[role="article"] is the standard ARIA role for review cards
-            review_selectors = "div.jftiEf, div[role='article'], div[data-review-id], div[jsaction*='review']"
+            # Use only the top-level card selector to avoid nested matches (which cause duplicates)
+            # div.jftiEf is the standard container for a Google review card
+            review_selectors = "div.jftiEf"
             reviews = self.page.locator(review_selectors)
             review_count = await reviews.count()
             print(f"✅ Found {review_count} reviews in feed")
@@ -238,19 +245,29 @@ class ReviewTrackerScraper(BaseScraper):
                     print(f"✅ Found {review_count} potential review containers using feed traversal")
             
             scraped_data = []
+            seen_reviews = set() # To prevent duplicates in the same run
             
             for i in range(review_count):
                 try:
                     review = reviews.nth(i)
                     
+                    # Ensure the review card is in view to trigger rendering of virtualized content
+                    try:
+                        await review.scroll_into_view_if_needed(timeout=2000)
+                        await asyncio.sleep(0.1) # Brief pause for rendering
+                    except:
+                        pass
+                    
                     # 1. REVIEWER NAME (Multiple possible selectors)
                     name_selectors = ["div.d4r50", "div.d4r55", "div.XEAFd", "div[role='heading']"]
-                    reviewer_name = "N/A"
+                    reviewer_name = None
                     for sel in name_selectors:
                         loc = review.locator(sel)
                         if await loc.count() > 0:
-                            reviewer_name = await loc.first.inner_text()
-                            if reviewer_name: break
+                            text = await loc.first.inner_text()
+                            if text and text.strip():
+                                reviewer_name = text.strip()
+                                break
                     
                     # 2. RATING
                     rating_selectors = ["span.kvMYyc", "span.kvMYJc", "span.G_P8"]
@@ -263,8 +280,11 @@ class ReviewTrackerScraper(BaseScraper):
                             if aria_label:
                                 rating_text = aria_label
                                 try:
-                                    rating_value = int(aria_label.split()[0])
-                                    break
+                                    # Extract number from "5 stars" or "4/5"
+                                    match = re.search(r'(\d+)', aria_label)
+                                    if match:
+                                        rating_value = int(match.group(1))
+                                        break
                                 except: pass
                     
                     # 3. DATE
@@ -273,8 +293,10 @@ class ReviewTrackerScraper(BaseScraper):
                     for sel in date_selectors:
                         loc = review.locator(sel)
                         if await loc.count() > 0:
-                            review_date = await loc.first.inner_text()
-                            if review_date: break
+                            text = await loc.first.inner_text()
+                            if text and text.strip():
+                                review_date = text.strip()
+                                break
                     
                     # 4. REVIEW TEXT
                     text_el = review.locator("span.wiI7pd").first
@@ -330,7 +352,22 @@ class ReviewTrackerScraper(BaseScraper):
                                     services_list.append(span_text)
                             if services_list:
                                 services_mentioned = ", ".join(services_list)
+
+                    # --- VALIDATION & DEDUPLICATION ---
+                    # 1. Ensure we have a reviewer name and a rating.
+                    if not (reviewer_name and rating_value > 0):
+                        print(f"⏩ Skipping incomplete review at index {i} (Name: {reviewer_name}, Rating: {rating_value})")
+                        continue
+
+                    # 2. Prevent local duplicates (same name and text) in the same run
+                    review_id = f"{reviewer_name}_{review_text[:50]}"
+                    if review_id in seen_reviews:
+                        print(f"⏩ Skipping local duplicate: {reviewer_name}")
+                        continue
                     
+                    seen_reviews.add(review_id)
+                    
+                    # 3. Add to output
                     scraped_data.append({
                         "reviewer_name": reviewer_name,
                         "rating_text": rating_text,

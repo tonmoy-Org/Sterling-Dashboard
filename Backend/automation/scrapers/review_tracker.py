@@ -119,6 +119,8 @@ class ReviewTrackerScraper(BaseScraper):
                 else:
                     await review_tab.click()
                     print("✅ Clicked Reviews tab")
+                    # Give it time to load the initial batch of reviews
+                    await self.page.wait_for_timeout(5000)
                 
                 # Wait for reviews panel to load
                 # Google Maps uses div[role='feed'] for the reviews list
@@ -179,7 +181,7 @@ class ReviewTrackerScraper(BaseScraper):
                 
                 # Check how many reviews we have now
                 # Broad selectors for review cards: jftiEf is standard
-                card_selectors = "div.jftiEf"
+                card_selectors = "div.jftiEf, div[role='article'], div[jsaction*='review']"
                 current_reviews = self.page.locator(card_selectors)
                 current_count = await current_reviews.count()
                 
@@ -224,11 +226,13 @@ class ReviewTrackerScraper(BaseScraper):
         """Extract all loaded reviews from the page."""
         try:
             print("➡️ Scraping reviews...")
-            await asyncio.sleep(2)
+            # Standard wait for initial batch of reviews to load
+            await asyncio.sleep(5)
             
-            # Use only the top-level card selector to avoid nested matches (which cause duplicates)
-            # div.jftiEf is the standard container for a Google review card
-            review_selectors = "div.jftiEf"
+            # Use a more robust selector set to handle different Google Maps layouts (VPS vs Local)
+            # We filter for div.jftiEf as primary, but fall back to role='article' which is the ARIA standard
+            # We'll use seen_reviews later to handle any accidental duplicates from these selectors
+            review_selectors = "div.jftiEf, div[role='article'], div[jsaction*='review']"
             reviews = self.page.locator(review_selectors)
             review_count = await reviews.count()
             print(f"✅ Found {review_count} reviews in feed")
@@ -236,9 +240,11 @@ class ReviewTrackerScraper(BaseScraper):
             # If standard selectors fail, try searching for "stars" container parents
             if review_count == 0:
                 print("⚠️ No card matches found, trying alternative: star rating parent search")
-                stars_loc = self.page.locator("span[aria-label*='stars']").first
-                if await stars_loc.is_visible():
-                    # Move up to find the common parent that looks like a card
+                # Try to find reviews by looking for the star ratings which are almost always present
+                stars_loc = self.page.locator("span[aria-label*='stars'], span[aria-label*='rating']").first
+                if await stars_loc.count() > 0:
+                    # If we find stars but no 'jftiEf', then the layout is different. 
+                    # We can try to grab direct children of the feed container.
                     review_container = self.page.locator("div[role='feed'] > div")
                     review_count = await review_container.count()
                     reviews = review_container

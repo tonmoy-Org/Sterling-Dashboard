@@ -212,6 +212,27 @@ async def run_review_tracker_scraper():
                 pass
 
 
+async def run_yelp_review_scraper():
+    """Execute Yelp Review scraping workflow."""
+    from automation.scrapers.yelp_review_scraper import YelpReviewScraper
+    print("\n=== Starting Yelp Review Scraper ===")
+    scraper = None
+
+    try:
+        scraper = YelpReviewScraper()
+        await scraper.run()
+        print("Yelp Review scraping completed.")
+
+    except Exception as e:
+        print(f"Error during Yelp Review execution: {e}")
+    finally:
+        if scraper:
+            try:
+                del scraper
+            except:
+                pass
+
+
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
     await fieldedge_scraper()
@@ -300,6 +321,18 @@ def start_review_tracker_scraper():
     print("=" * 50 + "\n")
     try:
         asyncio.run(run_review_tracker_scraper())
+    except Exception as e:
+        print(f"\nCritical error: {e}")
+
+
+@track_scraper
+def start_yelp_review_scraper():
+    """Initialize and start the Yelp Review scraping process."""
+    print("\n" + "=" * 50)
+    print("STERLING DASHBOARD SCRAPER - YELP REVIEW INITIALIZED")
+    print("=" * 50 + "\n")
+    try:
+        asyncio.run(run_yelp_review_scraper())
     except Exception as e:
         print(f"\nCritical error: {e}")
 

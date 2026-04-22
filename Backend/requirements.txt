@@ -37,3 +37,4 @@ python-dotenv==1.2.1
 pytz==2025.2
 beautifulsoup4==4.14.3
 resend==2.27.0
+serpapi==0.1.0

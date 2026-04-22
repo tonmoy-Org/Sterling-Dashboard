@@ -212,12 +212,12 @@ const RecycleBinModal = memo(({
   search, onSearchChange, isDeleting = false
 }) => {
   const [permDeleteModal, setPermDeleteModal] = useState({ open: false, item: null, isBulk: false });
-  
-  const pageItems = useMemo(() => 
-    items.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), 
+
+  const pageItems = useMemo(() =>
+    items.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
     [items, page, rowsPerPage]
   );
-  
+
   const allOnPage = pageItems.length > 0 && pageItems.every(i => selected.has(i.id));
   const someOnPage = pageItems.length > 0 && pageItems.some(i => selected.has(i.id)) && !allOnPage;
 
@@ -240,44 +240,44 @@ const RecycleBinModal = memo(({
 
   return (
     <>
-      <Modal 
-        open={open} 
-        onClose={onClose} 
-        sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
+      <Modal
+        open={open}
+        onClose={onClose}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1300
         }}
       >
-        <Box sx={{ 
-          width: '95%', 
-          maxWidth: 1400, 
-          maxHeight: '90vh', 
-          bgcolor: 'white', 
-          borderRadius: '12px', 
-          boxShadow: '0 25px 60px rgba(0,0,0,0.15)', 
-          overflow: 'hidden', 
-          display: 'flex', 
-          flexDirection: 'column' 
+        <Box sx={{
+          width: '95%',
+          maxWidth: 1400,
+          maxHeight: '90vh',
+          bgcolor: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.15)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
         }}>
           {/* Header */}
-          <Box sx={{ 
-            p: 2.5, 
-            borderBottom: `1px solid ${alpha(PALETTE.PURPLE, 0.12)}`, 
+          <Box sx={{
+            p: 2.5,
+            borderBottom: `1px solid ${alpha(PALETTE.PURPLE, 0.12)}`,
             background: `linear-gradient(135deg, ${alpha(PALETTE.PURPLE, 0.04)} 0%, ${alpha(PALETTE.PURPLE, 0.01)} 100%)`,
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center' 
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box sx={{ 
-                width: 40, 
-                height: 40, 
-                borderRadius: '10px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
+              <Box sx={{
+                width: 40,
+                height: 40,
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 background: alpha(PALETTE.PURPLE, 0.1),
                 color: PALETTE.PURPLE
               }}>
@@ -292,13 +292,13 @@ const RecycleBinModal = memo(({
                 </Typography>
               </Box>
             </Box>
-            <IconButton 
+            <IconButton
               autoFocus
-              size="small" 
-              onClick={onClose} 
-              sx={{ 
-                color: PALETTE.GRAY, 
-                '&:hover': { bgcolor: alpha(PALETTE.GRAY, 0.1) } 
+              size="small"
+              onClick={onClose}
+              sx={{
+                color: PALETTE.GRAY,
+                '&:hover': { bgcolor: alpha(PALETTE.GRAY, 0.1) }
               }}
             >
               <X size={18} />
@@ -306,33 +306,33 @@ const RecycleBinModal = memo(({
           </Box>
 
           {/* Toolbar */}
-          <Box sx={{ 
-            px: 2.5, 
-            py: 1.5, 
-            borderBottom: `1px solid ${alpha(PALETTE.PURPLE, 0.08)}`, 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            gap: 2, 
-            bgcolor: '#fafbfc' 
+          <Box sx={{
+            px: 2.5,
+            py: 1.5,
+            borderBottom: `1px solid ${alpha(PALETTE.PURPLE, 0.08)}`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 2,
+            bgcolor: '#fafbfc'
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Checkbox 
-                size="small" 
-                checked={allOnPage} 
-                indeterminate={someOnPage} 
+              <Checkbox
+                size="small"
+                checked={allOnPage}
+                indeterminate={someOnPage}
                 onChange={() => onToggleAll(pageItems)}
-                sx={{ 
+                sx={{
                   color: alpha(PALETTE.PURPLE, 0.4),
                   '&.Mui-checked': { color: PALETTE.PURPLE },
                   '&.MuiCheckbox-indeterminate': { color: PALETTE.PURPLE }
                 }}
               />
               <Box sx={{ position: 'relative', minWidth: 260 }}>
-                <input 
-                  type="text" 
-                  value={search} 
-                  onChange={e => onSearchChange(e.target.value)} 
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => onSearchChange(e.target.value)}
                   placeholder="Search deleted items…"
                   style={{
                     width: '100%',
@@ -355,27 +355,27 @@ const RecycleBinModal = memo(({
                     e.target.style.boxShadow = 'none';
                   }}
                 />
-                <Box sx={{ 
-                  position: 'absolute', 
-                  left: '10px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  pointerEvents: 'none' 
+                <Box sx={{
+                  position: 'absolute',
+                  left: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  pointerEvents: 'none'
                 }}>
                   <Search size={15} color={alpha(PALETTE.GRAY, 0.6)} />
                 </Box>
                 {search && (
-                  <IconButton 
-                    size="small" 
-                    onClick={() => onSearchChange('')} 
-                    sx={{ 
-                      position: 'absolute', 
-                      right: '6px', 
-                      top: '50%', 
-                      transform: 'translateY(-50%)', 
-                      padding: '2px' 
+                  <IconButton
+                    size="small"
+                    onClick={() => onSearchChange('')}
+                    sx={{
+                      position: 'absolute',
+                      right: '6px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      padding: '2px'
                     }}
                   >
                     <X size={14} />
@@ -384,46 +384,46 @@ const RecycleBinModal = memo(({
               </Box>
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button 
-                variant="outlined" 
-                size="small" 
-                startIcon={<RotateCcw size={14} />} 
-                onClick={onBulkRestore} 
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<RotateCcw size={14} />}
+                onClick={onBulkRestore}
                 disabled={selected.size === 0}
-                sx={{ 
-                  textTransform: 'none', 
-                  fontSize: '0.78rem', 
-                  fontWeight: 500, 
-                  color: PALETTE.GREEN, 
-                  borderColor: alpha(PALETTE.GREEN, 0.35), 
-                  borderRadius: '6px', 
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.78rem',
+                  fontWeight: 500,
+                  color: PALETTE.GREEN,
+                  borderColor: alpha(PALETTE.GREEN, 0.35),
+                  borderRadius: '6px',
                   px: 1.5,
-                  '&:hover': { 
-                    borderColor: PALETTE.GREEN, 
-                    bgcolor: alpha(PALETTE.GREEN, 0.06) 
+                  '&:hover': {
+                    borderColor: PALETTE.GREEN,
+                    bgcolor: alpha(PALETTE.GREEN, 0.06)
                   },
                   '&.Mui-disabled': { opacity: 0.45 }
                 }}
               >
                 Restore ({selected.size})
               </Button>
-              <Button 
-                variant="outlined" 
-                size="small" 
-                startIcon={<Trash2 size={14} />} 
-                onClick={handleBulkDeleteClick} 
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Trash2 size={14} />}
+                onClick={handleBulkDeleteClick}
                 disabled={selected.size === 0}
-                sx={{ 
-                  textTransform: 'none', 
-                  fontSize: '0.78rem', 
-                  fontWeight: 500, 
-                  color: PALETTE.RED, 
-                  borderColor: alpha(PALETTE.RED, 0.35), 
-                  borderRadius: '6px', 
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.78rem',
+                  fontWeight: 500,
+                  color: PALETTE.RED,
+                  borderColor: alpha(PALETTE.RED, 0.35),
+                  borderRadius: '6px',
                   px: 1.5,
-                  '&:hover': { 
-                    borderColor: PALETTE.RED, 
-                    bgcolor: alpha(PALETTE.RED, 0.06) 
+                  '&:hover': {
+                    borderColor: PALETTE.RED,
+                    bgcolor: alpha(PALETTE.RED, 0.06)
                   },
                   '&.Mui-disabled': { opacity: 0.45 }
                 }}
@@ -434,9 +434,9 @@ const RecycleBinModal = memo(({
           </Box>
 
           {/* Table Body */}
-          <Box sx={{ 
-            flex: 1, 
-            overflow: 'auto', 
+          <Box sx={{
+            flex: 1,
+            overflow: 'auto',
             minHeight: 300,
             '&::-webkit-scrollbar': { width: '6px', height: '6px' },
             '&::-webkit-scrollbar-track': { background: alpha(PALETTE.GRAY, 0.05) },
@@ -460,18 +460,18 @@ const RecycleBinModal = memo(({
               <TableContainer sx={{ overflowX: 'auto' }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
-                    <TableRow sx={{ 
+                    <TableRow sx={{
                       bgcolor: alpha(PALETTE.PURPLE, 0.03),
-                      '& th': { 
-                        borderBottom: `2px solid ${alpha(PALETTE.PURPLE, 0.1)}`, 
-                        fontWeight: 600, 
-                        fontSize: '0.78rem', 
-                        color: PALETTE.TEXT, 
-                        py: 1.5, 
-                        px: 1.5, 
+                      '& th': {
+                        borderBottom: `2px solid ${alpha(PALETTE.PURPLE, 0.1)}`,
+                        fontWeight: 600,
+                        fontSize: '0.78rem',
+                        color: PALETTE.TEXT,
+                        py: 1.5,
+                        px: 1.5,
                         whiteSpace: 'nowrap',
                         bgcolor: alpha(PALETTE.PURPLE, 0.02)
-                      } 
+                      }
                     }}>
                       <TableCell padding="checkbox" width={50} />
                       <TableCell sx={{ minWidth: 150 }}>Reviewer</TableCell>
@@ -485,28 +485,28 @@ const RecycleBinModal = memo(({
                     {pageItems.map(item => {
                       const isSelected = selected.has(item.id);
                       return (
-                        <TableRow 
-                          key={item.id} 
+                        <TableRow
+                          key={item.id}
                           hover
-                          sx={{ 
+                          sx={{
                             bgcolor: isSelected ? alpha(PALETTE.PURPLE, 0.07) : 'white',
                             transition: 'background-color 0.15s',
-                            '&:hover': { 
-                              backgroundColor: isSelected ? alpha(PALETTE.PURPLE, 0.1) : alpha(PALETTE.PURPLE, 0.03) 
+                            '&:hover': {
+                              backgroundColor: isSelected ? alpha(PALETTE.PURPLE, 0.1) : alpha(PALETTE.PURPLE, 0.03)
                             },
                             '&:last-child td': { borderBottom: 'none' }
                           }}
                         >
                           <TableCell padding="checkbox">
-                            <Checkbox 
-                              size="small" 
-                              checked={isSelected} 
-                              onChange={() => onToggle(item.id)} 
-                              sx={{ 
+                            <Checkbox
+                              size="small"
+                              checked={isSelected}
+                              onChange={() => onToggle(item.id)}
+                              sx={{
                                 padding: '4px',
                                 color: alpha(PALETTE.PURPLE, 0.4),
                                 '&.Mui-checked': { color: PALETTE.PURPLE }
-                              }} 
+                              }}
                             />
                           </TableCell>
                           <TableCell>
@@ -535,28 +535,28 @@ const RecycleBinModal = memo(({
                           <TableCell>
                             <Stack direction="row" spacing={0.5}>
                               <Tooltip title="Restore" arrow>
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => onSingleRestore(item)} 
-                                  sx={{ 
-                                    color: PALETTE.GREEN, 
-                                    borderRadius: '6px', 
+                                <IconButton
+                                  size="small"
+                                  onClick={() => onSingleRestore(item)}
+                                  sx={{
+                                    color: PALETTE.GREEN,
+                                    borderRadius: '6px',
                                     p: 0.75,
-                                    '&:hover': { bgcolor: alpha(PALETTE.GREEN, 0.1) } 
+                                    '&:hover': { bgcolor: alpha(PALETTE.GREEN, 0.1) }
                                   }}
                                 >
                                   <RotateCcw size={15} />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Delete Permanently" arrow>
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => handleSingleDeleteClick(item)} 
-                                  sx={{ 
-                                    color: PALETTE.RED, 
-                                    borderRadius: '6px', 
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleSingleDeleteClick(item)}
+                                  sx={{
+                                    color: PALETTE.RED,
+                                    borderRadius: '6px',
                                     p: 0.75,
-                                    '&:hover': { bgcolor: alpha(PALETTE.RED, 0.1) } 
+                                    '&:hover': { bgcolor: alpha(PALETTE.RED, 0.1) }
                                   }}
                                 >
                                   <Trash2 size={15} />
@@ -575,9 +575,9 @@ const RecycleBinModal = memo(({
 
           {/* Pagination */}
           {items.length > 0 && (
-            <Box sx={{ 
-              borderTop: `1px solid ${alpha(PALETTE.PURPLE, 0.08)}`, 
-              bgcolor: '#fafbfc' 
+            <Box sx={{
+              borderTop: `1px solid ${alpha(PALETTE.PURPLE, 0.08)}`,
+              bgcolor: '#fafbfc'
             }}>
               <TablePagination
                 rowsPerPageOptions={[5, 10, 25, 50]}
@@ -588,11 +588,11 @@ const RecycleBinModal = memo(({
                 onPageChange={onPageChange}
                 onRowsPerPageChange={onRowsPerPageChange}
                 SelectProps={{ MenuProps: { disableScrollLock: true } }}
-                sx={{ 
+                sx={{
                   '& .MuiTablePagination-toolbar': { minHeight: '44px' },
-                  '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { 
-                    fontSize: '0.78rem', 
-                    color: PALETTE.GRAY 
+                  '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                    fontSize: '0.78rem',
+                    color: PALETTE.GRAY
                   }
                 }}
               />
@@ -619,14 +619,14 @@ const RecycleBinModal = memo(({
             <>Are you sure you want to permanently delete the review from <Box component="strong">{permDeleteModal.item?.reviewer}</Box>?</>
           )}
         </Typography>
-        <Box sx={{ 
-          p: 1.5, 
-          borderRadius: '8px', 
-          backgroundColor: alpha(PALETTE.RED, 0.05), 
-          border: `1px solid ${alpha(PALETTE.RED, 0.12)}`, 
-          display: 'flex', 
-          alignItems: 'flex-start', 
-          gap: 1.25 
+        <Box sx={{
+          p: 1.5,
+          borderRadius: '8px',
+          backgroundColor: alpha(PALETTE.RED, 0.05),
+          border: `1px solid ${alpha(PALETTE.RED, 0.12)}`,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 1.25
         }}>
           <AlertCircle size={17} color={PALETTE.RED} style={{ flexShrink: 0, marginTop: 1 }} />
           <Box>
@@ -688,24 +688,24 @@ EmployeeBarChart.displayName = 'EmployeeBarChart';
 const ReviewDetailDialog = memo(({ open, review, onClose }) => {
   if (!review) return null;
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="sm" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
       fullWidth
-      PaperProps={{ 
-        sx: { 
+      PaperProps={{
+        sx: {
           borderRadius: '12px',
           boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
-        } 
+        }
       }}
     >
       <DialogTitle sx={{ p: 2, borderBottom: `1px solid ${alpha(PALETTE.TEXT, 0.05)}` }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{ 
-              width: 40, height: 40, borderRadius: '10px', bgcolor: alpha(PALETTE.AMBER, 0.1), 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: PALETTE.AMBER 
+            <Box sx={{
+              width: 40, height: 40, borderRadius: '10px', bgcolor: alpha(PALETTE.AMBER, 0.1),
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: PALETTE.AMBER
             }}>
               <MessageSquare size={22} />
             </Box>
@@ -751,10 +751,10 @@ const ReviewDetailDialog = memo(({ open, review, onClose }) => {
             <Typography variant="caption" sx={{ fontWeight: 600, color: PALETTE.GRAY, textTransform: 'uppercase', mb: 1, display: 'block' }}>
               Customer Feedback
             </Typography>
-            <Typography variant="body2" sx={{ 
-              fontSize: '0.9rem', 
-              color: PALETTE.TEXT, 
-              lineHeight: 1.8, 
+            <Typography variant="body2" sx={{
+              fontSize: '0.9rem',
+              color: PALETTE.TEXT,
+              lineHeight: 1.8,
               fontStyle: 'italic',
               bgcolor: alpha(PALETTE.AMBER, 0.03),
               p: 2,
@@ -784,7 +784,7 @@ const ReviewDetailDialog = memo(({ open, review, onClose }) => {
                   </Box>
                 </Box>
               )}
-              
+
               {review.services !== 'N/A' && (
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
                   <Box sx={{ p: 0.75, borderRadius: '6px', bgcolor: alpha(PALETTE.TEAL, 0.08) }}>
@@ -814,10 +814,10 @@ const ReviewDetailDialog = memo(({ open, review, onClose }) => {
       </DialogContent>
 
       <DialogActions sx={{ p: 2, mt: 1, borderTop: `1px solid ${alpha(PALETTE.TEXT, 0.03)}` }}>
-        <Button onClick={onClose} variant="contained" sx={{ 
-          bgcolor: PALETTE.TEXT, 
-          color: 'white', 
-          textTransform: 'none', 
+        <Button onClick={onClose} variant="contained" sx={{
+          bgcolor: PALETTE.TEXT,
+          color: 'white',
+          textTransform: 'none',
           borderRadius: '6px',
           fontWeight: 500,
           '&:hover': { bgcolor: alpha(PALETTE.TEXT, 0.8) }
@@ -901,24 +901,29 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
                   <ExpandableText text={r.text} />
                 </TableCell>
                 <TableCell sx={{ py: 1.5 }}>
-                  {r.services !== 'N/A' ? (
-                    <Chip
-                      label={r.services}
-                      size="small"
-                      sx={{
-                        fontSize: '0.72rem',
-                        bgcolor: alpha(PALETTE.TEAL, 0.1),
-                        color: PALETTE.TEAL,
-                        fontWeight: 500,
-                        maxWidth: '100%',
-                        '& .MuiChip-label': { whiteSpace: 'normal', wordBreak: 'break-word' }
-                      }}
-                    />
-                  ) : (
-                    <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontStyle: 'italic', fontSize: '0.75rem' }}>
-                      Not specified
+                  <Stack spacing={0.5} alignItems="flex-start">
+                    {r.services !== 'N/A' ? (
+                      <Chip
+                        label={r.services}
+                        size="small"
+                        sx={{
+                          fontSize: '0.72rem',
+                          bgcolor: alpha(PALETTE.TEAL, 0.1),
+                          color: PALETTE.TEAL,
+                          fontWeight: 500,
+                          maxWidth: '100%',
+                          '& .MuiChip-label': { whiteSpace: 'normal', wordBreak: 'break-word' }
+                        }}
+                      />
+                    ) : (
+                      <Typography variant="caption" sx={{ color: alpha(PALETTE.GRAY, 0.6), fontStyle: 'italic', fontSize: '0.75rem' }}>
+                        Not specified
+                      </Typography>
+                    )}
+                    <Typography variant="caption" sx={{ color: alpha(PALETTE.GRAY, 0.8), fontStyle: 'italic', fontSize: '0.7rem', display: 'block' }}>
+                      {r.business}
                     </Typography>
-                  )}
+                  </Stack>
                 </TableCell>
                 <TableCell sx={{ py: 1.5 }}>
                   {r.employees.length > 0 ? (
@@ -1127,13 +1132,13 @@ export default function Review() {
       }
     }
   }, [location.state, rawReviews, openDetail]);
-  
+
   const toggleSelect = useCallback((id) => setSelected(prev => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   }), []);
-  
+
   const toggleSelectAll = useCallback((items) => setSelected(prev => {
     const next = new Set(prev);
     const allOnPage = items.every(i => next.has(i.id));
@@ -1146,7 +1151,7 @@ export default function Review() {
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   }), []);
-  
+
   const toggleBinSelectAll = useCallback((items) => setBinSelected(prev => {
     const next = new Set(prev);
     const allOnPage = items.every(i => next.has(i.id));
@@ -1435,24 +1440,24 @@ export default function Review() {
       </CommonDialog>
 
       {/* Recycle Bin Modal */}
-      <RecycleBinModal 
-        open={binOpen} 
-        onClose={() => setBinOpen(false)} 
-        items={filteredBin} 
-        isLoading={binLoading} 
+      <RecycleBinModal
+        open={binOpen}
+        onClose={() => setBinOpen(false)}
+        items={filteredBin}
+        isLoading={binLoading}
         selected={binSelected}
-        page={binPage} 
-        rowsPerPage={binRpp} 
-        onPageChange={(_, p) => setBinPage(p)} 
-        onRowsPerPageChange={(e) => { setBinRpp(+e.target.value); setBinPage(0); }} 
-        onToggle={toggleBinSelect} 
-        onToggleAll={toggleBinSelectAll} 
-        onSearchChange={setBinSearch} 
-        search={binSearch} 
-        onBulkRestore={() => restoreMutation.mutate(Array.from(binSelected))} 
-        onBulkDelete={() => permanentDeleteMutation.mutate(Array.from(binSelected))} 
-        onSingleRestore={(i) => restoreMutation.mutate([i.id])} 
-        onSingleDelete={(i) => permanentDeleteMutation.mutate([i.id])} 
+        page={binPage}
+        rowsPerPage={binRpp}
+        onPageChange={(_, p) => setBinPage(p)}
+        onRowsPerPageChange={(e) => { setBinRpp(+e.target.value); setBinPage(0); }}
+        onToggle={toggleBinSelect}
+        onToggleAll={toggleBinSelectAll}
+        onSearchChange={setBinSearch}
+        search={binSearch}
+        onBulkRestore={() => restoreMutation.mutate(Array.from(binSelected))}
+        onBulkDelete={() => permanentDeleteMutation.mutate(Array.from(binSelected))}
+        onSingleRestore={(i) => restoreMutation.mutate([i.id])}
+        onSingleDelete={(i) => permanentDeleteMutation.mutate([i.id])}
         isDeleting={permanentDeleteMutation.isPending}
       />
     </Box>

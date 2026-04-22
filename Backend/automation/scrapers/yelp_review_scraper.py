@@ -2,12 +2,16 @@
 Yelp Review Scraper
 Scrapes reviews from Yelp using SerpApi.
 """
+import os
 import time as _time
 import traceback
 import serpapi
+from dotenv import load_dotenv
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 from automation.services.api_client import APIClient
+
+load_dotenv()
 
 class YelpReviewScraper:
     """
@@ -16,7 +20,7 @@ class YelpReviewScraper:
 
     def __init__(self):
         """Initialize Yelp review scraper."""
-        self.api_key = "49543b2dfde5af2c45109891d1e52f22f4a0cdff2b036fc5f34a5774848d6523"
+        self.api_key = os.getenv("SERPAPI_KEY")
         self.client = serpapi.Client(api_key=self.api_key)
         self.place_id = "IF40cYLYczA9ZeYKGslgVw"
         self.api_client = APIClient()

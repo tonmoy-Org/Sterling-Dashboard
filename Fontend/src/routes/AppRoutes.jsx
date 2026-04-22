@@ -179,7 +179,6 @@ export const AppRoutes = () => {
           <Route path="risk-management" element={<RiskManagement />} />
           <Route path="scorecards" element={<Scorecards />} />
           <Route path="forms" element={<Forms />} />
-          <Route path="review-tracking" element={<Review />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="training" element={<Training />} />
           <Route path="tasks" element={<Tasks />} />
@@ -189,7 +188,6 @@ export const AppRoutes = () => {
           <Route path="health-department-report-tracking/rss" element={<RSSReports />} />
           <Route path="health-department-report-tracking/tos" element={<TOSReports />} />
           <Route path="customer-center" element={<CustomerCenter />} />
-          <Route path="dispatch-kpi" element={<DispatchKpi />} />
 
           <Route path="notifications" element={<Notifications />} />
         </Route>

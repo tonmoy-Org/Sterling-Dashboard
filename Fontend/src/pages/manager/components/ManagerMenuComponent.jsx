@@ -383,18 +383,6 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
             section: 'SYSTEM',
         },
         {
-            text: 'Dispatch KPI',
-            icon: <BarChart3 size={18} />,
-            path: '/manager-dashboard/dispatch-kpi',
-            section: 'SYSTEM',
-        },
-        {
-            text: 'Review Tracking',
-            icon: <Star size={18} />,
-            path: '/manager-dashboard/review-tracking',
-            section: 'SYSTEM',
-        },
-        {
             text: 'Lookup',
             icon: <Search size={18} />,
             path: 'https://dashboard.sterlingsepticandplumbing.com/lookup',

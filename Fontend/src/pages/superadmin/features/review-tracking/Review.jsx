@@ -844,11 +844,9 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
           <TableHead>
             <TableRow sx={{ bgcolor: alpha(PALETTE.BLUE, 0.04), '& th': { borderBottom: `2px solid ${alpha(PALETTE.BLUE, 0.1)}`, fontWeight: 600, fontSize: '0.8rem', color: PALETTE.TEXT, py: 1.5, whiteSpace: 'nowrap' } }}>
               <TableCell padding="checkbox" sx={{ pl: 2 }}><Checkbox size="small" checked={allOnPage} indeterminate={someOnPage} onChange={() => onToggleAll(pg)} /></TableCell>
+              <TableCell sx={{ minWidth: 150 }}>Employees Mentioned</TableCell>
               <TableCell sx={{ minWidth: 180 }}>Reviewer</TableCell>
-              <TableCell sx={{ minWidth: 280 }}>Review</TableCell>
-              <TableCell sx={{ minWidth: 180 }}>Services Mentioned</TableCell>
-              <TableCell sx={{ minWidth: 180 }}>Employees Mentioned</TableCell>
-              <TableCell sx={{ width: 100 }}>Price</TableCell>
+              <TableCell sx={{ minWidth: 320 }}>Review</TableCell>
               <TableCell sx={{ width: 90 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -866,6 +864,17 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
               <TableRow key={r.id} hover sx={{ '&:hover': { bgcolor: alpha(PALETTE.BLUE, 0.03) }, '&:last-child td': { borderBottom: 'none' }, bgcolor: selected.has(r.id) ? alpha(PALETTE.BLUE, 0.02) : 'inherit' }}>
                 <TableCell padding="checkbox" sx={{ pl: 2 }}>
                   <Checkbox size="small" checked={selected.has(r.id)} onChange={() => onToggle(r.id)} />
+                </TableCell>
+                <TableCell sx={{ py: 1.5 }}>
+                  {r.employees.length > 0 ? (
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                      {r.employees.map(e => <EmpChip key={e} name={e} />)}
+                    </Stack>
+                  ) : (
+                    <Typography variant="caption" sx={{ color: alpha(PALETTE.GRAY, 0.6), fontStyle: 'italic', fontSize: '0.75rem' }}>
+                      None identified
+                    </Typography>
+                  )}
                 </TableCell>
                 <TableCell sx={{ py: 1.5 }}>
                   <Box>
@@ -899,51 +908,6 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
                 </TableCell>
                 <TableCell sx={{ py: 1.5, maxWidth: 320 }}>
                   <ExpandableText text={r.text} />
-                </TableCell>
-                <TableCell sx={{ py: 1.5 }}>
-                  <Stack spacing={0.5} alignItems="flex-start">
-                    {r.services !== 'N/A' ? (
-                      <Chip
-                        label={r.services}
-                        size="small"
-                        sx={{
-                          fontSize: '0.72rem',
-                          bgcolor: alpha(PALETTE.TEAL, 0.1),
-                          color: PALETTE.TEAL,
-                          fontWeight: 500,
-                          maxWidth: '100%',
-                          '& .MuiChip-label': { whiteSpace: 'normal', wordBreak: 'break-word' }
-                        }}
-                      />
-                    ) : (
-                      <Typography variant="caption" sx={{ color: alpha(PALETTE.GRAY, 0.6), fontStyle: 'italic', fontSize: '0.75rem' }}>
-                        Not specified
-                      </Typography>
-                    )}
-                    <Typography variant="caption" sx={{ color: alpha(PALETTE.GRAY, 0.8), fontStyle: 'italic', fontSize: '0.7rem', display: 'block' }}>
-                      {r.business}
-                    </Typography>
-                  </Stack>
-                </TableCell>
-                <TableCell sx={{ py: 1.5 }}>
-                  {r.employees.length > 0 ? (
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                      {r.employees.map(e => <EmpChip key={e} name={e} />)}
-                    </Stack>
-                  ) : (
-                    <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontStyle: 'italic', fontSize: '0.75rem' }}>
-                      None identified
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell sx={{ py: 1.5 }}>
-                  {r.price !== 'N/A' ? (
-                    <Typography variant="caption" sx={{ fontSize: '0.75rem', color: PALETTE.GREEN, fontWeight: 500 }}>
-                      {r.price}
-                    </Typography>
-                  ) : (
-                    <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.75rem' }}>—</Typography>
-                  )}
                 </TableCell>
                 <TableCell sx={{ py: 1.5 }}>
                   <Stack direction="row" spacing={0.5}>

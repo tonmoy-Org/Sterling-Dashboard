@@ -177,7 +177,9 @@ class ReviewTrackerScraper(BaseScraper):
                 await asyncio.sleep(2.5)
                 
                 # Check how many reviews we have now
-                current_reviews = self.page.locator("div.jftiEf")
+                # Broad selectors for review cards: jftiEf is standard, role='article' is fallback
+                card_selectors = "div.jftiEf, div[role='article'], div[data-review-id], div[jsaction*='review']"
+                current_reviews = self.page.locator(card_selectors)
                 current_count = await current_reviews.count()
                 
                 print(f"  Scroll {i+1}: Found {current_count} reviews so far")
@@ -217,10 +219,23 @@ class ReviewTrackerScraper(BaseScraper):
             print("➡️ Scraping reviews...")
             await asyncio.sleep(2)
             
-            # Main review card selector
-            reviews = self.page.locator("div.jftiEf")
+            # Use a more robust selector set for the review cards
+            # div.jftiEf is common, div[role="article"] is the standard ARIA role for review cards
+            review_selectors = "div.jftiEf, div[role='article'], div[data-review-id], div[jsaction*='review']"
+            reviews = self.page.locator(review_selectors)
             review_count = await reviews.count()
             print(f"✅ Found {review_count} reviews in feed")
+            
+            # If standard selectors fail, try searching for "stars" container parents
+            if review_count == 0:
+                print("⚠️ No card matches found, trying alternative: star rating parent search")
+                stars_loc = self.page.locator("span[aria-label*='stars']").first
+                if await stars_loc.is_visible():
+                    # Move up to find the common parent that looks like a card
+                    review_container = self.page.locator("div[role='feed'] > div")
+                    review_count = await review_container.count()
+                    reviews = review_container
+                    print(f"✅ Found {review_count} potential review containers using feed traversal")
             
             scraped_data = []
             

@@ -478,7 +478,6 @@ const RecycleBinModal = memo(({
                       <TableCell sx={{ width: 100 }}>Rating</TableCell>
                       <TableCell sx={{ minWidth: 180 }}>Deleted By</TableCell>
                       <TableCell sx={{ minWidth: 160 }}>Deleted At</TableCell>
-                      <TableCell sx={{ width: 100 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -531,38 +530,6 @@ const RecycleBinModal = memo(({
                             <Typography variant="body2" sx={{ fontSize: '0.83rem', color: PALETTE.TEXT }}>
                               {item.deletedDate || '—'}
                             </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Stack direction="row" spacing={0.5}>
-                              <Tooltip title="Restore" arrow>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => onSingleRestore(item)}
-                                  sx={{
-                                    color: PALETTE.GREEN,
-                                    borderRadius: '6px',
-                                    p: 0.75,
-                                    '&:hover': { bgcolor: alpha(PALETTE.GREEN, 0.1) }
-                                  }}
-                                >
-                                  <RotateCcw size={15} />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Delete Permanently" arrow>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleSingleDeleteClick(item)}
-                                  sx={{
-                                    color: PALETTE.RED,
-                                    borderRadius: '6px',
-                                    p: 0.75,
-                                    '&:hover': { bgcolor: alpha(PALETTE.RED, 0.1) }
-                                  }}
-                                >
-                                  <Trash2 size={15} />
-                                </IconButton>
-                              </Tooltip>
-                            </Stack>
                           </TableCell>
                         </TableRow>
                       );
@@ -847,13 +814,12 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
               <TableCell sx={{ minWidth: 150 }}>Employees Mentioned</TableCell>
               <TableCell sx={{ minWidth: 180 }}>Reviewer</TableCell>
               <TableCell sx={{ minWidth: 320 }}>Review</TableCell>
-              <TableCell sx={{ width: 90 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {!pg.length ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <Search size={28} color={alpha(PALETTE.TEXT, 0.2)} />
                     <Typography variant="body2" sx={{ color: PALETTE.TEXT, opacity: 0.5, fontSize: '0.85rem' }}>No reviews match your filters</Typography>
@@ -909,20 +875,6 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
                 <TableCell sx={{ py: 1.5, maxWidth: 320 }}>
                   <ExpandableText text={r.text} />
                 </TableCell>
-                <TableCell sx={{ py: 1.5 }}>
-                  <Stack direction="row" spacing={0.5}>
-                    <Tooltip title="View full review" arrow>
-                      <IconButton size="small" onClick={() => onView(r)} sx={{ color: PALETTE.BLUE, p: '6px', '&:hover': { bgcolor: alpha(PALETTE.BLUE, 0.08) } }}>
-                        <MessageSquare size={15} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Move to Bin" arrow>
-                      <IconButton size="small" onClick={() => onDelete(r)} sx={{ color: PALETTE.ORANGE, p: '6px', '&:hover': { bgcolor: alpha(PALETTE.ORANGE, 0.08) } }}>
-                        <Trash2 size={15} />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -955,13 +907,12 @@ const EmployeeReviewsTable = memo(({ reviews, onView }) => {
               <TableCell sx={{ minWidth: 180 }}>Reviewer / Rating / Date</TableCell>
               <TableCell sx={{ minWidth: 280 }}>Review excerpt</TableCell>
               <TableCell sx={{ minWidth: 150 }}>Services</TableCell>
-              <TableCell sx={{ width: 70 }}>View</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {!pg.length ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" sx={{ color: PALETTE.GRAY, fontSize: '0.83rem' }}>No reviews in this period</Typography>
                 </TableCell>
               </TableRow>
@@ -991,11 +942,6 @@ const EmployeeReviewsTable = memo(({ reviews, onView }) => {
                   ) : (
                     <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.7rem' }}>—</Typography>
                   )}
-                </TableCell>
-                <TableCell sx={{ py: 1.25 }}>
-                  <IconButton size="small" onClick={() => onView(r)} sx={{ color: PALETTE.TEAL, p: '4px', '&:hover': { bgcolor: alpha(PALETTE.TEAL, 0.08) } }}>
-                    <MessageSquare size={13} />
-                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
@@ -1306,8 +1252,6 @@ export default function Review() {
 
       <Stack direction="row" spacing={1.5} sx={{ mb: 3, flexWrap: 'wrap' }} useFlexGap>
         <StatCard label="Total Reviews" value={totalReviews} color={PALETTE.BLUE} icon={<MessageSquare size={14} />} />
-        <StatCard label="Avg Rating" value={`${avgRating}★`} color={PALETTE.AMBER} icon={<Star size={14} />} />
-        <StatCard label="5-Star Reviews" value={fiveStars} color={PALETTE.GREEN} icon={<Award size={14} />} />
         <StatCard label="Staff Recognized" value={empCount} color={PALETTE.PURPLE} icon={<Users size={14} />} />
       </Stack>
 
@@ -1353,7 +1297,7 @@ export default function Review() {
               <TableContainer sx={{ mt: 3 }}>
                 <Table size="small">
                   <TableHead><TableRow sx={{ '& th': { borderBottom: `2px solid ${alpha(PALETTE.TEAL, 0.1)}`, fontWeight: 600, fontSize: '0.78rem' } }}>
-                    <TableCell>Employee</TableCell><TableCell align="right">Mentions</TableCell><TableCell align="right">Avg Rating</TableCell><TableCell sx={{ width: '40%' }}>Intensity</TableCell>
+                    <TableCell>Employee</TableCell><TableCell align="right">Mentions</TableCell><TableCell sx={{ width: '40%' }}>Intensity</TableCell>
                   </TableRow></TableHead>
                   <TableBody>
                     {employeeStats.map(emp => (
@@ -1365,7 +1309,6 @@ export default function Review() {
                           </Box>
                         </TableCell>
                         <TableCell align="right">{emp.count}</TableCell>
-                        <TableCell align="right"><Typography variant="body2">{emp.avg}★</Typography></TableCell>
                         <TableCell><LinearProgress variant="determinate" value={(emp.count / (Math.max(...employeeStats.map(e => e.count)) || 1)) * 100} sx={{ height: 6, borderRadius: 3, bgcolor: alpha(avatarColor(emp.name), 0.1), '& .MuiLinearProgress-bar': { bgcolor: avatarColor(emp.name), borderRadius: 3 } }} /></TableCell>
                       </TableRow>
                     ))}

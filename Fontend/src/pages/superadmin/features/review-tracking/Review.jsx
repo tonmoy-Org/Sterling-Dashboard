@@ -21,6 +21,14 @@ import CommonDialog from '../../../../components/ui/CommonDialog';
 import { useAuth } from '../../../../auth/AuthProvider';
 import { useGlobalSnackbar } from '../../../../context/GlobalSnackbarContext';
 import { useLocation } from 'react-router-dom';
+import { format } from 'date-fns';
+
+const formatDateShort = (dateString) => {
+  if (!dateString) return '—';
+  const date = new Date(dateString);
+  if (isNaN(date)) return dateString;
+  return format(date, "MM/dd/yyyy hh:mm a");
+};
 
 const PALETTE = {
   TEXT: '#0F1115',
@@ -57,14 +65,21 @@ const PERIOD_OPTIONS = [
 ];
 
 const relativeToApproxDate = (rel) => {
-  const now = new Date();
   if (!rel) return null;
+  const parsed = new Date(rel);
+  if (!isNaN(parsed)) return parsed;
+
+  const now = new Date();
   const r = rel.toLowerCase();
-  if (r.includes('today') || r.includes('hour') || r.includes('just')) return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  const numMatch = r.match(/\d+/);
+  const val = numMatch ? parseInt(numMatch[0], 10) : 1;
+
+  if (r.includes('today') || r.includes('hour') || r.includes('just') || r.includes('min') || r.includes('sec')) return now;
   if (r.includes('yesterday')) return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  if (r.includes('week')) { const w = parseInt(r) || 1; return new Date(now - w * 7 * 864e5); }
-  if (r.includes('month')) { const m = parseInt(r) || 1; return new Date(now.getFullYear(), now.getMonth() - m, now.getDate()); }
-  if (r.includes('year')) { const y = parseInt(r) || 1; return new Date(now.getFullYear() - y, now.getMonth(), now.getDate()); }
+  if (r.includes('week')) return new Date(now.valueOf() - val * 7 * 864e5);
+  if (r.includes('month')) return new Date(now.getFullYear(), now.getMonth() - val, now.getDate());
+  if (r.includes('year')) return new Date(now.getFullYear() - val, now.getMonth(), now.getDate());
   return null;
 };
 
@@ -96,14 +111,15 @@ const transformReview = (item) => ({
   reviewer: item.reviewer_name || 'Anonymous',
   rating: item.rating_value || 0,
   ratingText: item.rating_text || '',
-  date: item.review_date || '',
+  date: formatDateShort(item.review_date),
+  rawDate: item.review_date || '',
   text: item.review_text || '',
   price: item.price_range || 'N/A',
   priceLabel: item.price_assessment || 'N/A',
   services: item.services_mentioned || 'N/A',
   business: item.business_name || '',
   isDeleted: item.is_deleted || false,
-  deletedDate: item.deleted_date ? new Date(item.deleted_date).toLocaleDateString() : '',
+  deletedDate: formatDateShort(item.deleted_date),
   deletedBy: item.deleted_by || null,
   deletedByEmail: item.deleted_by_email || null,
   employees: extractEmployees(item.review_text),
@@ -474,6 +490,7 @@ const RecycleBinModal = memo(({
                       }
                     }}>
                       <TableCell padding="checkbox" width={50} />
+                      <TableCell sx={{ minWidth: 150 }}>Employees Mentioned</TableCell>
                       <TableCell sx={{ minWidth: 150 }}>Reviewer</TableCell>
                       <TableCell sx={{ width: 100 }}>Rating</TableCell>
                       <TableCell sx={{ minWidth: 180 }}>Deleted By</TableCell>
@@ -508,10 +525,26 @@ const RecycleBinModal = memo(({
                               }}
                             />
                           </TableCell>
+                          <TableCell sx={{ py: 1.5 }}>
+                            {item.employees && item.employees.length > 0 ? (
+                              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                {item.employees.map(e => <EmpChip key={e} name={e} />)}
+                              </Stack>
+                            ) : (
+                              <Typography variant="caption" sx={{ color: alpha(PALETTE.GRAY, 0.6), fontStyle: 'italic', fontSize: '0.75rem' }}>
+                                None identified
+                              </Typography>
+                            )}
+                          </TableCell>
                           <TableCell>
-                            <Typography variant="body2" sx={{ fontSize: '0.83rem', fontWeight: 500, color: PALETTE.TEXT }}>
-                              {item.reviewer}
-                            </Typography>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontSize: '0.83rem', fontWeight: 600, color: PALETTE.TEXT }}>
+                                {item.reviewer}
+                              </Typography>
+                              <Typography variant="caption" sx={{ fontSize: '0.72rem', color: PALETTE.GRAY, display: 'block', mt: 0.25 }}>
+                                {item.date}
+                              </Typography>
+                            </Box>
                           </TableCell>
                           <TableCell>
                             <Stars value={item.rating} size={12} />
@@ -1142,12 +1175,20 @@ export default function Review() {
 
   // Filter logic
   const filteredRoot = useMemo(() => {
-    let list = rawReviews.filter(r => inPeriod(r.date, period));
+    let list = rawReviews.filter(r => inPeriod(r.rawDate, period));
     if (search) {
       const lq = search.toLowerCase();
       list = list.filter(r => r.reviewer.toLowerCase().includes(lq) || r.text.toLowerCase().includes(lq) || r.employees.some(e => e.toLowerCase().includes(lq)));
     }
     if (empFilter !== 'all') list = list.filter(r => r.employees.includes(empFilter));
+    
+    // Sort newest first
+    list.sort((a, b) => {
+      const dateA = relativeToApproxDate(a.rawDate)?.getTime() || 0;
+      const dateB = relativeToApproxDate(b.rawDate)?.getTime() || 0;
+      return dateB - dateA;
+    });
+
     return list;
   }, [rawReviews, period, search, empFilter]);
 
@@ -1158,9 +1199,20 @@ export default function Review() {
   }, [filteredRoot, tableSearch]);
 
   const filteredBin = useMemo(() => {
-    if (!binSearch) return binItems;
-    const lq = binSearch.toLowerCase();
-    return binItems.filter(r => r.reviewer.toLowerCase().includes(lq) || r.text.toLowerCase().includes(lq));
+    let list = binItems;
+    if (binSearch) {
+      const lq = binSearch.toLowerCase();
+      list = list.filter(r => r.reviewer.toLowerCase().includes(lq) || r.text.toLowerCase().includes(lq));
+    }
+    
+    // Sort newest first
+    list.sort((a, b) => {
+      const dateA = relativeToApproxDate(a.rawDate)?.getTime() || 0;
+      const dateB = relativeToApproxDate(b.rawDate)?.getTime() || 0;
+      return dateB - dateA;
+    });
+
+    return list;
   }, [binItems, binSearch]);
 
   // Employee statistics

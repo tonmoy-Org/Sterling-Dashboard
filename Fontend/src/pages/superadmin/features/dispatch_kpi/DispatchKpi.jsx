@@ -977,7 +977,7 @@ export default function DispatchKpi() {
                         {/* Total Jobs Booked */}
                         <Grid size={{ xs: 6, sm: 3 }}>
                             <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${alpha(PALETTE.GREEN, 0.15)}`, bgcolor: alpha(PALETTE.GREEN, 0.03), height: '100%' }}>
-                                <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.73rem', display: 'block', mb: 0.5, fontWeight: 500 }}>Total Jobs Booked</Typography>
+                                <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.73rem', display: 'block', mb: 0.5, fontWeight: 500 }}>Total Booked</Typography>
                                 <Typography sx={{ fontWeight: 700, color: PALETTE.GREEN, fontSize: '2rem', lineHeight: 1.1, mb: 0.5 }}>{kpiData.totalJobsBooked}</Typography>
                                 <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.72rem' }}>Successfully converted</Typography>
                             </Box>
@@ -1101,7 +1101,7 @@ export default function DispatchKpi() {
                                     { label: 'Eric Booked',       align: 'center', width: 105 },
                                     { label: 'Eric Total',        align: 'center', width: 95  },
                                     { label: 'Eric %',            align: 'center', width: 85  },
-                                    { label: 'Total Jobs Booked', align: 'center', width: 145 },
+                                    { label: 'Total Booked', align: 'center', width: 145 },
                                     { label: 'All Leads',         align: 'center', width: 100 },
                                     { label: 'Pickup Ratio',      align: 'center', width: 110 },
                                     { label: 'Actions',           align: 'center', width: 110 },

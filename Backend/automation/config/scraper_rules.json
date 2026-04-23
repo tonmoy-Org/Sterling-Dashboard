@@ -8,6 +8,10 @@
     "contractor_search_property": "https://www.onlinerme.com/ContractorSearchProperty.aspx",
     "rme_service_history": "https://www.onlinerme.com/MainMenu.aspx?Type=HistoryOM&intMenuType=8&sm=15",
     "rme_work_history_url": "https://www.onlinerme.com/MainMenu.aspx?intMenuType=4&Locked=0&type=OM",
+    "invoice_proficiency_urls": [
+      "https://login.fieldedge.com/#/List/9",
+      "https://login.fieldedge.com/#/List/38"
+    ],
     "RME_username_xpath": "input[name='txtUsername']",
     "RME_password_xpath": "input[name='txtPassword']",
     "RME_login_button_xpath": "input[value='Login']",
@@ -307,6 +311,80 @@
       {
         "action": "click",
         "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+      }
+    ],
+    "invoice_proficiency_status_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[contains(@class, 'secondary-filter') and contains(@class, 'date-filter')]"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//li[contains(.,'Today')]"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+      }
+    ],
+    "invoice_proficiency_add_column_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[contains(@class,'add-column-container')]"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='Invoicelabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='AssignmentCompletedlabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//button[contains(@class,'confirm_hsagT') and .//span[normalize-space(text())='Save']]"
+      }
+    ],
+    "invoice_proficiency_add_column_invoice_only_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[contains(@class,'add-column-container')]"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='Transactionlabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//button[contains(@class,'confirm_hsagT') and .//span[normalize-space(text())='Save']]"
       }
     ],
     "save_edit_form_btn": "//input[@value='SAVE'] | //input[@id='btnSaveChanges2']",

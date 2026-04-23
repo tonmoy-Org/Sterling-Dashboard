@@ -48,28 +48,32 @@ class BaseScraper:
     def _load_rules(self):
         """
         Load scraping rules from JSON configuration file.
-        
-        Returns:
-            dict: Parsed rules configuration or empty dict on error.
+        Attempts multiple paths to ensure robustness across different environments.
         """
-        try:
-            with open(RULES_FILE_PATH, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            if len(data) > 0:
-                return data[0]  # Assuming single config object in array
-            
+        # List of potential paths to check
+        potential_paths = [
+            RULES_FILE_PATH,
+            os.path.join("Backend", "automation", "config", "scraper_rules.json"),
+            os.path.join("automation", "config", "scraper_rules.json"),
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "scraper_rules.json")
+        ]
+        
+        rules_data = None
+        for path in potential_paths:
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        rules_data = json.load(f)
+                    print(f"✅ Rules loaded successfully from: {path}")
+                    break
+                except Exception as e:
+                    print(f"⚠️ Failed to load rules from {path}: {e}")
+        
+        if not rules_data:
+            print(f"❌ Rules file not found! Checked: {potential_paths}")
             return {}
-            
-        except FileNotFoundError:
-            print(f"Rules file not found at: {RULES_FILE_PATH}")
-            return {}
-        except json.JSONDecodeError as e:
-            print(f"Error parsing rules JSON: {e}")
-            return {}
-        except Exception as e:
-            print(f"Unexpected error loading rules: {e}")
-            return {}
+
+        return rules_data[0] if isinstance(rules_data, list) and len(rules_data) > 0 else rules_data
     
     async def initialize(self):
         """
@@ -81,7 +85,7 @@ class BaseScraper:
             
             # Launch browser with headless-safe arguments for Linux VPS
             self.browser = await self.playwright.chromium.launch(
-                headless=True,
+                headless=False,
                 slow_mo=50,
                 args=[
                     "--start-maximized",

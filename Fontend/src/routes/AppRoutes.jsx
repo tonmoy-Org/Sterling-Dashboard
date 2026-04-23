@@ -62,6 +62,7 @@ import { ResourcesLibrary } from '../pages/tech/pages/ResourcesLibrary';
 import Repairs from '../pages/superadmin/features/Repairs/Repairs';
 import CustomerCenter from '../pages/superadmin/features/customer-center/CustomerCenter';
 import DispatchKpi from '../pages/superadmin/features/dispatch_kpi/DispatchKpi';
+import { InvoiceProficiency } from '../pages/superadmin/features/invoice_proficiency/InvoiceProficiency';
 
 
 export const AppRoutes = () => {
@@ -150,6 +151,7 @@ export const AppRoutes = () => {
           <Route path="notifications" element={<Notifications />} />
           <Route path="customer-center" element={<CustomerCenter />} />
           <Route path="dispatch-kpi" element={<DispatchKpi />} />
+          <Route path="invoice-proficiency" element={<InvoiceProficiency />} />
         </Route>
 
         {/* Manager */}

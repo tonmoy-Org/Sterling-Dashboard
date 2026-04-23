@@ -35,4 +35,6 @@ export const rmeApi = {
         return Promise.all(promises);
     },
     startReviewTrackerScraping: () => axiosInstance.post('/work-orders-today/start-review-tracker-scraping/'),
+    startYelpReviewScraping: () => axiosInstance.post('/work-orders-today/start-yelp-review-scraping/'),
+    startInvoiceProficiencyScraping: () => axiosInstance.post('/work-orders-today/start-invoice-proficiency-scraping/'),
 };

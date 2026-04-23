@@ -9,6 +9,7 @@ import {
     UserCog,
     BarChart3,
     Star,
+    FileText,
 } from 'lucide-react';
 
 import { useNotifications } from '../../../hooks/useNotifications';
@@ -339,7 +340,7 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                     const isUnseen = Array.isArray(wo.user_seen_records) && wo.user_seen_records.length === 0;
                     return isRecent && isUnseen;
                 }).length,
-                
+
             [dkpiPath]: optimisticallyCleared.has(dkpiPath)
                 ? 0
                 : (notifications.dispatchKpi || []).filter(dkpi => {
@@ -408,6 +409,12 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
             text: 'Customer Center',
             icon: <UserCog size={18} />,
             path: '/super-admin-dashboard/customer-center',
+            section: 'SYSTEM',
+        },
+        {
+            text: 'Invoice Proficiency',
+            icon: <FileText size={18} />,
+            path: '/super-admin-dashboard/invoice-proficiency',
             section: 'SYSTEM',
         },
         {

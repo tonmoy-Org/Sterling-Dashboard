@@ -235,12 +235,12 @@ async def run_yelp_review_scraper():
 
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
-    # await fieldedge_scraper()
-    # await run_work_orders_scraper()
-    # await run_online_rme_scraper()
-    # await run_work_orders_tags_scraper()
-    # await run_dispatcher_booked_scraper()
-    # await run_review_tracker_scraper()
+    await fieldedge_scraper()
+    await run_work_orders_scraper()
+    await run_online_rme_scraper()
+    await run_work_orders_tags_scraper()
+    await run_dispatcher_booked_scraper()
+    await run_review_tracker_scraper()
     await run_yelp_review_scraper()
 
 @track_scraper

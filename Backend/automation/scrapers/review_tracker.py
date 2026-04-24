@@ -78,6 +78,38 @@ class ReviewTrackerScraper(BaseScraper):
             return False
 
     # ----------------------------
+    # SORT BY NEWEST
+    # ----------------------------
+    async def sort_reviews_by_newest(self):
+        try:
+            print("--> Sorting reviews by Newest...")
+            
+            # Click the Sort button
+            # Selector derived from provided HTML: button[aria-label='Sort reviews']
+            sort_btn = self.page.locator("button[aria-label='Sort reviews']").first
+            await sort_btn.wait_for(timeout=5000)
+            await sort_btn.click()
+            await asyncio.sleep(1.5) # Wait for drop-down menu
+            
+            # Click 'Newest' - Google usually uses role='menuitemradio' or 'menuitem'
+            # We use text filtering as it's the most reliable across dynamic class names
+            newest_option = self.page.locator("div[role='menuitem'], div[role='menuitemradio'], button").filter(has_text="Newest")
+            
+            if await newest_option.count() > 0:
+                await newest_option.first.click()
+                print("[v] Selected 'Newest' sort option")
+            else:
+                # Fallback to direct text search if role matches fail
+                print("[!] Role-based selector failed, trying text-only fallback...")
+                await self.page.click("text=Newest")
+            
+            await asyncio.sleep(3) # Wait for list to refresh
+            return True
+        except Exception as e:
+            print(f"[x] Error sorting reviews: {e}")
+            return False
+
+    # ----------------------------
     # SCROLL REVIEWS
     # ----------------------------
     async def scroll_reviews(self, scrolls=100, max_reviews=15):
@@ -333,9 +365,12 @@ class ReviewTrackerScraper(BaseScraper):
             self.business_name = await self.get_business_name()
             print(f"\nBusiness: {self.business_name}\n")
 
-            # Open reviews tab and extract data
+                # Open reviews tab and extract data
             if await self.open_reviews_tab():
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
+                
+                # Sort by Newest (User Requirement)
+                await self.sort_reviews_by_newest()
                 
                 # Scroll to load reviews (limiting to 15 max as per original script)
                 await self.scroll_reviews(scrolls=100, max_reviews=15)

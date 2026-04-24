@@ -25,6 +25,7 @@ urlpatterns = [
    path('api/', include('dispatcher_booked.urls')),
    path('api/health-check/', include('status.urls')),
    path('api/reviews/', include('reviews.urls')),
+   path('api/invoice-proficiency/', include('invoice_proficiency.urls')),
     
     # --- API Documentation URLs ---
    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

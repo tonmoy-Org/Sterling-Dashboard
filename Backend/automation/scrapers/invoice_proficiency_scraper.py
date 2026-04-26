@@ -20,30 +20,18 @@ class InvoiceProficiencyScraper(BaseScraper):
         """Initialize Invoice Proficiency scraper."""
         super().__init__()
 
-    async def _goto_with_fallback(self, url: str, *, timeout_ms: int = 60000):
-        """Navigate reliably for pages that keep background requests alive."""
-        if not url:
-            return
-
-        try:
-            await self.page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-            return
-        except Exception as e:
-            print(f"⚠️ networkidle navigation failed for {url}: {e}")
-
-        # Fallback for SPA pages where network never becomes fully idle.
-        await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-
     async def scrape_report_table(self):
         """
         Scrape records from the main fixed-body table.
         Detects boolean checkmark icons and returns rows as dictionaries mapped to headers.
         """
         try:
-            # FieldEdge lists usually use tbody.fixed-body
+            # FieldEdge lists usually use tbody.fixed-body or .kgViewport
             await self.page.wait_for_selector(
-                "tbody.fixed-body tr", state="attached", timeout=60000
+                "tbody.fixed-body tr, .kgRow, .table-row", state="attached", timeout=60000
             )
+            # Also try to wait for header text to be present
+            await self.page.wait_for_timeout(2000)
         except Exception as e:
             print(f"Error waiting for table rows: {e}")
             return []
@@ -53,39 +41,44 @@ class InvoiceProficiencyScraper(BaseScraper):
                 r"""() => {
                 const results = [];
                 try {
-                    // Get Headers - FieldEdge uses various structures depending on the list version
-                    const headerSelectors = [
-                        '.header-container .header-cell-text',
-                        '.kgHeaderCell .kgHeaderText',
-                        '.fixed-header th',
-                        '[role="columnheader"]',
-                        '.table-header .cell-text',
-                        '.header-row div'
-                    ];
-                    
+                    // Try to find headers with multiple strategies
                     let headers = [];
-                    for (const selector of headerSelectors) {
-                        const elements = document.querySelectorAll(selector);
-                        if (elements.length > 0) {
-                            headers = Array.from(elements)
-                                .map(el => el.innerText.trim())
-                                .filter(h => h !== "");
-                            if (headers.length > 0) break;
-                        }
+                    
+                    // Strategy 1: Look for common FieldEdge/ko-grid header classes
+                    const kgHeaders = document.querySelectorAll('.kgHeaderCell .kgHeaderText, .kgHeaderRow div, .header-cell-text');
+                    if (kgHeaders.length > 0) {
+                        headers = Array.from(kgHeaders).map(el => el.innerText.trim()).filter(h => h !== "");
                     }
                     
-                    const rows = document.querySelectorAll('tbody.fixed-body tr, .table-row, .kgRow');
+                    // Strategy 2: Look for role-based headers
+                    if (headers.length === 0) {
+                        const roleHeaders = document.querySelectorAll('[role="columnheader"]');
+                        if (roleHeaders.length > 0) {
+                            headers = Array.from(roleHeaders).map(el => el.innerText.trim()).filter(h => h !== "");
+                        }
+                    }
+
+                    // Strategy 3: Standard table headers
+                    if (headers.length === 0) {
+                        const thHeaders = document.querySelectorAll('th, .fixed-header th');
+                        headers = Array.from(thHeaders).map(el => el.innerText.trim()).filter(h => h !== "");
+                    }
+
+                    const rows = document.querySelectorAll('tbody.fixed-body tr, .kgRow, .table-row');
                     for (let i = 0; i < rows.length; i++) {
                         const row = rows[i];
-                        const cells = row.querySelectorAll('td, .table-cell, .kgCell');
+                        const cells = row.querySelectorAll('td, .kgCell, .table-cell');
                         if (cells.length > 0) {
                             const rowDict = {};
                             Array.from(cells).forEach((td, index) => {
                                 let value = td.innerText.replace(/\s+/g, ' ').trim();
                                 
-                                // Check if cell contains a success checkmark image
-                                const img = td.querySelector('img[src*="success-checkmark"], .checkmark-container');
-                                if (img || td.innerHTML.includes('success-checkmark')) {
+                                // Detect Checkmarks (FieldEdge success icons)
+                                const hasCheckmark = td.querySelector('img[src*="success-checkmark"]') || 
+                                                     td.innerHTML.includes('success-checkmark') ||
+                                                     td.classList.contains('checkmark-container');
+                                
+                                if (hasCheckmark) {
                                     value = "Yes";
                                 }
                                 
@@ -199,17 +192,23 @@ class InvoiceProficiencyScraper(BaseScraper):
                 # Apply business logic filtering for Work Performance table (index 0)
                 if index == 0:
                     print("Applying specification filters for Work Performance data...")
+                    if scraped_rows:
+                        print(f"DEBUG Sample Row: {scraped_rows[0]}")
+
                     # Filter: Invoice must not be blank and Assignment Completed must be 'Yes'
                     filtered_rows = []
                     for row in scraped_rows:
-                        # Try multiple common FieldEdge header variations for Invoice
+                        # Try multiple keys for Invoice, including column indices if headers failed
                         invoice = (row.get("Invoice") or row.get("Invoice #") or 
-                                   row.get("Transaction") or row.get("Number") or "").strip()
+                                   row.get("Transaction") or row.get("Number") or 
+                                   row.get("Column_10") or # Fallback for added column 1
+                                   "").strip()
                         
-                        # Try multiple common variations for Assignment Completed
+                        # Try multiple keys for Assignment Completed, including column indices
                         completed = (row.get("Assignment Completed") or 
                                      row.get("Completed") or 
-                                     row.get("Is Completed") or "")
+                                     row.get("Is Completed") or 
+                                     row.get("Column_11")) # Fallback for added column 2
                         
                         if invoice and completed == "Yes":
                             filtered_rows.append(row)
@@ -241,16 +240,21 @@ class InvoiceProficiencyScraper(BaseScraper):
                 if item_name.strip() in ["0", "0H"]:
                     return 0.0
 
-                # Look for patterns like 1HR, 2HR, 30MIN etc.
-                hr_match = re.search(r'(\d+)HR', item_name)
-                min_match = re.search(r'(\d+)MIN', item_name)
+                # Look for patterns like 1HR, 1.5HR, 1 hr, 30MIN etc.
+                hr_match = re.search(r'(\d+\.?\d*)\s*HR', item_name, re.IGNORECASE)
+                min_match = re.search(r'(\d+\.?\d*)\s*MIN', item_name, re.IGNORECASE)
                 
                 if hr_match:
                     return float(hr_match.group(1))
                 if min_match:
                     # Requirement specifies 1 minute = 0.0167 Hours
-                    return float(min_match.group(1)) * 0.0167
+                    return round(float(min_match.group(1)) * 0.0167, 4)
                 
+                # Try finding if it says "Hour" or "Hours"
+                hr_word_match = re.search(r'(\d+\.?\d*)\s*HOUR', item_name, re.IGNORECASE)
+                if hr_word_match:
+                    return float(hr_word_match.group(1))
+                    
                 return 0.0
 
             def parse_worked_time(time_str):
@@ -306,7 +310,9 @@ class InvoiceProficiencyScraper(BaseScraper):
                     
                     wo_num = str(wo_num).strip()
                     tech_name = wo_row.get("Technician") or wo_row.get("Employee") or "Unknown"
-                    wo_date_str = wo_row.get("Date") or ""
+                    wo_date_str = wo_row.get("Date") or wo_row.get("Column_1") or ""
+                    # Handle Summary or Notes
+                    wo_summary = wo_row.get("Summary") or wo_row.get("Notes") or ""
                     worked_time_raw = wo_row.get("Worked Time") or "0"
                     
                     # Requirement: 1 minute = 0.0167 Hours
@@ -326,7 +332,7 @@ class InvoiceProficiencyScraper(BaseScraper):
                     has_excavation_pass_item = False
                     
                     for item in invoiced_items:
-                        item_name = item.get("Item") or item.get("Column_3") or ""
+                        item_name = item.get("Item") or item.get("Item Name") or item.get("Column_3") or ""
                         qty_str = str(item.get("Qty. Sold") or item.get("Column_7") or "1.0")
                         qty = float(re.sub(r'[^0-9.]', '', qty_str)) if qty_str else 1.0
                         
@@ -355,21 +361,20 @@ class InvoiceProficiencyScraper(BaseScraper):
                             "worth": round(total_item_worth, 3)
                         })
 
-                    # Date discrepancy check
+                    # Date discrepancy check logic
                     from datetime import datetime
                     fmt = "%m/%d/%Y"
                     parsed_wo_date = None
+                    parsed_inv_date = None
                     try:
-                        if wo_date_str and invoice_date_str:
-                            d1 = datetime.strptime(wo_date_str, fmt)
-                            d2 = datetime.strptime(invoice_date_str, fmt)
-                            parsed_wo_date = d1.date()
-                            delta = abs((d1 - d2).days)
-                            if delta > 5:
-                                print(f"⚠️ Discarding WO {wo_num}: Date discrepancy too large ({delta} days)")
-                                continue
-                        elif wo_date_str:
+                        if wo_date_str:
                             parsed_wo_date = datetime.strptime(wo_date_str, fmt).date()
+                        if invoice_date_str:
+                            parsed_inv_date = datetime.strptime(invoice_date_str, fmt).date()
+                        
+                        # Requirement: Don't discard anymore, save both and let frontend report 'Error'
+                        if not parsed_wo_date and parsed_inv_date:
+                            parsed_wo_date = parsed_inv_date
                     except:
                         pass 
 
@@ -394,7 +399,8 @@ class InvoiceProficiencyScraper(BaseScraper):
                             work_order_number=wo_num,
                             defaults={
                                 "technician_name": tech_name,
-                                "date": parsed_wo_date,
+                                "work_order_date": parsed_wo_date,
+                                "invoice_date": parsed_inv_date or parsed_wo_date,
                                 "invoice_number": invoice_num,
                                 "assignment_completed": wo_row.get("Assignment Completed") == "Yes",
                                 "worked_time_hours": round(worked_hours, 3),
@@ -405,7 +411,7 @@ class InvoiceProficiencyScraper(BaseScraper):
                                 "priority": priority,
                                 "task_name": task,
                                 "items_detail": items_detail,
-                                "work_order_summary": f"Excavation: {excavation_status}" if excavation_status else wo_row.get("Summary", "")
+                                "work_order_summary": f"Excavation: {excavation_status}" if excavation_status else wo_summary
                             }
                         )
                         processed_count += 1

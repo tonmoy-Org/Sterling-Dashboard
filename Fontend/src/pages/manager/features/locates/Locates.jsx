@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Box,
   Typography,
@@ -129,6 +130,13 @@ const Locates = () => {
       markSeenMutation,
     },
   } = useLocates(currentUserName, currentUserEmail);
+
+  const { data: scraperStatus } = useQuery({
+    queryKey: ['scraper-status'],
+    queryFn: () => rmeApi.getScraperStatus(),
+    refetchInterval: 5000,
+  });
+  const isRunning = scraperStatus?.data?.is_running;
 
   const { invalidateCache } = useNotifications();
 
@@ -470,7 +478,15 @@ const Locates = () => {
             Dispatch and monitor locate
           </Typography>
         </Box>
-        <Box sx={{ mt: isMobile ? 1 : 0 }}>
+        <Box sx={{ mt: isMobile ? 1 : 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+          {isRunning && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, bgcolor: alpha(BLUE_COLOR, 0.08), borderRadius: '20px', border: `1px solid ${alpha(BLUE_COLOR, 0.2)}` }}>
+              <Box className="animate-pulse" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: BLUE_COLOR }} />
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: BLUE_COLOR }}>
+                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+              </Typography>
+            </Box>
+          )}
           <RefreshButton onRefresh={rmeApi.startFieldedgeScraping} />
           <Button
             variant="outlined"

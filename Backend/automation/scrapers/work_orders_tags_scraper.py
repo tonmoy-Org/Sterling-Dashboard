@@ -26,20 +26,6 @@ class WorkOrdersTagsScraper(BaseScraper):
         """Initialize work orders scraper."""
         super().__init__()
 
-    async def _goto_with_fallback(self, url: str, *, timeout_ms: int = 60000):
-        """Navigate reliably for pages that keep background requests alive."""
-        if not url:
-            return
-
-        try:
-            await self.page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-            return
-        except Exception as e:
-            print(f"⚠️ networkidle navigation failed for {url}: {e}")
-
-        # Fallback for SPA pages where network never becomes fully idle.
-        await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-
     async def scrape_work_orders_table(self):
         """
         Scrape work orders from the main table.

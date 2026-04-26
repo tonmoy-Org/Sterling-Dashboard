@@ -15,6 +15,7 @@ import {
 import { useNotifications } from '../../../hooks/useNotifications';
 import { workOrdersApi } from '../../../api/services/workOrders';
 import { dispatchKpiApi } from '../../../api/services/dispatchKpi';
+import { rmeApi } from '../../../api/services/rmeApi';
 import { reviewsApi } from '../../../api/services/reviews';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -24,6 +25,7 @@ const NOTIFICATION_PATHS = [
     '/super-admin-dashboard/locates/work-orders',
     '/super-admin-dashboard/rme/work-orders',
     '/super-admin-dashboard/customer-center',
+    '/super-admin-dashboard/invoice-proficiency',
     '/super-admin-dashboard/dispatch-kpi',
     '/super-admin-dashboard/review-tracking',
 ];
@@ -129,6 +131,14 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                 })
                 .map(r => r.id);
         }
+        else if (path === '/super-admin-dashboard/invoice-proficiency') {
+            ids = (notifications.invoiceProficiency || [])
+                .filter(inv => {
+                    const dateValue = inv.created_at || inv.work_order_date;
+                    return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
+                })
+                .map(inv => inv.id);
+        }
 
         if (ids.length === 0) return;
 
@@ -204,6 +214,19 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                         ),
                     };
                 });
+            } else if (path === '/super-admin-dashboard/invoice-proficiency') {
+                await rmeApi.markAllSeenInvoiceProficiency();
+
+                clearLocalCache?.();
+                queryClient.setQueryData(['notifications', user?.role], (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        invoiceProficiency: (old.invoiceProficiency || []).map(inv =>
+                            ids.includes(inv.id) ? { ...inv, is_seen: true } : inv
+                        ),
+                    };
+                });
             } else {
                 await workOrdersApi.post(endpoint, { ids });
             }
@@ -272,6 +295,11 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                     hasUnseen = (notifications.reviews || []).some(r => {
                         const dateValue = r.created_at || r.review_date;
                         return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !r.is_seen;
+                    });
+                } else if (path === '/super-admin-dashboard/invoice-proficiency') {
+                    hasUnseen = (notifications.invoiceProficiency || []).some(inv => {
+                        const dateValue = inv.created_at || inv.work_order_date;
+                        return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
                     });
                 }
 
@@ -356,6 +384,13 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                 : (notifications.reviews || []).filter(r => {
                     const dateValue = r.created_at || r.review_date;
                     return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !r.is_seen;
+                }).length,
+            
+            ['/super-admin-dashboard/invoice-proficiency']: optimisticallyCleared.has('/super-admin-dashboard/invoice-proficiency')
+                ? 0
+                : (notifications.invoiceProficiency || []).filter(inv => {
+                    const dateValue = inv.created_at || inv.work_order_date;
+                    return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
                 }).length,
         };
     }, [notifications, optimisticallyCleared]);

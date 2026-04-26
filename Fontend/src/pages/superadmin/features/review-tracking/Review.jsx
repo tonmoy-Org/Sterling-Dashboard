@@ -541,6 +541,11 @@ const RecycleBinModal = memo(({
                               <Typography variant="body2" sx={{ fontSize: '0.83rem', fontWeight: 600, color: PALETTE.TEXT }}>
                                 {item.reviewer}
                               </Typography>
+                              {item.business && (
+                                <Typography variant="caption" sx={{ fontSize: '0.75rem', color: PALETTE.BLUE, display: 'block', mt: 0.25 }}>
+                                  {item.business}
+                                </Typography>
+                              )}
                               <Typography variant="caption" sx={{ fontSize: '0.72rem', color: PALETTE.GRAY, display: 'block', mt: 0.25 }}>
                                 {item.date}
                               </Typography>
@@ -897,6 +902,11 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
                         />
                       )}
                     </Box>
+                    {r.business && (
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', color: PALETTE.BLUE, display: 'block', mt: 0.25 }}>
+                        {r.business}
+                      </Typography>
+                    )}
                     <Box sx={{ mt: 0.5 }}>
                       <Stars value={r.rating} size={12} />
                       <Typography variant="caption" sx={{ fontSize: '0.7rem', color: PALETTE.GRAY, mt: 0.5 }}>
@@ -956,6 +966,11 @@ const EmployeeReviewsTable = memo(({ reviews, onView }) => {
                     <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.82rem', color: PALETTE.TEXT }}>
                       {r.reviewer}
                     </Typography>
+                    {r.business && (
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', color: PALETTE.BLUE, display: 'block', mt: 0.25 }}>
+                        {r.business}
+                      </Typography>
+                    )}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                       <Stars value={r.rating} size={11} />
                       <Typography variant="caption" sx={{ fontSize: '0.7rem', color: PALETTE.GRAY }}>
@@ -1039,6 +1054,13 @@ export default function Review() {
     },
     staleTime: 2 * 60 * 1000,
   });
+
+  const { data: scraperStatus } = useQuery({
+    queryKey: ['scraper-status'],
+    queryFn: () => rmeApi.getScraperStatus(),
+    refetchInterval: 5000,
+  });
+  const isRunning = scraperStatus?.data?.is_running;
 
   const [view, setView] = useState('all');
   const [period, setPeriod] = useState('all');
@@ -1247,6 +1269,14 @@ export default function Review() {
           <Typography variant="body2" sx={{ color: PALETTE.GRAY, fontSize: '0.8rem' }}>Customer reviews with employee recognition and deletion management</Typography>
         </Box>
         <Stack direction="row" spacing={1.5} alignItems="center">
+          {isRunning && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, bgcolor: alpha(PALETTE.BLUE, 0.08), borderRadius: '20px', border: `1px solid ${alpha(PALETTE.BLUE, 0.2)}` }}>
+              <Box className="animate-pulse" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: PALETTE.BLUE }} />
+              <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: PALETTE.BLUE }}>
+                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+              </Typography>
+            </Box>
+          )}
           <RefreshButton onRefresh={rmeApi.startReviewTrackerScraping} onComplete={() => {
             queryClient.invalidateQueries(['reviews']);
             refetch();

@@ -13,7 +13,7 @@ import {
     Alert,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { AlertTriangle, History, RotateCcw, Trash2, Lock, XCircle, CheckCircle2 } from 'lucide-react';
 import CommonDialog from '../../../../components/ui/CommonDialog';
@@ -254,6 +254,13 @@ const RMEReports = () => {
         isLoading,
         currentUser
     } = useRmeData();
+
+    const { data: scraperStatus } = useQuery({
+        queryKey: ['scraper-status'],
+        queryFn: () => rmeApi.getScraperStatus(),
+        refetchInterval: 5000,
+    });
+    const isRunning = scraperStatus?.data?.is_running;
 
     const {
         bulkSoftDeleteMutation,
@@ -620,7 +627,19 @@ const RMEReports = () => {
                         Track RME reports through 4 stages
                     </Typography>
                 </Box>
-                <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {isRunning && (
+                        <Box sx={{
+                            display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5,
+                            bgcolor: alpha(BLUE_COLOR, 0.08), borderRadius: '20px',
+                            border: `1px solid ${alpha(BLUE_COLOR, 0.2)}`
+                        }}>
+                            <Box className="animate-pulse" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: BLUE_COLOR }} />
+                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: BLUE_COLOR }}>
+                                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+                            </Typography>
+                        </Box>
+                    )}
                     <RefreshButton onRefresh={rmeApi.startWorkOrdersAndRmeScraping} />
                     <Button
                         variant="outlined"

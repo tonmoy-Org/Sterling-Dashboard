@@ -11,10 +11,11 @@ class InvoiceProficiency(models.Model):
     # Primary lookup
     work_order_number = models.CharField(max_length=100, unique=True)
     technician_name = models.CharField(max_length=255)
-    date = models.DateField()
+    work_order_date = models.DateField()
     
     # Identification
     invoice_number = models.CharField(max_length=100, blank=True, null=True)
+    invoice_date = models.DateField(blank=True, null=True)
     assignment_completed = models.BooleanField(default=False)
     
     # Proficiency Metrics
@@ -48,7 +49,7 @@ class InvoiceProficiency(models.Model):
     
     class Meta:
         db_table = 'invoice_proficiency'
-        ordering = ['-date', '-id']
+        ordering = ['-work_order_date', '-id']
 
     def __str__(self):
         return f"WO {self.work_order_number} - {self.technician_name} ({self.proficiency_percentage}%)"

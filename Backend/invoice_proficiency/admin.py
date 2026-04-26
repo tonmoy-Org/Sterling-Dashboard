@@ -3,8 +3,8 @@ from .models import InvoiceProficiency, InvoiceProficiencySeen
 
 @admin.register(InvoiceProficiency)
 class InvoiceProficiencyAdmin(admin.ModelAdmin):
-    list_display = ('work_order_number', 'technician_name', 'date', 'proficiency_percentage', 'total_amount')
-    list_filter = ('date', 'technician_name', 'priority')
+    list_display = ('work_order_number', 'technician_name', 'work_order_date', 'proficiency_percentage', 'total_amount')
+    list_filter = ('work_order_date', 'technician_name', 'priority')
     search_fields = ('work_order_number', 'technician_name', 'customer_name')
 
 @admin.register(InvoiceProficiencySeen)

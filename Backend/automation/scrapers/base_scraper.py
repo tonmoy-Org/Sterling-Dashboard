@@ -85,7 +85,7 @@ class BaseScraper:
             
             # Launch browser with headless-safe arguments for Linux VPS
             self.browser = await self.playwright.chromium.launch(
-                headless=True,
+                headless=False,
                 slow_mo=50,
                 args=[
                     "--start-maximized",
@@ -110,6 +110,50 @@ class BaseScraper:
         except Exception as e:
             print(f"Failed to initialize browser: {e}")
             raise
+
+    async def _goto_with_fallback(self, url: str, *, timeout_ms: int = 60000, max_retries: int = 2):
+        """
+        Navigate reliably for pages that keep background requests alive or time out.
+        Attempts navigation with networkidle first, falls back to domcontentloaded.
+        Includes a retry mechanism.
+        """
+        if not url:
+            return
+
+        for attempt in range(max_retries + 1):
+            try:
+                # Try networkidle first as it ensures the page is more "ready"
+                print(f"Attempting to navigate to {url} (Attempt {attempt + 1}/{max_retries + 1})")
+                await self.page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+                return
+            except Exception as e:
+                print(f"⚠️ networkidle navigation failed for {url} (Attempt {attempt + 1}): {e}")
+                
+                try:
+                    # Fallback for SPA pages where network never becomes fully idle
+                    print(f"Retrying with domcontentloaded for {url}...")
+                    await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+                    
+                    # Dismiss Pendo overlays if they appear
+                    try:
+                        await self.page.evaluate("""() => {
+                            const pendo = document.querySelectorAll('[id^="pendo-"], ._pendo-backdrop');
+                            pendo.forEach(el => el.remove());
+                        }""")
+                    except:
+                        pass
+                    return
+                except Exception as e2:
+                    print(f"⚠️ domcontentloaded navigation failed for {url} (Attempt {attempt + 1}): {e2}")
+            
+            if attempt < max_retries:
+                wait_time = (attempt + 1) * 2000
+                print(f"Waiting {wait_time}ms before retry...")
+                await asyncio.sleep(wait_time / 1000)
+        
+        # If all retries fail, raise the last error
+        print(f"❌ All navigation attempts failed for {url}")
+        raise Exception(f"Failed to navigate to {url} after {max_retries + 1} attempts")
     
     async def login_fieldedge(self, page:Page=None):
         """Authenticate to FieldEdge dashboard."""

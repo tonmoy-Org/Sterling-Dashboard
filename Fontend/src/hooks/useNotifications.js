@@ -27,18 +27,21 @@ const EMPTY_RESPONSE = {
     allWorkOrders: [],
     dispatchKpi: [],
     reviews: [],
+    invoiceProficiency: [],
     latestNotifications: [],
     locatesCount: 0,
     workOrdersCount: 0,
     allWorkOrdersCount: 0,
     dispatchKpiCount: 0,
     reviewsCount: 0,
+    invoiceProficiencyCount: 0,
     totalActualCount: 0,
     unseenLocateIds: [],
     unseenRmeIds: [],
     unseenAllWoIds: [],
     unseenDispatchKpiIds: [],
     unseenReviewIds: [],
+    unseenInvoiceIds: [],
     unseenIds: [],
     count: 0,
 };
@@ -159,12 +162,28 @@ const processReviews = (reviewsData) => {
     };
 };
 
-const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData) => {
+const processInvoiceProficiency = (invoiceProficiencyData) => {
+    const unseenInvoices = invoiceProficiencyData.filter(inv => !inv.is_seen && !inv.is_deleted);
+
+    return {
+        count: unseenInvoices.length,
+        ids: unseenInvoices.map(inv => `invoice-${inv.id}`),
+        notifications: unseenInvoices.map(inv => ({
+            id: `invoice-${inv.id}`,
+            type: 'invoice',
+            timestamp: formatDate(inv.created_at || inv.work_order_date),
+            data: inv,
+        })),
+    };
+};
+
+const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData, invoiceProficiencyData) => {
     const locatesResult = processLocates(locatesData);
     const workOrdersResult = processWorkOrders(workOrdersData);
     const allWorkOrdersResult = processAllWorkOrders(allWorkOrdersData);
     const dispatchKpiResult = processDispatchKpi(dispatchKpiData);
     const reviewsResult = processReviews(reviewsData);
+    const invoiceProficiencyResult = processInvoiceProficiency(invoiceProficiencyData);
 
     const latestNotifications = [
         ...locatesResult.notifications,
@@ -172,9 +191,10 @@ const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchK
         ...allWorkOrdersResult.notifications,
         ...dispatchKpiResult.notifications,
         ...reviewsResult.notifications,
+        ...invoiceProficiencyResult.notifications,
     ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
 
-    const totalCount = locatesResult.count + workOrdersResult.count + allWorkOrdersResult.count + dispatchKpiResult.count + reviewsResult.count;
+    const totalCount = locatesResult.count + workOrdersResult.count + allWorkOrdersResult.count + dispatchKpiResult.count + reviewsResult.count + invoiceProficiencyResult.count;
 
     return {
         locates: locatesData,
@@ -182,24 +202,28 @@ const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchK
         allWorkOrders: allWorkOrdersData,
         dispatchKpi: dispatchKpiData,
         reviews: reviewsData,
+        invoiceProficiency: invoiceProficiencyData,
         latestNotifications,
         locatesCount: locatesResult.count,
         workOrdersCount: workOrdersResult.count,
         allWorkOrdersCount: allWorkOrdersResult.count,
         dispatchKpiCount: dispatchKpiResult.count,
         reviewsCount: reviewsResult.count,
+        invoiceProficiencyCount: invoiceProficiencyResult.count,
         totalActualCount: totalCount,
         unseenLocateIds: locatesResult.ids,
         unseenRmeIds: workOrdersResult.ids,
         unseenAllWoIds: allWorkOrdersResult.ids,
         unseenDispatchKpiIds: dispatchKpiResult.ids,
         unseenReviewIds: reviewsResult.ids,
+        unseenInvoiceIds: invoiceProficiencyResult.ids,
         unseenIds: [
             ...locatesResult.ids, 
             ...workOrdersResult.ids, 
             ...allWorkOrdersResult.ids, 
             ...dispatchKpiResult.ids,
-            ...reviewsResult.ids
+            ...reviewsResult.ids,
+            ...invoiceProficiencyResult.ids
         ],
         count: totalCount,
         lastUpdated: Date.now(),
@@ -262,12 +286,13 @@ export const useNotifications = () => {
             if (localCache) return localCache;
 
             try {
-                const [locatesResult, workOrdersResult, allWorkOrdersResult, dispatchKpiResult, reviewsResult] = await Promise.allSettled([
+                const [locatesResult, workOrdersResult, allWorkOrdersResult, dispatchKpiResult, reviewsResult, invoiceProficiencyResult] = await Promise.allSettled([
                     locatesApi.getAll(),
                     rmeApi.getAll(),
                     workOrdersApi.getAll(),
                     dispatchKpiApi.getAll(),
                     reviewsApi.getAll(),
+                    rmeApi.getInvoiceProficiency(),
                 ]);
 
                 const locatesData = locatesResult.status === 'fulfilled'
@@ -300,7 +325,13 @@ export const useNotifications = () => {
                         : (reviewsResult.value.data?.results || reviewsResult.value.data?.data || []))
                     : [];
 
-                const response = buildResponse(locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData);
+                const invoiceProficiencyData = invoiceProficiencyResult.status === 'fulfilled'
+                    ? (Array.isArray(invoiceProficiencyResult.value.data)
+                        ? invoiceProficiencyResult.value.data
+                        : (invoiceProficiencyResult.value.data?.data || []))
+                    : [];
+
+                const response = buildResponse(locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData, invoiceProficiencyData);
                 setLocalCache(response);
                 return response;
             } catch (err) {
@@ -361,10 +392,12 @@ export const useNotifications = () => {
         unseenAllWoIds: data?.unseenAllWoIds || [],
         unseenDispatchKpiIds: data?.unseenDispatchKpiIds || [],
         unseenReviewIds: data?.unseenReviewIds || [],
+        unseenInvoiceIds: data?.unseenInvoiceIds || [],
         unseenIds: data?.unseenIds || [],
         latestNotifications: data?.latestNotifications || [],
         allWorkOrders: data?.allWorkOrders || [],
         dispatchKpi: data?.dispatchKpi || [],
         reviews: data?.reviews || [],
+        invoiceProficiency: data?.invoiceProficiency || [],
     };
 };

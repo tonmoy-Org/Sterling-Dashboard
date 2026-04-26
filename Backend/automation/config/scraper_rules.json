@@ -324,7 +324,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[contains(.,'Today')]"
+        "xpath": "//li[contains(.,'Yesterday')]"
       },
       {
         "action": "wait",
@@ -355,6 +355,22 @@
       {
         "action": "click",
         "xpath": "//input[@id='AssignmentCompletedlabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='Prioritylabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='Tasklabel']"
       },
       {
         "action": "wait",

@@ -263,7 +263,7 @@ async def main():
     await run_dispatcher_booked_scraper()
     await run_review_tracker_scraper()
     await run_yelp_review_scraper()
-    # await run_invoice_proficiency_scraper()
+    await run_invoice_proficiency_scraper()
 
 @track_scraper
 def start_fieldedge_scraper():

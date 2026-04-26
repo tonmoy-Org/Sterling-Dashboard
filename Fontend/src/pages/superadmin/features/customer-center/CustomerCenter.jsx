@@ -869,8 +869,15 @@ export default function CustomerCenter() {
         cacheTime: 10 * 60 * 1000,
     });
 
-    /* ── Mutations ─────────────────────────────────────────────────────────── */
+    /* ── Scraper status ──────────────────────────────────────────────────────── */
+    const { data: scraperStatus } = useQuery({
+        queryKey: ['scraper-status'],
+        queryFn: () => rmeApi.getScraperStatus(),
+        refetchInterval: 5000,
+    });
+    const isRunning = scraperStatus?.data?.is_running;
 
+    /* ── Mutations ─────────────────────────────────────────────────────────── */
     // Update a single work order field(s)
     const updateWorkOrderMutation = useMutation({
         mutationFn: async ({ id, data }) => {
@@ -1184,6 +1191,14 @@ export default function CustomerCenter() {
                     </Typography>
                 </Box>
                 <Stack direction="row" spacing={1.5} alignItems="center">
+                    {isRunning && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, bgcolor: alpha(PALETTE.BLUE, 0.08), borderRadius: '20px', border: `1px solid ${alpha(PALETTE.BLUE, 0.2)}` }}>
+                            <Box className="animate-pulse" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: PALETTE.BLUE }} />
+                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: PALETTE.BLUE }}>
+                                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+                            </Typography>
+                        </Box>
+                    )}
                     <RefreshButton onRefresh={rmeApi.startWorkOrdersTagsScraping} />
                     <Button variant="outlined" size="small" startIcon={<History size={15} />} onClick={handleOpenBin}
                         sx={{ textTransform: 'none', fontSize: '0.8rem', fontWeight: 500, height: '34px', px: 1.75, color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) } }}>

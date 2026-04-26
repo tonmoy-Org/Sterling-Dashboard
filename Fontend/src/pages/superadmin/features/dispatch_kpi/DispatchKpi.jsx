@@ -561,6 +561,14 @@ export default function DispatchKpi() {
     const highlightedRef = useRef(null);
     const location = useLocation();
 
+    // ── Scraper status ────────────────────────────────────────────────────────
+    const { data: scraperStatus } = useQuery({
+        queryKey: ['scraper-status'],
+        queryFn: () => rmeApi.getScraperStatus(),
+        refetchInterval: 5000,
+    });
+    const isRunning = scraperStatus?.data?.is_running;
+
     // ── Data fetching ─────────────────────────────────────────────────────────
     const { data: serverData = [], isLoading } = useQuery({
         queryKey: ['dispatcher-booked'],
@@ -846,6 +854,14 @@ export default function DispatchKpi() {
                     </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {isRunning && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, bgcolor: alpha(PALETTE.BLUE, 0.08), borderRadius: '20px', border: `1px solid ${alpha(PALETTE.BLUE, 0.2)}` }}>
+                            <Box className="animate-pulse" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: PALETTE.BLUE }} />
+                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: PALETTE.BLUE }}>
+                                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+                            </Typography>
+                        </Box>
+                    )}
                     <RefreshButton onRefresh={rmeApi.startDispatcherBookedScraping} />
                     <Button
                         variant="outlined" size="small"

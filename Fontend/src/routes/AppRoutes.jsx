@@ -64,7 +64,6 @@ import CustomerCenter from '../pages/superadmin/features/customer-center/Custome
 import DispatchKpi from '../pages/superadmin/features/dispatch_kpi/DispatchKpi';
 import { InvoiceProficiency } from '../pages/superadmin/features/invoice_proficiency/InvoiceProficiency';
 
-
 export const AppRoutes = () => {
   const { user } = useAuth();
 

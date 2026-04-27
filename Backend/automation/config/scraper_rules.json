@@ -324,7 +324,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[contains(.,'Yesterday')]"
+        "xpath": "//li[contains(.,'Today')]"
       },
       {
         "action": "wait",

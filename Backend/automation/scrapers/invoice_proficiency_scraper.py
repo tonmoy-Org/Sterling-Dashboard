@@ -159,8 +159,8 @@ class InvoiceProficiencyScraper(BaseScraper):
                     except Exception as e:
                         print(f"⚠️ Failed to add extra column: {e}")
 
-                # 3. Apply Date Filter (Today)
-                print("Applying date filter (Today)...")
+                # 3. Apply Date Filter (Yesterday)
+                print("Applying date filter (Yesterday)...")
                 try:
                     # Wait for the filter UI to render
                     await self.page.wait_for_selector(
@@ -350,7 +350,7 @@ class InvoiceProficiencyScraper(BaseScraper):
                         total_item_worth = worth_per_unit * qty
                         total_worth_hours += total_item_worth
                         
-                        if item_name.strip() == "6SP1DRA--4HR":
+                        if "6SP1DRA" in item_name.upper():
                             has_excavation_pass_item = True
                         
                         items_detail.append({

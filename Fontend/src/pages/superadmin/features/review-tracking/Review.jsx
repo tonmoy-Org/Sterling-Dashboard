@@ -195,7 +195,12 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
       </Box>
       <Stack direction="row" spacing={1} alignItems="center">
         {headerRight}
-        {onTableSearch && (
+        {selectedCount > 0 ? (
+          <Button variant="contained" color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
+            sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 2, borderRadius: '6px', boxShadow: 'none' }}>
+            Trash Selected ({selectedCount})
+          </Button>
+        ) : onTableSearch && (
           <Box sx={{ position: 'relative', minWidth: 200 }}>
             <Box sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', zIndex: 1 }}>
               <Search size={13} color={alpha(color, 0.5)} />
@@ -208,12 +213,6 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
               onBlur={e => { e.target.style.borderColor = alpha(color, 0.2); e.target.style.boxShadow = 'none'; }}
             />
           </Box>
-        )}
-        {selectedCount > 0 && (
-          <Button variant="outlined" color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
-            sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 1.5 }}>
-            Delete ({selectedCount})
-          </Button>
         )}
       </Stack>
     </Box>
@@ -1076,6 +1075,8 @@ export default function Review() {
   const [binOpen, setBinOpen] = useState(false);
   const [binPage, setBinPage] = useState(0);
   const [binRpp, setBinRpp] = useState(10);
+  const [confirmRestore, setConfirmRestore] = useState({ open: false, item: null, bulk: false, ids: [] });
+  const [confirmPermanent, setConfirmPermanent] = useState({ open: false, item: null, bulk: false, ids: [] });
 
   const openDetail = useCallback((r) => {
     setDetailItem(r);
@@ -1127,21 +1128,8 @@ export default function Review() {
   // Restore mutation
   const restoreMutation = useMutation({
     mutationFn: async (ids) => {
-      const payload = {
-        is_deleted: false,
-        deleted_by: null,
-        deleted_by_email: null,
-        deleted_date: null
-      };
-      const promises = ids.map(async (id) => {
-        try {
-          return await reviewsApi.patch(id, payload);
-        } catch (error) {
-          console.error(`Failed to restore review ${id}:`, error);
-          throw error;
-        }
-      });
-      return Promise.all(promises);
+      const payload = { is_deleted: false, deleted_by: null, deleted_by_email: null, deleted_date: null };
+      return Promise.all(ids.map(id => reviewsApi.patch(id, payload)));
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['reviews', { is_deleted: false }] });
@@ -1149,11 +1137,23 @@ export default function Review() {
       setBinSelected(new Set());
       showSnackbar(`${data.length} item(s) restored successfully`, 'success');
     },
-    onError: (error) => {
-      console.error('Restore error:', error);
-      showSnackbar(error?.response?.data?.message || 'Failed to restore items. Please try again.', 'error');
-    }
+    onError: (error) => showSnackbar(error?.response?.data?.message || 'Failed to restore items.', 'error')
   });
+
+  const handleSingleRestore = (item) => setConfirmRestore({ open: true, item, bulk: false, ids: [item.id] });
+  const handleBulkRestore = () => setConfirmRestore({ open: true, item: null, bulk: true, ids: Array.from(binSelected) });
+  const handleSinglePermanent = (item) => setConfirmPermanent({ open: true, item, bulk: false, ids: [item.id] });
+  const handleBulkPermanent = () => setConfirmPermanent({ open: true, item: null, bulk: true, ids: Array.from(binSelected) });
+
+  const executeRestore = async () => {
+    await restoreMutation.mutateAsync(confirmRestore.ids);
+    setConfirmRestore({ open: false, item: null, bulk: false, ids: [] });
+  };
+
+  const executePermanent = async () => {
+    await permanentDeleteMutation.mutateAsync(confirmPermanent.ids);
+    setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] });
+  };
 
   // Soft delete mutation
   const softDeleteMutation = useMutation({
@@ -1443,12 +1443,41 @@ export default function Review() {
         onToggleAll={toggleBinSelectAll}
         onSearchChange={setBinSearch}
         search={binSearch}
-        onBulkRestore={() => restoreMutation.mutate(Array.from(binSelected))}
-        onBulkDelete={() => permanentDeleteMutation.mutate(Array.from(binSelected))}
-        onSingleRestore={(i) => restoreMutation.mutate([i.id])}
-        onSingleDelete={(i) => permanentDeleteMutation.mutate([i.id])}
+        onBulkRestore={handleBulkRestore}
+        onBulkDelete={handleBulkPermanent}
+        onSingleRestore={handleSingleRestore}
+        onSingleDelete={handleSinglePermanent}
         isDeleting={permanentDeleteMutation.isPending}
       />
+
+      <CommonDialog
+        open={confirmRestore.open}
+        onClose={() => setConfirmRestore({ open: false, item: null, bulk: false, ids: [] })}
+        onConfirm={executeRestore}
+        title="Restore Reviews"
+        variant="success"
+        confirmText="Restore"
+        icon={<RotateCcw size={16} />}
+      >
+        <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+          Restore {confirmRestore.bulk ? `${confirmRestore.ids.length} reviews` : 'this review'} back to the tracker?
+        </Typography>
+      </CommonDialog>
+
+      <CommonDialog
+        open={confirmPermanent.open}
+        onClose={() => setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] })}
+        onConfirm={executePermanent}
+        title="Delete Permanently"
+        variant="danger"
+        confirmText="Delete Forever"
+        icon={<AlertCircle size={16} />}
+      >
+        <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+          Permanently delete {confirmPermanent.bulk ? `${confirmPermanent.ids.length} reviews` : 'this review'}? 
+          This <strong style={{ color: PALETTE.RED }}>cannot</strong> be undone.
+        </Typography>
+      </CommonDialog>
     </Box>
   );
 }

@@ -17,7 +17,13 @@ class InvoiceProficiencySerializer(serializers.ModelSerializer):
     worthHours = serializers.FloatField(source='invoiced_time_hours')
     lineItems = serializers.SerializerMethodField()
     
+    # Summary Fields
+    countedItems = serializers.SerializerMethodField()
+    ignoredItems = serializers.SerializerMethodField()
+    totalItemTime = serializers.FloatField(source='invoiced_time_hours')
+    
     is_seen = serializers.SerializerMethodField()
+    createdAt = serializers.DateTimeField(source='created_at', read_only=True)
 
     class Meta:
         model = InvoiceProficiency
@@ -25,7 +31,9 @@ class InvoiceProficiencySerializer(serializers.ModelSerializer):
             'id', 'technician', 'hasInvoice', 'assignmentComplete', 'completedDate',
             'invoiceDate', 'proficiency', 'invoiceTotal', 'priority', 'task',
             'workOrderNumber', 'customerName', 'summary', 'hoursWorked', 'worthHours', 
-            'lineItems', 'is_seen', 'is_deleted', 'deleted_date', 'deleted_by', 'deleted_by_email'
+            'lineItems', 'countedItems', 'ignoredItems', 'totalItemTime', 
+            'is_seen', 'is_deleted', 'deleted_date', 'deleted_by', 'deleted_by_email',
+            'createdAt'
         ]
 
     def get_hasInvoice(self, obj):
@@ -37,19 +45,39 @@ class InvoiceProficiencySerializer(serializers.ModelSerializer):
 
     def get_lineItems(self, obj):
         # Map internal item detail naming to frontend camelCase
-        # Internal: [{"item": "...", "qty": 1.0, "description": "...", "rate": 0.0, "worth": 1.0}]
-        # Frontend: [{ itemNumber, description, qty, rate }]
         items = obj.items_detail or []
-        return [
-            {
-                "itemNumber": i.get("item", ""),
+        result = []
+        for i in items:
+            item_num = i.get("item", "")
+            qty = float(i.get("qty") or 1)
+            worth_per_unit = obj.calculate_worth_time(item_num)
+            worth_total = round(worth_per_unit * qty, 3)
+            
+            result.append({
+                "itemNumber": item_num,
                 "description": i.get("description", ""),
-                "qty": i.get("qty", 1),
-                "rate": i.get("rate", 0),
-                "worth": i.get("worth", 0)
-            }
-            for i in items
-        ]
+                "qty": qty,
+                "rate": i.get("total_sold", i.get("rate", 0)),
+                "worth": worth_total,
+                "isCounted": worth_per_unit > 0
+            })
+        return result
+
+    def get_countedItems(self, obj):
+        items = obj.items_detail or []
+        count = 0
+        for i in items:
+            if obj.calculate_worth_time(i.get("item", "")) > 0:
+                count += 1
+        return count
+
+    def get_ignoredItems(self, obj):
+        items = obj.items_detail or []
+        count = 0
+        for i in items:
+            if obj.calculate_worth_time(i.get("item", "")) == 0:
+                count += 1
+        return count
 
     def get_is_seen(self, obj):
         user = self.context.get('request').user if self.context.get('request') else None

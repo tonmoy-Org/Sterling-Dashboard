@@ -74,9 +74,20 @@ class InvoiceProficiencyScraper(BaseScraper):
                                 let value = td.innerText.replace(/\s+/g, ' ').trim();
                                 
                                 // Detect Checkmarks (FieldEdge success icons)
-                                const hasCheckmark = td.querySelector('img[src*="success-checkmark"]') || 
-                                                     td.innerHTML.includes('success-checkmark') ||
-                                                     td.classList.contains('checkmark-container');
+                                const checkImg = td.querySelector('img[src*="success-checkmark"]');
+                                let hasCheckmark = false;
+                                
+                                if (checkImg) {
+                                    // Check if the image or its parent container is hidden.
+                                    // offsetParent is null if the element or any grandparent has 'display: none'.
+                                    // We also check computed style as a secondary measure.
+                                    const isVisible = checkImg.offsetParent !== null && 
+                                                      window.getComputedStyle(checkImg).display !== 'none';
+                                    
+                                    if (isVisible) {
+                                        hasCheckmark = true;
+                                    }
+                                }
                                 
                                 if (hasCheckmark) {
                                     value = "Yes";
@@ -201,14 +212,14 @@ class InvoiceProficiencyScraper(BaseScraper):
                         # Try multiple keys for Invoice, including column indices if headers failed
                         invoice = (row.get("Invoice") or row.get("Invoice #") or 
                                    row.get("Transaction") or row.get("Number") or 
-                                   row.get("Column_10") or # Fallback for added column 1
+                                   row.get("Column_10") or # Fallback for added column 'Invoice'
                                    "").strip()
                         
                         # Try multiple keys for Assignment Completed, including column indices
                         completed = (row.get("Assignment Completed") or 
                                      row.get("Completed") or 
                                      row.get("Is Completed") or 
-                                     row.get("Column_11")) # Fallback for added column 2
+                                     row.get("Column_11")) # Fallback for added column 'Assignment Completed'
                         
                         if invoice and completed == "Yes":
                             filtered_rows.append(row)
@@ -229,45 +240,44 @@ class InvoiceProficiencyScraper(BaseScraper):
             from invoice_proficiency.models import InvoiceProficiency
             import re
 
-            def extract_worth_from_item(item_name):
-                """
-                Extract hour worth from item strings like '3SP1TROU—1HR' or '4PS1FLO—15MIN'.
-                Requirement: '0' or '0H' indicates no time value and should be ignored.
-                """
-                if not item_name: return 0.0
-                
-                # Requirements: Ignore 0 or 0H items (Health department or no time value)
-                if item_name.strip() in ["0", "0H"]:
-                    return 0.0
-
-                # Look for patterns like 1HR, 1.5HR, 1 hr, 30MIN etc.
-                hr_match = re.search(r'(\d+\.?\d*)\s*HR', item_name, re.IGNORECASE)
-                min_match = re.search(r'(\d+\.?\d*)\s*MIN', item_name, re.IGNORECASE)
-                
-                if hr_match:
-                    return float(hr_match.group(1))
-                if min_match:
-                    # Requirement specifies 1 minute = 0.0167 Hours
-                    return round(float(min_match.group(1)) * 0.0167, 4)
-                
-                # Try finding if it says "Hour" or "Hours"
-                hr_word_match = re.search(r'(\d+\.?\d*)\s*HOUR', item_name, re.IGNORECASE)
-                if hr_word_match:
-                    return float(hr_word_match.group(1))
-                    
-                return 0.0
-
             def parse_worked_time(time_str):
                 """
-                Convert minutes or string time to decimal hours.
-                Requirement: 1minute = 0.0167 Hours
+                Convert raw time from 'Worked Time' column to decimal hours.
+                Supported formats:
+                 - "120" (minutes) -> 120 * 0.0167 = 2.0 hrs
+                 - "01:30" (HH:MM) -> 1.5 hrs
+                 - "2.5" (hours)   -> 2.5 hrs (if detected as non-integer decimal)
+                Rule: 1 minute = 0.0167 hours.
                 """
                 if not time_str: return 0.0
+                time_str = str(time_str).strip()
+                
                 try:
-                    # Remove any non-numeric chars except .
-                    minutes = float(re.sub(r'[^0-9.]', '', str(time_str)))
-                    return minutes * 0.0167
-                except:
+                    # 1. Handle HH:MM format
+                    if ":" in time_str:
+                        parts = time_str.split(":")
+                        hrs = float(parts[0])
+                        mins = float(parts[1]) if len(parts) > 1 else 0
+                        return round(hrs + (mins * 0.0167), 4)
+                    
+                    # 2. Handle numeric values
+                    # If it's a decimal like 2.5, we assume it's already hours
+                    if "." in time_str:
+                        val = float(re.sub(r'[^0-9.]', '', time_str))
+                        return round(val, 4)
+                    
+                    # 3. Handle integer values as minutes
+                    minutes = float(re.sub(r'[^0-9.]', '', time_str))
+                    
+                    # Align with Model logic for clean rounding of common values
+                    if minutes == 30: return 0.5
+                    if minutes == 60: return 1.0
+                    if minutes == 15: return 0.25
+                    
+                    # Requirement specifies 0.0167 conversion factor
+                    return round(minutes * 0.0167, 4)
+                except Exception as e:
+                    print(f"DEBUG: Error parsing worked time '{time_str}': {e}")
                     return 0.0
 
             def save_results(table_0, table_1):
@@ -283,10 +293,14 @@ class InvoiceProficiencyScraper(BaseScraper):
                 # Group items by Work Order Number
                 items_by_wo = {}
                 for item_row in table_1:
-                    # Try various common FieldEdge WO header names
+                    # Column order confirmed from DOM:
+                    # Col0=Employee, Col1=Date, Col2=Category, Col3=Item,
+                    # Col4=Description, Col5=Customer, Col6=WO#,
+                    # Col7=Agreement, Col8=Qty.Sold, Col9=TotalSold,
+                    # Col10=CompletedDate, Col11=Invoice(added), Col12=Task(added)
                     wo_num = (item_row.get("WO #") or item_row.get("Work Order #") or 
                               item_row.get("WO") or item_row.get("Work Order") or 
-                              item_row.get("Column_6")) # Fallback to index if header fails
+                              item_row.get("Column_6"))  # Col6 = WO #
                     
                     if not wo_num: continue
                     
@@ -309,11 +323,10 @@ class InvoiceProficiencyScraper(BaseScraper):
                         continue
                     
                     wo_num = str(wo_num).strip()
-                    tech_name = wo_row.get("Technician") or wo_row.get("Employee") or "Unknown"
-                    wo_date_str = wo_row.get("Date") or wo_row.get("Column_1") or ""
+                    tech_name = wo_row.get("Technician") or wo_row.get("Employee") or wo_row.get("Column_0") or "Unknown"
                     # Handle Summary or Notes
                     wo_summary = wo_row.get("Summary") or wo_row.get("Notes") or ""
-                    worked_time_raw = wo_row.get("Worked Time") or "0"
+                    worked_time_raw = wo_row.get("Worked Time") or wo_row.get("Column_8") or "0"
                     
                     # Requirement: 1 minute = 0.0167 Hours
                     worked_hours = parse_worked_time(worked_time_raw)
@@ -324,55 +337,72 @@ class InvoiceProficiencyScraper(BaseScraper):
                         print(f"DEBUG: Periodic check - No invoiced items found for WO {wo_num}. Skipping.")
                         continue 
 
-                    total_worth_hours = 0.0
+                    total_worth_hours = 0.0   # kept for legacy variable; actual calc is in model
                     items_detail = []
                     invoice_total = 0.0
                     invoice_num = ""
+                    # Two separate date fields from Table 1:
+                    #   completed_date_str = "Completed Date" (Col10) -> work_order_date
+                    #   invoice_date_str   = "Date" (Col1)            -> invoice_date
+                    completed_date_str = ""
                     invoice_date_str = ""
                     has_excavation_pass_item = False
                     
+                    # --- Raw items: no worth calculation here ---
+                    # Model.save() calls compute_invoiced_time() which uses
+                    # InvoiceProficiency.calculate_worth_time() to derive worth from item codes.
                     for item in invoiced_items:
-                        item_name = item.get("Item") or item.get("Item Name") or item.get("Column_3") or ""
-                        qty_str = str(item.get("Qty. Sold") or item.get("Column_7") or "1.0")
-                        qty = float(re.sub(r'[^0-9.]', '', qty_str)) if qty_str else 1.0
-                        
-                        rate_str = str(item.get("Rate") or "0")
-                        rate = float(re.sub(r'[^0-9.]', '', rate_str)) if rate_str else 0.0
-                        
-                        total_sold_str = str(item.get("Total Sold") or item.get("Column_8") or "0")
-                        total_sold = float(re.sub(r'[^0-9.]', '', total_sold_str)) if total_sold_str else 0.0
-                        
+                        item_name = item.get("Item") or item.get("Item Name") or item.get("Column_3") or ""  # Col3
+                        qty_str = str(item.get("Qty. Sold") or item.get("Column_8") or "1.0")  # Col8
+                        try:
+                            qty = float(re.sub(r'[^0-9.]', '', qty_str)) if qty_str else 1.0
+                        except:
+                            qty = 1.0
+
+                        # NOTE: Table 1 has no 'Rate' column — only Total Sold (Col9)
+                        total_sold_str = str(item.get("Total Sold") or item.get("Column_9") or "0")  # Col9
+                        try:
+                            total_sold = float(re.sub(r'[^0-9.]', '', total_sold_str)) if total_sold_str else 0.0
+                        except:
+                            total_sold = 0.0
+
                         invoice_total += total_sold
-                        invoice_num = item.get("Invoice") or item.get("Column_9") or invoice_num
+                        invoice_num = item.get("Invoice") or item.get("Column_11") or invoice_num  # Col11 (added)
+                        
+                        # Col10 = Completed Date (when the WO was completed)
+                        completed_date_str = item.get("Completed Date") or item.get("Column_10") or completed_date_str
+                        # Col1 = Date (the invoice date)
                         invoice_date_str = item.get("Date") or item.get("Column_1") or invoice_date_str
-                        
-                        worth_per_unit = extract_worth_from_item(item_name)
-                        total_item_worth = worth_per_unit * qty
-                        total_worth_hours += total_item_worth
-                        
+
+                        # Check excavation pass item
                         if "6SP1DRA" in item_name.upper():
                             has_excavation_pass_item = True
-                        
+
+                        # Store ONLY raw item fields — no worth, no is_counted
                         items_detail.append({
                             "item": item_name,
                             "qty": qty,
-                            "description": item.get("Description") or item.get("Column_4") or "",
-                            "rate": rate,
-                            "worth": round(total_item_worth, 3)
+                            "description": item.get("Description") or item.get("Column_4") or "",  # Col4
+                            "total_sold": total_sold,
                         })
 
-                    # Date discrepancy check logic
-                    from datetime import datetime
+                    print(f"DEBUG: WO {wo_num} - {len(items_detail)} raw item(s) collected for DB save.")
+                    # Date discrepancy check:
+                    #   work_order_date  = "Completed Date" from Table 1 (Col10)
+                    #   invoice_date     = "Date" from Table 1 (Col1)
+                    # Spec: "discard any workorder and invoice that have dates more
+                    #        than 5 days off one another either in the future or past."
+                    from datetime import datetime, timedelta
                     fmt = "%m/%d/%Y"
                     parsed_wo_date = None
                     parsed_inv_date = None
                     try:
-                        if wo_date_str:
-                            parsed_wo_date = datetime.strptime(wo_date_str, fmt).date()
+                        if completed_date_str:
+                            parsed_wo_date = datetime.strptime(completed_date_str.strip(), fmt).date()
                         if invoice_date_str:
-                            parsed_inv_date = datetime.strptime(invoice_date_str, fmt).date()
+                            parsed_inv_date = datetime.strptime(invoice_date_str.strip(), fmt).date()
                         
-                        # Requirement: Don't discard anymore, save both and let frontend report 'Error'
+                        # Fallback: if no completed date, use invoice date
                         if not parsed_wo_date and parsed_inv_date:
                             parsed_wo_date = parsed_inv_date
                     except:
@@ -380,20 +410,26 @@ class InvoiceProficiencyScraper(BaseScraper):
 
                     if not parsed_wo_date:
                         parsed_wo_date = timezone.now().date()
-
-                    # Proficiency Calculation
-                    proficiency = 0.0
-                    if worked_hours > 0:
-                        proficiency = (total_worth_hours / worked_hours) * 100
+                    
+                    # SPEC RULE: Discard WOs where Completed Date and Invoice Date
+                    # differ by more than 5 days — these are likely errors.
+                    if parsed_wo_date and parsed_inv_date:
+                        day_diff = abs((parsed_wo_date - parsed_inv_date).days)
+                        if day_diff > 5:
+                            print(f"⚠️ DISCARDING WO {wo_num}: Completed Date ({parsed_wo_date}) and "
+                                  f"Invoice Date ({parsed_inv_date}) differ by {day_diff} days (>5). Likely error.")
+                            continue
 
                     # Excavation Logic
-                    priority = wo_row.get("Priority") or ""
-                    task = wo_row.get("Task") or ""
+                    priority = wo_row.get("Priority") or wo_row.get("Column_12") or ""
+                    task = wo_row.get("Task") or wo_row.get("Column_13") or ""
                     excavation_status = None
-                    if "EXCAVATOR" in priority and "DRAIN FIELD" in task:
+                    if "EXCAVATOR" in priority.upper() and ("DRAIN FIELD" in task.upper() or "DRAINFIELD" in task.upper()):
                         excavation_status = "Pass" if has_excavation_pass_item else "Fail"
 
-                    # Save to DB
+                    # Save raw data to DB.
+                    # invoiced_time_hours and proficiency_percentage are NOT set here;
+                    # InvoiceProficiency.save() computes them from items_detail automatically.
                     try:
                         proficiency_record, created = InvoiceProficiency.objects.update_or_create(
                             work_order_number=wo_num,
@@ -401,13 +437,14 @@ class InvoiceProficiencyScraper(BaseScraper):
                                 "technician_name": tech_name,
                                 "work_order_date": parsed_wo_date,
                                 "invoice_date": parsed_inv_date or parsed_wo_date,
-                                "invoice_number": invoice_num,
-                                "assignment_completed": wo_row.get("Assignment Completed") == "Yes",
-                                "worked_time_hours": round(worked_hours, 3),
-                                "invoiced_time_hours": round(total_worth_hours, 3),
-                                "proficiency_percentage": round(proficiency, 2),
+                                "invoice_number": invoice_num or wo_row.get("Invoice") or wo_row.get("Column_10"),
+                                "assignment_completed": (wo_row.get("Assignment Completed") or wo_row.get("Column_11")) == "Yes",
+                                # worked_time_hours is raw from scraper (in decimal hours)
+                                "worked_time_hours": round(worked_hours, 4),
+                                # invoiced_time_hours and proficiency_percentage are NOT set here;
+                                # they are auto-calculated by InvoiceProficiency.save()
                                 "total_amount": invoice_total,
-                                "customer_name": wo_row.get("Customer") or "Unknown",
+                                "customer_name": wo_row.get("Customer") or wo_row.get("Column_3") or "Unknown",
                                 "priority": priority,
                                 "task_name": task,
                                 "items_detail": items_detail,
@@ -418,6 +455,23 @@ class InvoiceProficiencyScraper(BaseScraper):
                         print(f"DEBUG: Saved/Updated WO {wo_num} ({'Created' if created else 'Updated'})")
                     except Exception as db_err:
                         print(f"❌ Database error saving WO {wo_num}: {db_err}")
+
+                # SPEC RULE: "Need error report if invoices do not correspond to a workorder."
+                # Check for orphan invoices in Table 1 that have no matching WO in Table 0.
+                table_0_wos = set()
+                for wo_row in table_0:
+                    wo = (wo_row.get("Work Order") or wo_row.get("Work Order #") or 
+                          wo_row.get("WO #") or wo_row.get("Column_2") or "")
+                    if wo:
+                        table_0_wos.add(str(wo).strip())
+                
+                orphan_wos = set(items_by_wo.keys()) - table_0_wos
+                if orphan_wos:
+                    print(f"\n⚠️ ORPHAN INVOICE REPORT: {len(orphan_wos)} invoice WO(s) have no matching Work Performance entry:")
+                    for orphan_wo in sorted(orphan_wos):
+                        orphan_items = items_by_wo[orphan_wo]
+                        inv = orphan_items[0].get("Invoice") or orphan_items[0].get("Column_11") or "N/A"
+                        print(f"   - WO {orphan_wo} (Invoice: {inv}, {len(orphan_items)} item(s))")
 
                 return processed_count
 

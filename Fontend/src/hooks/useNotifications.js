@@ -171,7 +171,7 @@ const processInvoiceProficiency = (invoiceProficiencyData) => {
         notifications: unseenInvoices.map(inv => ({
             id: `invoice-${inv.id}`,
             type: 'invoice',
-            timestamp: formatDate(inv.created_at || inv.work_order_date),
+            timestamp: formatDate(inv.createdAt || inv.completedDate),
             data: inv,
         })),
     };

@@ -556,6 +556,8 @@ export default function DispatchKpi() {
     const [tableSearch,     setTableSearch]     = useState('');
     const [selectedIds,     setSelectedIds]     = useState(new Set());
     const [moveToBinDialog, setMoveToBinDialog] = useState({ open: false, item: null, isBulk: false });
+    const [confirmRestore,  setConfirmRestore]  = useState({ open: false, item: null, bulk: false, ids: [] });
+    const [confirmPermanent,setConfirmPermanent]= useState({ open: false, item: null, bulk: false, ids: [] });
     const [detailOpen,      setDetailOpen]      = useState(false);
     const [detailItem,      setDetailItem]      = useState(null);
     const highlightedRef = useRef(null);
@@ -805,10 +807,22 @@ export default function DispatchKpi() {
         setMoveToBinDialog(p => ({ ...p, open: false }));
     }, [moveToBinDialog, selectedIds, bulkSoftDeleteMutation]);
 
-    const handleRestore             = useCallback((item)  => restoreMutation.mutate(item.id),                   [restoreMutation]);
-    const handleBulkRestore         = useCallback((items) => bulkRestoreMutation.mutate(items.map(i => i.id)),   [bulkRestoreMutation]);
-    const handlePermanentDelete     = useCallback((item)  => permanentDeleteMutation.mutate(item.id),            [permanentDeleteMutation]);
-    const handleBulkPermanentDelete = useCallback((items) => bulkPermanentDeleteMutation.mutate(items.map(i => i.id)), [bulkPermanentDeleteMutation]);
+    const handleRestore             = useCallback((item)  => setConfirmRestore({ open: true, item, bulk: false, ids: [item.id] }), []);
+    const handleBulkRestore         = useCallback((items) => setConfirmRestore({ open: true, item: null, bulk: true, ids: items.map(i => i.id) }), []);
+    const handlePermanentDelete     = useCallback((item)  => setConfirmPermanent({ open: true, item, bulk: false, ids: [item.id] }), []);
+    const handleBulkPermanentDelete = useCallback((items) => setConfirmPermanent({ open: true, item: null, bulk: true, ids: items.map(i => i.id) }), []);
+
+    const executeRestore = useCallback(async () => {
+        if (confirmRestore.bulk) await bulkRestoreMutation.mutateAsync(confirmRestore.ids);
+        else await restoreMutation.mutateAsync(confirmRestore.item.id);
+        setConfirmRestore({ open: false, item: null, bulk: false, ids: [] });
+    }, [confirmRestore, bulkRestoreMutation, restoreMutation]);
+
+    const executePermanent = useCallback(async () => {
+        if (confirmPermanent.bulk) await bulkPermanentDeleteMutation.mutateAsync(confirmPermanent.ids);
+        else await permanentDeleteMutation.mutateAsync(confirmPermanent.item.id);
+        setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] });
+    }, [confirmPermanent, bulkPermanentDeleteMutation, permanentDeleteMutation]);
 
     // Reset table to first page when search changes
     React.useEffect(() => { setPage(0); }, [tableSearch]);
@@ -1080,19 +1094,26 @@ export default function DispatchKpi() {
                             />
                         </Typography>
                     </Box>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                        <TableSearchBar value={tableSearch} onChange={setTableSearch} color={PALETTE.BLUE} placeholder="Search by date…" />
-                        {selectedIds.size > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        {selectedIds.size > 0 ? (
                             <Button
-                                variant="outlined" color="error" size="small"
-                                onClick={handleBulkMoveToBin}
+                                variant="contained"
+                                color="error"
+                                size="small"
                                 startIcon={<Trash2 size={14} />}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 1.5 }}
+                                onClick={handleBulkMoveToBin}
+                                sx={{
+                                    textTransform: 'none', fontSize: '0.78rem', height: 32,
+                                    borderRadius: '6px', px: 2, boxShadow: 'none',
+                                    '&:hover': { boxShadow: 'none', bgcolor: PALETTE.RED }
+                                }}
                             >
-                                Delete ({selectedIds.size})
+                                Trash Selected ({selectedIds.size})
                             </Button>
+                        ) : (
+                            <TableSearchBar value={tableSearch} onChange={setTableSearch} color={PALETTE.BLUE} placeholder="Search by date…" />
                         )}
-                    </Stack>
+                    </Box>
                 </Box>
 
                 {/* Table */}
@@ -1262,6 +1283,35 @@ export default function DispatchKpi() {
                 onBulkPermanentDelete={handleBulkPermanentDelete}
                 onView={handleViewDetails}
             />
+
+            <CommonDialog
+                open={confirmRestore.open}
+                onClose={() => setConfirmRestore({ open: false, item: null, bulk: false, ids: [] })}
+                onConfirm={executeRestore}
+                title="Restore Dispatch Records"
+                variant="success"
+                confirmText="Restore"
+                icon={<RotateCcw size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+                    Restore {confirmRestore.bulk ? `${confirmRestore.ids.length} records` : 'this record'} back to the tracker?
+                </Typography>
+            </CommonDialog>
+
+            <CommonDialog
+                open={confirmPermanent.open}
+                onClose={() => setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] })}
+                onConfirm={executePermanent}
+                title="Delete Permanently"
+                variant="danger"
+                confirmText="Delete Forever"
+                icon={<AlertCircle size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+                    Are you sure you want to permanently delete {confirmPermanent.bulk ? `${confirmPermanent.ids.length} records` : 'this record'}? 
+                    This action <strong style={{ color: PALETTE.RED }}>cannot</strong> be undone.
+                </Typography>
+            </CommonDialog>
 
             <DispatchKpiDetailDialog
                 open={detailOpen}

@@ -324,7 +324,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[contains(.,'Today')]"
+        "xpath": "//li[contains(.,'Yesterday')]"
       },
       {
         "action": "wait",
@@ -393,6 +393,14 @@
       {
         "action": "click",
         "xpath": "//input[@id='Transactionlabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='CompletedDatelabel']"
       },
       {
         "action": "wait",

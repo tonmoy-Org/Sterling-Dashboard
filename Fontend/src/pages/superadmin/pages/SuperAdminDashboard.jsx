@@ -30,7 +30,7 @@ const dashboardCards = [
   { label: 'RME', route: '/super-admin-dashboard/rme/work-orders', handwritten: true, image: h2, notificationPath: '/super-admin-dashboard/rme/work-orders' },
   { label: 'Tank Repairs', route: '/super-admin-dashboard/repairs', handwritten: true, image: h6, notificationPath: null },
   { label: 'Locates', route: '/super-admin-dashboard/locates/work-orders', handwritten: true, image: h3, notificationPath: '/super-admin-dashboard/locates/work-orders' },
-  { label: '', route: null, handwritten: false, image: null, notificationPath: null },
+  { label: 'Invoice Proficiency', route: '/super-admin-dashboard/invoice-proficiency', handwritten: true, image: h5, notificationPath: '/super-admin-dashboard/invoice-proficiency' },
   { label: 'Customer Center', route: '/super-admin-dashboard/customer-center', handwritten: true, image: h1, notificationPath: '/super-admin-dashboard/customer-center' },
   { label: 'Dispatch KPI', route: '/super-admin-dashboard/dispatch-kpi', handwritten: true, image: h7, notificationPath: '/super-admin-dashboard/dispatch-kpi' },
   { label: 'Review Tracking', route: '/super-admin-dashboard/review-tracking', handwritten: true, image: h8, notificationPath: '/super-admin-dashboard/review-tracking' },
@@ -109,6 +109,12 @@ export const SuperAdminDashboard = () => {
       '/super-admin-dashboard/review-tracking': (notifications.reviews || []).filter(r => {
         const dateValue = r.created_at || r.review_date;
         return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !r.is_seen;
+      }).length,
+
+      // Invoice Proficiency count
+      '/super-admin-dashboard/invoice-proficiency': (notifications.invoiceProficiency || []).filter(inv => {
+        const dateValue = inv.createdAt || inv.completedDate;
+        return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
       }).length,
     };
   }, [notifications]);

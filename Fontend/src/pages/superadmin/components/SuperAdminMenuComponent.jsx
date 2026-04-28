@@ -134,7 +134,7 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
         else if (path === '/super-admin-dashboard/invoice-proficiency') {
             ids = (notifications.invoiceProficiency || [])
                 .filter(inv => {
-                    const dateValue = inv.created_at || inv.work_order_date;
+                    const dateValue = inv.createdAt || inv.completedDate;
                     return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
                 })
                 .map(inv => inv.id);
@@ -298,7 +298,7 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                     });
                 } else if (path === '/super-admin-dashboard/invoice-proficiency') {
                     hasUnseen = (notifications.invoiceProficiency || []).some(inv => {
-                        const dateValue = inv.created_at || inv.work_order_date;
+                        const dateValue = inv.createdAt || inv.completedDate;
                         return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
                     });
                 }
@@ -389,7 +389,7 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
             ['/super-admin-dashboard/invoice-proficiency']: optimisticallyCleared.has('/super-admin-dashboard/invoice-proficiency')
                 ? 0
                 : (notifications.invoiceProficiency || []).filter(inv => {
-                    const dateValue = inv.created_at || inv.work_order_date;
+                    const dateValue = inv.createdAt || inv.completedDate;
                     return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
                 }).length,
         };

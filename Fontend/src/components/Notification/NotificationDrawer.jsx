@@ -403,15 +403,16 @@ const NotificationDrawer = ({ onClose }) => {
 
         // Invoice Proficiency
         invoiceProficiency.forEach((inv) => {
-            const createdAt = inv.created_at || inv.work_order_date;
+            const createdAt = inv.createdAt || inv.completedDate;
             if (!createdAt || inv.is_deleted) return;
             const createdDate = new Date(createdAt);
             if (createdDate >= oneMonthAgo) {
+                const profValue = inv.proficiency ? `${(inv.proficiency * 100).toFixed(0)}%` : '—';
                 all.push({
                     id: `invoice-${inv.id}`,
                     type: 'invoice',
                     title: 'Invoice Added',
-                    description: `New invoice — ${inv.customerName || inv.workOrderNumber}`,
+                    description: `New invoice for ${inv.customerName || inv.workOrderNumber} by ${inv.technician || 'Unknown'} (${profValue})`,
                     address: inv.customerName || 'N/A',
                     workOrderNumber: inv.workOrderNumber || 'N/A',
                     customerName: inv.customerName || 'Unknown',
@@ -565,7 +566,7 @@ const NotificationDrawer = ({ onClose }) => {
                         <Bell size={48} color={alpha(NOTIFICATION_COLORS.gray, 0.3)} />
                         <Typography variant="body1" sx={{ mt: 2, color: NOTIFICATION_COLORS.textSecondary, fontWeight: 600 }}>No notifications</Typography>
                         <Typography variant="caption" sx={{ color: NOTIFICATION_COLORS.textTertiary, mt: 1, display: 'block', maxWidth: '80%' }}>
-                            No locates, RMEs, work orders, or reviews found in the last 30 days.
+                            No locates, RMEs, work orders, reviews, or invoices found in the last 30 days.
                         </Typography>
                     </Box>
                 ) : (

@@ -60,13 +60,6 @@ const RecycleBinModal = ({
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-    const [deleteConfirmModal, setDeleteConfirmModal] = useState({
-        open: false,
-        item: null,
-        isBulk: false,
-        isLoading: false,
-    });
-
     const filteredRecycleBinItems = useMemo(() => {
         if (!recycleBinSearch) return recycleBinItems;
         const searchLower = recycleBinSearch.toLowerCase();
@@ -97,36 +90,6 @@ const RecycleBinModal = ({
         const parts = address.split(' - ');
         if (parts.length < 2) return { street: address, cityState: '' };
         return { street: parts[0].trim(), cityState: parts[1].trim() };
-    };
-
-    // ── open confirm for single item ──────────────────────────────────────────
-    const handleDeleteWithConfirmation = (item) => {
-        setDeleteConfirmModal({ open: true, item, isBulk: false, isLoading: false });
-    };
-
-    // ── open confirm for bulk ────────────────────────────────────────────────
-    const handleBulkDeleteWithConfirmation = () => {
-        if (selectedRecycleBinItems.size === 0) return;
-        setDeleteConfirmModal({ open: true, item: null, isBulk: true, isLoading: false });
-    };
-
-    // ── execute after user clicks "Delete Permanently" ───────────────────────
-    const confirmDelete = async () => {
-        setDeleteConfirmModal(prev => ({ ...prev, isLoading: true }));
-        try {
-            if (deleteConfirmModal.isBulk) {
-                await confirmBulkPermanentDelete();
-            } else if (deleteConfirmModal.item) {
-                await handleSinglePermanentDelete(deleteConfirmModal.item);
-            }
-            setDeleteConfirmModal({ open: false, item: null, isBulk: false, isLoading: false });
-        } catch {
-            setDeleteConfirmModal(prev => ({ ...prev, isLoading: false }));
-        }
-    };
-
-    const cancelDelete = () => {
-        setDeleteConfirmModal({ open: false, item: null, isBulk: false, isLoading: false });
     };
 
     return (
@@ -319,7 +282,7 @@ const RecycleBinModal = ({
                                 variant="outlined"
                                 size="small"
                                 startIcon={<Trash2 size={13} />}
-                                onClick={handleBulkDeleteWithConfirmation}
+                                onClick={confirmBulkPermanentDelete}
                                 disabled={selectedRecycleBinItems.size === 0}
                                 sx={{
                                     textTransform: 'none',
@@ -563,7 +526,7 @@ const RecycleBinModal = ({
                                                             <Tooltip title="Delete Permanently" arrow>
                                                                 <IconButton
                                                                     size="small"
-                                                                    onClick={() => handleDeleteWithConfirmation(item)}
+                                                                    onClick={() => handleSinglePermanentDelete(item)}
                                                                     sx={{
                                                                         color: RED_COLOR,
                                                                         borderRadius: '6px',
@@ -614,119 +577,6 @@ const RecycleBinModal = ({
                 </Box>
             </Modal>
 
-            {/* ════════════════════════════════════════════════════════════════
-                DELETE CONFIRMATION DIALOG  –  no window.confirm() anywhere
-            ════════════════════════════════════════════════════════════════ */}
-            <Dialog
-                open={deleteConfirmModal.open}
-                onClose={cancelDelete}
-                maxWidth="xs"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        bgcolor: 'white',
-                        borderRadius: '12px',
-                        border: `1px solid ${alpha(RED_COLOR, 0.12)}`,
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-                        overflow: 'hidden',
-                    },
-                }}
-            >
-                {/* Dialog header */}
-                <DialogTitle sx={{
-                    borderBottom: `1px solid ${alpha(RED_COLOR, 0.1)}`,
-                    pb: 1.5,
-                    pt: 2,
-                    px: 2.5,
-                    background: `linear-gradient(135deg, ${alpha(RED_COLOR, 0.05)} 0%, transparent 100%)`,
-                }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '9px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: `linear-gradient(135deg, ${alpha(RED_COLOR, 0.15)}, ${alpha(RED_COLOR, 0.08)})`,
-                            color: RED_COLOR,
-                            border: `1px solid ${alpha(RED_COLOR, 0.15)}`,
-                            flexShrink: 0,
-                        }}>
-                            <Trash2 size={17} />
-                        </Box>
-                        <Box>
-                            <Typography variant="h6" sx={{
-                                color: TEXT_COLOR,
-                                fontSize: '0.92rem',
-                                fontWeight: 700,
-                                lineHeight: 1.2,
-                            }}>
-                                {deleteConfirmModal.isBulk ? 'Delete Items Permanently' : 'Delete Item Permanently'}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: GRAY_COLOR, fontSize: '0.75rem' }}>
-                                Permanently delete from recycle bin
-                            </Typography>
-                        </Box>
-                    </Box>
-                </DialogTitle>
-
-                {/* Dialog body */}
-                <DialogContent sx={{ pt: 2.5, pb: 1.5, px: 2.5 }}>
-                    {deleteConfirmModal.isBulk ? (
-                        <Typography variant="body2" sx={deleteMessageStyle}>
-                            Are you sure you want to permanently delete{' '}
-                            <Box component="strong" sx={{ color: RED_COLOR }}>
-                                {selectedRecycleBinItems.size} item(s)
-                            </Box>{' '}
-                            from the recycle bin?
-                        </Typography>
-                    ) : deleteConfirmModal.item && (
-                        <Typography variant="body2" sx={deleteMessageStyle}>
-                            Are you sure you want to permanently delete work order{' '}
-                            <Box component="strong" sx={{ color: RED_COLOR }}>
-                                {deleteConfirmModal.item.workOrderNumber || 'N/A'}
-                            </Box>{' '}
-                            for{' '}
-                            <Box component="strong">
-                                {deleteConfirmModal.item.name || 'Unknown Customer'}
-                            </Box>?
-                        </Typography>
-                    )}
-
-                    <Box sx={deleteNoteBoxStyle}>
-                        <AlertCircle size={17} color={RED_COLOR} style={{ flexShrink: 0, marginTop: 1 }} />
-                        <Box>
-                            <Typography variant="body2" sx={deleteNoteTitleStyle}>
-                                Warning — cannot be undone
-                            </Typography>
-                            <Typography variant="caption" sx={deleteNoteTextStyle}>
-                                This data will be permanently erased and cannot be recovered.
-                            </Typography>
-                        </Box>
-                    </Box>
-                </DialogContent>
-
-                {/* Dialog actions */}
-                <DialogActions sx={{ p: 2, pt: 1.5, gap: 1 }}>
-                    <Button
-                        onClick={cancelDelete}
-                        disabled={deleteConfirmModal.isLoading}
-                        sx={deleteCancelButtonStyle}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={confirmDelete}
-                        disabled={deleteConfirmModal.isLoading}
-                        variant="contained"
-                        startIcon={deleteConfirmModal.isLoading ? null : <Trash2 size={15} />}
-                        sx={deleteConfirmButtonStyle}
-                    >
-                        {deleteConfirmModal.isLoading ? 'Deleting…' : 'Delete Permanently'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </>
     );
 };

@@ -602,12 +602,13 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
                 {subtitle && <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.78rem' }}>{subtitle}</Typography>}
             </Box>
             <Stack direction="row" spacing={1} alignItems="center">
-                <TableSearchBar value={tableSearch} onChange={onTableSearch} color={color} placeholder={tableSearchPlaceholder || `Search ${title.toLowerCase()}…`} />
-                {selectedCount > 0 && (
-                    <Button variant="outlined" color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
-                        sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 1.5 }}>
-                        Delete ({selectedCount})
+                {selectedCount > 0 ? (
+                    <Button variant="contained" color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
+                        sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 2, borderRadius: '6px', boxShadow: 'none' }}>
+                        Trash Selected ({selectedCount})
                     </Button>
+                ) : (
+                    <TableSearchBar value={tableSearch} onChange={onTableSearch} color={color} placeholder={tableSearchPlaceholder || `Search ${title.toLowerCase()}…`} />
                 )}
             </Stack>
         </Box>
@@ -1045,6 +1046,8 @@ export default function CustomerCenter() {
     const [binPage,          setBinPage]          = useState(0);
     const [binRpp,           setBinRpp]           = useState(10);
     const [binSel,           setBinSel]           = useState(new Set());
+    const [confirmRestore,   setConfirmRestore]   = useState({ open: false, item: null, bulk: false, ids: [] });
+    const [confirmPermanent, setConfirmPermanent] = useState({ open: false, item: null, bulk: false, ids: [] });
 
     /* ── Derived lists ─────────────────────────────────────────────────────── */
     const items = workOrders || [];
@@ -1119,29 +1122,25 @@ export default function CustomerCenter() {
         setFn(new Set());
     }, [bulkSoftDeleteMutation]);
 
-    // Single restore
-    const handleRestore = useCallback(async (id) => {
-        await restoreMutation.mutateAsync(id);
-        setBinSel(p => { const s = new Set(p); s.delete(id); return s; });
-    }, [restoreMutation]);
-
-    // Bulk restore
-    const handleBulkRestore = useCallback(async () => {
-        await bulkRestoreMutation.mutateAsync(Array.from(binSel));
+    // Restore handlers
+    const handleSingleRestore = (item) => setConfirmRestore({ open: true, item, bulk: false, ids: [item.id] });
+    const handleBulkRestore = () => setConfirmRestore({ open: true, item: null, bulk: true, ids: [...binSel] });
+    const executeRestore = async () => {
+        if (confirmRestore.bulk) await bulkRestoreMutation.mutateAsync(confirmRestore.ids);
+        else await restoreMutation.mutateAsync(confirmRestore.item.id);
+        setConfirmRestore({ open: false, item: null, bulk: false, ids: [] });
         setBinSel(new Set());
-    }, [bulkRestoreMutation, binSel]);
+    };
 
-    // Single permanent delete
-    const handlePermanentDelete = useCallback(async (id) => {
-        await permanentDeleteMutation.mutateAsync(id);
-        setBinSel(p => { const s = new Set(p); s.delete(id); return s; });
-    }, [permanentDeleteMutation]);
-
-    // Bulk permanent delete
-    const handleBulkPermanentDelete = useCallback(async () => {
-        await bulkPermanentDeleteMutation.mutateAsync(Array.from(binSel));
+    // Permanent delete handlers
+    const handleSinglePermanent = (item) => setConfirmPermanent({ open: true, item, bulk: false, ids: [item.id] });
+    const handleBulkPermanent = () => setConfirmPermanent({ open: true, item: null, bulk: true, ids: [...binSel] });
+    const executePermanent = async () => {
+        if (confirmPermanent.bulk) await bulkPermanentDeleteMutation.mutateAsync(confirmPermanent.ids);
+        else await permanentDeleteMutation.mutateAsync(confirmPermanent.item.id);
+        setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] });
         setBinSel(new Set());
-    }, [bulkPermanentDeleteMutation, binSel]);
+    };
 
     // Selection toggle helpers
     const toggleSel = useCallback((setFn, id) => {
@@ -1258,12 +1257,41 @@ export default function CustomerCenter() {
                 onToggle={id => toggleSel(setBinSel, id)}
                 onToggleAll={pgItems => toggleAll(setBinSel, pgItems, binSel)}
                 onBulkRestore={handleBulkRestore}
-                onBulkDelete={handleBulkPermanentDelete}
-                onSingleRestore={item => handleRestore(item.id)}
-                onSingleDelete={item => handlePermanentDelete(item.id)}
+                onBulkDelete={handleBulkPermanent}
+                onSingleRestore={handleSingleRestore}
+                onSingleDelete={handleSinglePermanent}
                 search={recycleBinSearch}
                 onSearchChange={setRecycleBinSearch}
             />
+
+            <CommonDialog
+                open={confirmRestore.open}
+                onClose={() => setConfirmRestore({ open: false, item: null, bulk: false, ids: [] })}
+                onConfirm={executeRestore}
+                title="Restore Records"
+                variant="success"
+                confirmText="Restore"
+                icon={<RotateCcw size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+                    Restore {confirmRestore.bulk ? `${confirmRestore.ids.length} records` : 'this record'} back to the customer center?
+                </Typography>
+            </CommonDialog>
+
+            <CommonDialog
+                open={confirmPermanent.open}
+                onClose={() => setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] })}
+                onConfirm={executePermanent}
+                title="Delete Permanently"
+                variant="danger"
+                confirmText="Delete Forever"
+                icon={<AlertCircle size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+                    Are you sure you want to permanently delete {confirmPermanent.bulk ? `${confirmPermanent.ids.length} records` : 'this record'}? 
+                    This action <strong style={{ color: PALETTE.RED }}>cannot</strong> be undone.
+                </Typography>
+            </CommonDialog>
         </Box>
     );
 }

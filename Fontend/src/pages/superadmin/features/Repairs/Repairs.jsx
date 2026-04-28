@@ -324,6 +324,8 @@ const Repairs = () => {
   const [recycleBinRowsPerPage, setRecycleBinRowsPerPage] = useState(isMobile ? 5 : 10);
   const [selectedRecycleBinItems, setSelectedRecycleBinItems] = useState(new Set());
   const [isRecycleBinLoading, setIsRecycleBinLoading] = useState(false);
+  const [confirmRestore, setConfirmRestore] = useState({ open: false, item: null, bulk: false, ids: [] });
+  const [confirmPermanent, setConfirmPermanent] = useState({ open: false, item: null, bulk: false, ids: [] });
 
   const currentUser = {
     name: user?.name || 'Admin User',
@@ -677,23 +679,27 @@ const Repairs = () => {
   const topDashboardData = useMemo(() => {
     return activeRepairs
       .filter(filterBySearchTerm)
-      .map(repair => {
-        const address = parseDashboardAddress(repair.address);
-        const stage = REPAIR_STAGES.find(s => s.id === repair.stage);
+      .map(row => {
+        const address = parseDashboardAddress(row.address);
+        const stage = REPAIR_STAGES.find(s => s.id === row.stage);
         return {
-          id: repair.id,
-          address: repair.address,
+          id: row.id,
+          address: row.address,
           street: address.street,
           cityState: `${address.city}, ${address.state} ${address.zip}`.trim().replace(/^,\s*/, ''),
-          customer: repair.name,
-          currentStage: stage?.name || repair.stageName,
-          stageColor: repair.stageColor,
-          whatsMissing: getWhatsMissing(repair),
-          daysInStage: getDaysInStage(repair),
-          repair
+          customer: row.name,
+          currentStage: stage?.name || row.stageName,
+          stageColor: row.stageColor,
+          whatsMissing: getWhatsMissing(row),
+          daysInStage: getDaysInStage(row),
+          repair: row
         };
       });
   }, [activeRepairs, currentTime, searchTerm]);
+
+  const totalSelected = useMemo(() => 
+    Object.values(selectedRepairs).reduce((sum, set) => sum + set.size, 0)
+  , [selectedRepairs]);
 
   const repairsByStage = useMemo(() => {
     const grouped = {};
@@ -920,6 +926,7 @@ const Repairs = () => {
       });
     });
     if (detailsDialogOpen) setDetailsDialogOpen(false);
+    setDeleteConfirmationOpen(false);
   };
 
   const confirmBulkSoftDelete = () => {
@@ -927,6 +934,7 @@ const Repairs = () => {
     const selectedIds = Array.from(selectedRepairs[stageId]);
     bulkSoftDeleteMutation.mutate(selectedIds);
     setSelectedRepairs(prev => ({ ...prev, [stageId]: new Set() }));
+    setBulkDeleteConfirmationOpen(false);
   };
 
   const toggleRecycleBinSelection = (itemId) => {
@@ -948,36 +956,23 @@ const Repairs = () => {
     setSelectedRecycleBinItems(newSet);
   };
 
-  const handleRestoreFromRecycleBin = (itemIds) => {
-    bulkRestoreMutation.mutate(itemIds);
+  const handleSingleRestore = (item) => setConfirmRestore({ open: true, item, bulk: false, ids: [item.id] });
+  const handleBulkRestore = () => setConfirmRestore({ open: true, item: null, bulk: true, ids: Array.from(selectedRecycleBinItems) });
+  const handleSinglePermanent = (item) => setConfirmPermanent({ open: true, item, bulk: false, ids: [item.id] });
+  const handleBulkPermanent = () => setConfirmPermanent({ open: true, item: null, bulk: true, ids: Array.from(selectedRecycleBinItems) });
+
+  const executeRestore = async () => {
+    if (confirmRestore.bulk) await bulkRestoreMutation.mutateAsync(confirmRestore.ids);
+    else await restoreRepairMutation.mutateAsync(confirmRestore.ids[0]);
+    setConfirmRestore({ open: false, item: null, bulk: false, ids: [] });
     setSelectedRecycleBinItems(new Set());
   };
 
-  const handlePermanentDeleteFromRecycleBin = (itemIds) => {
-    bulkPermanentDeleteMutation.mutate(itemIds);
+  const executePermanent = async () => {
+    if (confirmPermanent.bulk) await bulkPermanentDeleteMutation.mutateAsync(confirmPermanent.ids);
+    else await permanentDeleteMutation.mutateAsync(confirmPermanent.ids[0]);
+    setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] });
     setSelectedRecycleBinItems(new Set());
-  };
-
-  const confirmBulkRestore = () => {
-    if (selectedRecycleBinItems.size === 0) return;
-    handleRestoreFromRecycleBin(Array.from(selectedRecycleBinItems));
-  };
-
-  // ── NO window.confirm() — RecycleBinModal owns the confirmation dialog ──
-  const confirmBulkPermanentDelete = () => {
-    if (selectedRecycleBinItems.size === 0) return;
-    handlePermanentDeleteFromRecycleBin(Array.from(selectedRecycleBinItems));
-  };
-
-  // ── NO window.confirm() — RecycleBinModal owns the confirmation dialog ──
-  const handleSinglePermanentDelete = (item) => {
-    if (!item || !item.id) return;
-    permanentDeleteMutation.mutate(item.id);
-  };
-
-  const handleSingleRestore = (item) => {
-    if (!item || !item.id) return;
-    restoreRepairMutation.mutate(item.id);
   };
 
   const handleChangePage = (stageId, newPage) => {
@@ -1560,29 +1555,32 @@ const Repairs = () => {
 
     return (
       <Paper elevation={0} sx={{ mb: isMobileView ? 3 : 4, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${alpha(stage.color, 0.15)}`, bgcolor: 'white' }}>
-        <Box sx={{ p: isMobileView ? 1 : 1.5, bgcolor: 'white', borderBottom: `1px solid ${alpha(stage.color, 0.1)}`, display: 'flex', flexDirection: isMobileView ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobileView ? 'flex-start' : 'center', gap: isMobileView ? 1 : 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: isMobileView ? '100%' : 'auto', justifyContent: 'space-between' }}>
-            <Typography sx={{ fontSize: isMobileView ? '0.9rem' : '1rem', color: TEXT_COLOR, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-              {stage.name}
-              <Chip size="small" label={items.length} sx={{ bgcolor: alpha(stage.color, 0.08), color: TEXT_COLOR, fontSize: isMobileView ? '0.7rem' : '0.75rem', fontWeight: 500, height: isMobileView ? '20px' : '22px', '& .MuiChip-label': { px: isMobileView ? 0.5 : 1 } }} />
-            </Typography>
-            {isMobileView && selectedCount > 0 && (
-              <OutlineButton variant="outlined" color="error" size="small" onClick={() => handleBulkSoftDeleteClick(stage.id)} startIcon={<Trash2 size={12} />} sx={{ fontSize: '0.7rem', height: '28px', px: 1 }}>
-                Delete ({selectedCount})
-              </OutlineButton>
-            )}
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: isMobileView ? '100%' : 'auto' }}>
+        <Box sx={{ p: isMobileView ? 1 : 1.5, bgcolor: 'white', borderBottom: `1px solid ${alpha(stage.color, 0.1)}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '52px' }}>
+          {selectedCount > 0 ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: RED_COLOR }}>
+                {selectedCount} item(s) selected
+              </Typography>
+              <Button variant="contained" color="error" size="small" onClick={() => handleBulkSoftDeleteClick(stage.id)} startIcon={<Trash2 size={14} />}
+                sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 2, borderRadius: '6px', boxShadow: 'none' }}>
+                Trash Selected
+              </Button>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography sx={{ fontSize: isMobileView ? '0.9rem' : '1rem', color: TEXT_COLOR, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                {stage.name}
+                <Chip size="small" label={items.length} sx={{ bgcolor: alpha(stage.color, 0.08), color: TEXT_COLOR, fontSize: isMobileView ? '0.7rem' : '0.75rem', fontWeight: 500, height: isMobileView ? '20px' : '22px' }} />
+              </Typography>
+            </Box>
+          )}
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             {stage.id === 'permitting' && items.length > 0 && (
               <Typography variant="caption" sx={{ color: GRAY_COLOR, fontSize: isMobileView ? '0.65rem' : '0.75rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Timer size={isMobileView ? 10 : 12} />
                 Avg: {Math.round(items.reduce((sum, item) => sum + (item.permitDaysPending || 0), 0) / items.length)}d
               </Typography>
-            )}
-            {!isMobileView && selectedCount > 0 && (
-              <OutlineButton variant="outlined" color="error" size="small" onClick={() => handleBulkSoftDeleteClick(stage.id)} startIcon={<Trash2 size={14} />} sx={{ fontSize: '0.75rem', height: '30px', px: 1.5 }}>
-                Delete ({selectedCount})
-              </OutlineButton>
             )}
           </Box>
         </Box>
@@ -1711,14 +1709,16 @@ const Repairs = () => {
           </Box>
         </Box>
         <Box sx={{ flex: 1 }} />
-        <StyledTextField size="small" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} sx={{ width: isMobile ? '100%' : 300 }}
-          InputProps={{
-            startAdornment: <InputAdornment position="start"><Search size={isMobile ? 14 : 16} color={GRAY_COLOR} /></InputAdornment>,
-            endAdornment: searchTerm && <InputAdornment position="end"><IconButton size="small" onClick={() => setSearchTerm('')} edge="end" sx={{ p: 0.5 }}><X size={isMobile ? 14 : 16} /></IconButton></InputAdornment>,
-          }}
-          helperText={searchTerm ? `Searching across all fields...` : ''}
-          FormHelperTextProps={{ sx: { fontSize: isMobile ? '0.65rem' : '0.7rem', mt: 0.5 } }}
-        />
+        {totalSelected === 0 && (
+          <StyledTextField size="small" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} sx={{ width: isMobile ? '100%' : 300 }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><Search size={isMobile ? 14 : 16} color={GRAY_COLOR} /></InputAdornment>,
+              endAdornment: searchTerm && <InputAdornment position="end"><IconButton size="small" onClick={() => setSearchTerm('')} edge="end" sx={{ p: 0.5 }}><X size={isMobile ? 14 : 16} /></IconButton></InputAdornment>,
+            }}
+            helperText={searchTerm ? `Searching across all fields...` : ''}
+            FormHelperTextProps={{ sx: { fontSize: isMobile ? '0.65rem' : '0.7rem', mt: 0.5 } }}
+          />
+        )}
       </Paper>
 
       {filterStage === 'all' ? REPAIR_STAGES.map(stage => renderStageCard(stage)) : renderStageCard(REPAIR_STAGES.find(s => s.id === filterStage))}
@@ -1895,12 +1895,41 @@ const Repairs = () => {
         selectedRecycleBinItems={selectedRecycleBinItems}
         toggleRecycleBinSelection={toggleRecycleBinSelection}
         toggleAllRecycleBinSelection={toggleAllRecycleBinSelection}
-        confirmBulkRestore={confirmBulkRestore}
-        confirmBulkPermanentDelete={confirmBulkPermanentDelete}
+        confirmBulkRestore={handleBulkRestore}
+        confirmBulkPermanentDelete={handleBulkPermanent}
         handleSingleRestore={handleSingleRestore}
-        handleSinglePermanentDelete={handleSinglePermanentDelete}
+        handleSinglePermanentDelete={handleSinglePermanent}
         formatDateShort={formatDateShort}
       />
+
+      <CommonDialog
+        open={confirmRestore.open}
+        onClose={() => setConfirmRestore({ open: false, item: null, bulk: false, ids: [] })}
+        onConfirm={executeRestore}
+        title="Restore Repairs"
+        variant="success"
+        confirmText="Restore"
+        icon={<History size={16} />}
+      >
+        <Typography sx={{ fontSize: '0.85rem', color: TEXT_COLOR }}>
+          Restore {confirmRestore.bulk ? `${confirmRestore.ids.length} repairs` : 'this repair'} back to the dashboard?
+        </Typography>
+      </CommonDialog>
+
+      <CommonDialog
+        open={confirmPermanent.open}
+        onClose={() => setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] })}
+        onConfirm={executePermanent}
+        title="Delete Permanently"
+        variant="danger"
+        confirmText="Delete Forever"
+        icon={<AlertCircle size={16} />}
+      >
+        <Typography sx={{ fontSize: '0.85rem', color: TEXT_COLOR }}>
+          Permanently delete {confirmPermanent.bulk ? `${confirmPermanent.ids.length} repairs` : 'this repair'}? 
+          This <strong style={{ color: RED_COLOR }}>cannot</strong> be undone.
+        </Typography>
+      </CommonDialog>
     </Box>
   );
 };

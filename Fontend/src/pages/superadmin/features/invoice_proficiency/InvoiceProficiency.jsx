@@ -237,19 +237,24 @@ const DrainFieldCard = ({ pass, fail }) => {
     const passRate = total > 0 ? ((pass / total) * 100).toFixed(0) : '—';
     const failRate = total > 0 ? ((fail / total) * 100).toFixed(0) : '—';
     return (
-        <Paper elevation={0} sx={{ p: 1.5, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE, height: '100%' }}>
-            <SectionLabel color={P.PURPLE}>Drain Field Proficiency</SectionLabel>
-            <Box sx={{ display: 'flex', gap: 1.5 }}>
-                <Box sx={{ flex: 1, p: 1, borderRadius: '8px', bgcolor: P.GREEN_SOFT, border: `1px solid ${P.GREEN_BORDER}`, textAlign: 'center' }}>
-                    <CheckCircle size={14} color={P.GREEN} />
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: P.GREEN, mt: 0.5 }}>{passRate}{total > 0 ? '%' : ''}</Typography>
-                    <Typography sx={{ fontSize: '0.68rem', color: P.MUTED, fontWeight: 600 }}>PASS ({pass ?? 0})</Typography>
+        <Paper elevation={0} sx={{ p: 2.5, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <SectionLabel color={P.PURPLE}>Drain Field Report</SectionLabel>
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                    <Box sx={{ flex: 1, p: 2, borderRadius: '8px', bgcolor: P.GREEN_SOFT, border: `1px solid ${P.GREEN_BORDER}`, textAlign: 'center' }}>
+                        <CheckCircle size={18} color={P.GREEN} style={{ marginBottom: '8px' }} />
+                        <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, color: P.GREEN, lineHeight: 1 }}>{passRate}{total > 0 ? '%' : ''}</Typography>
+                        <Typography sx={{ fontSize: '0.7rem', color: P.MUTED, fontWeight: 700, mt: 0.5, letterSpacing: '0.05em' }}>PASS ({pass ?? 0})</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1, p: 2, borderRadius: '8px', bgcolor: P.RED_SOFT, border: `1px solid ${P.RED_BORDER}`, textAlign: 'center' }}>
+                        <XCircle size={18} color={P.RED} style={{ marginBottom: '8px' }} />
+                        <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, color: P.RED, lineHeight: 1 }}>{failRate}{total > 0 ? '%' : ''}</Typography>
+                        <Typography sx={{ fontSize: '0.7rem', color: P.MUTED, fontWeight: 700, mt: 0.5, letterSpacing: '0.05em' }}>FAIL ({fail ?? 0})</Typography>
+                    </Box>
                 </Box>
-                <Box sx={{ flex: 1, p: 1, borderRadius: '8px', bgcolor: P.RED_SOFT, border: `1px solid ${P.RED_BORDER}`, textAlign: 'center' }}>
-                    <XCircle size={14} color={P.RED} />
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: P.RED, mt: 0.5 }}>{failRate}{total > 0 ? '%' : ''}</Typography>
-                    <Typography sx={{ fontSize: '0.68rem', color: P.MUTED, fontWeight: 600 }}>FAIL ({fail ?? 0})</Typography>
-                </Box>
+                <Typography sx={{ fontSize: '0.65rem', color: P.MUTED, textAlign: 'center', mt: 1 }}>
+                    Based on task "4 - DRAIN FIELD" and priority "[3] EXCAVATOR"
+                </Typography>
             </Box>
         </Paper>
     );
@@ -708,6 +713,8 @@ export const InvoiceProficiency = () => {
     const [selected, setSelected] = useState(new Set());
     const [trashOpen, setTrashOpen] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState({ open: false, id: null, bulk: false });
+    const [confirmRestore, setConfirmRestore] = useState({ open: false, id: null, bulk: false, restoreIds: [] });
+    const [confirmPermanent, setConfirmPermanent] = useState({ open: false, id: null, bulk: false, deleteIds: [] });
 
     const { data: scraperStatus } = useQuery({
         queryKey: ['scraper-status'],
@@ -750,7 +757,7 @@ export const InvoiceProficiency = () => {
         onSuccess: () => {
             queryClient.invalidateQueries(['invoice-proficiency']);
             queryClient.invalidateQueries(['invoice-proficiency-trashed']);
-            showSnackbar('Record restored', 'success');
+            showSnackbar('Record restored successfully', 'success');
         }
     });
 
@@ -759,7 +766,7 @@ export const InvoiceProficiency = () => {
         onSuccess: () => {
             queryClient.invalidateQueries(['invoice-proficiency']);
             queryClient.invalidateQueries(['invoice-proficiency-trashed']);
-            showSnackbar('Records restored', 'success');
+            showSnackbar('Records restored successfully', 'success');
         }
     });
 
@@ -890,10 +897,27 @@ export const InvoiceProficiency = () => {
 
     const handleDeleteClick = (id) => setConfirmDelete({ open: true, id, bulk: false });
     const handleBulkDeleteClick = () => setConfirmDelete({ open: true, id: null, bulk: true });
+    const handleRestoreClick = (id) => setConfirmRestore({ open: true, id, bulk: false, restoreIds: [id] });
+    const handleBulkRestoreClick = (ids) => setConfirmRestore({ open: true, id: null, bulk: true, restoreIds: ids });
+    const handlePermanentClick = (id) => setConfirmPermanent({ open: true, id, bulk: false, deleteIds: [id] });
+    const handleBulkPermanentClick = (ids) => setConfirmPermanent({ open: true, id: null, bulk: true, deleteIds: ids });
+
     const confirmDeleteAction = () => {
         if (confirmDelete.bulk) bulkDeleteMutation.mutate([...selected]);
         else deleteMutation.mutate(confirmDelete.id);
         setConfirmDelete({ open: false, id: null, bulk: false });
+    };
+
+    const confirmRestoreAction = () => {
+        if (confirmRestore.bulk) bulkRestoreMutation.mutate(confirmRestore.restoreIds);
+        else restoreMutation.mutate(confirmRestore.id);
+        setConfirmRestore({ open: false, id: null, bulk: false, restoreIds: [] });
+    };
+
+    const confirmPermanentAction = () => {
+        if (confirmPermanent.bulk) bulkPermanentDeleteMutation.mutate(confirmPermanent.deleteIds);
+        else permanentDeleteMutation.mutate(confirmPermanent.id);
+        setConfirmPermanent({ open: false, id: null, bulk: false, deleteIds: [] });
     };
 
     if (isLoading) return <DashboardLoader />;
@@ -991,7 +1015,7 @@ export const InvoiceProficiency = () => {
                             <StatCard icon={DollarSign} label="Avg Invoice" value={stats.avgDollar !== null ? `$${stats.avgDollar.toFixed(0)}` : '—'} sub="Average amount" accent={P.GREEN} accentBg={P.GREEN_SOFT} />
                         </Grid>
                         <Grid size={{ xs: 6, sm: 4, md: 3 }}>
-                            <DrainFieldCard pass={drainFieldStats.pass} fail={drainFieldStats.fail} />
+                            <StatCard icon={Clock} label="Worked Hours" value={`${stats.totalWorkedHours.toFixed(1)}h`} sub="Cumulative time" accent={P.AMBER} accentBg={alpha(P.AMBER, 0.1)} />
                         </Grid>
                     </Grid>
 
@@ -1011,32 +1035,50 @@ export const InvoiceProficiency = () => {
                             </Paper>
                         </Grid>
                         <Grid size={{ xs: 12 }}>
-                            <Paper elevation={0} sx={{ p: 1.5, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE }}>
-                                <CategoryTable title="[3] Excavation" rows={excavationRows} color={P.PURPLE} />
-                            </Paper>
+                            <Grid container spacing={1.5}>
+                                <Grid size={{ xs: 12, md: 8 }}>
+                                    <Paper elevation={0} sx={{ p: 1.5, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE, height: '100%' }}>
+                                        <CategoryTable title="[3] Excavation" rows={excavationRows} color={P.PURPLE} />
+                                    </Paper>
+                                </Grid>
+                                <Grid size={{ xs: 12, md: 4 }}>
+                                    <DrainFieldCard pass={drainFieldStats.pass} fail={drainFieldStats.fail} />
+                                </Grid>
+                            </Grid>
                         </Grid>
                     </Grid>
 
                     {/* WORK ORDERS TABLE */}
                     <Paper elevation={0} sx={{ border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE, overflow: 'hidden' }}>
-                        <Box sx={{ p: { xs: 1, sm: 1.5 }, borderBottom: `1px solid ${P.BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: alpha(P.BLUE, 0.01), flexWrap: 'wrap', gap: 1 }}>
+                        <Box sx={{ p: { xs: 1, sm: 1.5 }, borderBottom: `1px solid ${P.BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: alpha(P.BLUE, 0.01), flexWrap: 'nowrap', gap: 1 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: P.TEXT }}>Work Orders</Typography>
                                 <Chip label={searchedWOs.length} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: P.BLUE_SOFT, color: P.BLUE, fontWeight: 600 }} />
-                                {selected.size > 0 && !isMobile && (
-                                    <Button variant="outlined" color="error" size="small" startIcon={<Trash2 size={12} />} onClick={handleBulkDeleteClick} sx={{ ml: 1, height: 28, fontSize: '0.7rem', textTransform: 'none' }}>
-                                        Trash ({selected.size})
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                {selected.size > 0 ? (
+                                    <Button 
+                                        variant="contained" 
+                                        color="error" 
+                                        size="small" 
+                                        startIcon={<Trash2 size={14} />} 
+                                        onClick={handleBulkDeleteClick} 
+                                        sx={{ 
+                                            height: 32, 
+                                            fontSize: '0.78rem', 
+                                            textTransform: 'none', 
+                                            borderRadius: '6px',
+                                            boxShadow: 'none',
+                                            '&:hover': { boxShadow: 'none', bgcolor: P.RED }
+                                        }}
+                                    >
+                                        Delete Selected ({selected.size})
                                     </Button>
+                                ) : (
+                                    <TableSearchBar value={search} onChange={setSearch} color={P.BLUE} placeholder="Search records…" />
                                 )}
                             </Box>
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: '100%', sm: 'auto' } }}>
-                                <TableSearchBar value={search} onChange={setSearch} color={P.BLUE} placeholder="Search records…" />
-                                {selected.size > 0 && isMobile && (
-                                    <Button variant="outlined" color="error" size="small" startIcon={<Trash2 size={12} />} onClick={handleBulkDeleteClick} sx={{ height: 28, fontSize: '0.7rem' }}>
-                                        Trash ({selected.size})
-                                    </Button>
-                                )}
-                            </Stack>
                         </Box>
 
                         {!isMobile ? (
@@ -1098,10 +1140,10 @@ export const InvoiceProficiency = () => {
                 open={trashOpen}
                 onClose={() => setTrashOpen(false)}
                 items={trashedData?.data || []}
-                onRestore={id => restoreMutation.mutate(id)}
-                onPermanentDelete={id => permanentDeleteMutation.mutate(id)}
-                onBulkRestore={ids => bulkRestoreMutation.mutate(ids)}
-                onBulkPermanentDelete={ids => bulkPermanentDeleteMutation.mutate(ids)}
+                onRestore={handleRestoreClick}
+                onPermanentDelete={handlePermanentClick}
+                onBulkRestore={handleBulkRestoreClick}
+                onBulkPermanentDelete={handleBulkPermanentClick}
             />
 
             <CommonDialog
@@ -1115,6 +1157,35 @@ export const InvoiceProficiency = () => {
             >
                 <Typography sx={{ fontSize: '0.85rem', color: P.TEXT }}>
                     Move {confirmDelete.bulk ? `${selected.size} items` : 'this record'} to recycle bin?
+                </Typography>
+            </CommonDialog>
+
+            <CommonDialog
+                open={confirmRestore.open}
+                onClose={() => setConfirmRestore({ open: false, id: null, bulk: false, restoreIds: [] })}
+                onConfirm={confirmRestoreAction}
+                title="Restore Records"
+                variant="success"
+                confirmText="Restore"
+                icon={<RotateCcw size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: P.TEXT }}>
+                    Restore {confirmRestore.bulk ? `${confirmRestore.restoreIds.length} items` : 'this record'} back to the main dashboard?
+                </Typography>
+            </CommonDialog>
+
+            <CommonDialog
+                open={confirmPermanent.open}
+                onClose={() => setConfirmPermanent({ open: false, id: null, bulk: false, deleteIds: [] })}
+                onConfirm={confirmPermanentAction}
+                title="Permanent Delete"
+                variant="danger"
+                confirmText="Delete Forever"
+                icon={<AlertCircle size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: P.TEXT }}>
+                    Are you sure you want to permanently delete {confirmPermanent.bulk ? `${confirmPermanent.deleteIds.length} items` : 'this record'}? 
+                    This action <strong style={{ color: P.RED }}>cannot</strong> be undone.
                 </Typography>
             </CommonDialog>
         </Box>

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, memo } from 'react';
+import OutlineButton from '../../../../components/ui/OutlineButton';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Chip, Stack, Button, Tooltip, IconButton,
@@ -27,7 +28,7 @@ const formatDateShort = (dateString) => {
   if (!dateString) return '—';
   const date = new Date(dateString);
   if (isNaN(date)) return dateString;
-  return format(date, "MM/dd/yyyy hh:mm a");
+  return format(date, "MM/dd/yy hh:mm a");
 };
 
 const PALETTE = {
@@ -187,7 +188,7 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
   <Paper elevation={0} sx={{ mb: 4, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${alpha(color, 0.15)}`, bgcolor: 'white' }}>
     <Box sx={{ p: 1.5, bgcolor: 'white', borderBottom: `1px solid ${alpha(color, 0.1)}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-        <Typography sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+        <Typography component="div" sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
           {title}
           <Chip size="small" label={tableSearch ? `${filteredCount}/${count}` : count}
             sx={{ bgcolor: alpha(color, 0.08), color: PALETTE.TEXT, fontSize: '0.75rem', fontWeight: 500, height: '24px', '& .MuiChip-label': { px: 1.2 } }} />
@@ -196,10 +197,10 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
       <Stack direction="row" spacing={1} alignItems="center">
         {headerRight}
         {selectedCount > 0 ? (
-          <Button variant="contained" color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
-            sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 2, borderRadius: '6px', boxShadow: 'none' }}>
+          <OutlineButton color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
+            sx={{ height: '32px', px: 2, borderRadius: '6px' }}>
             Trash Selected ({selectedCount})
-          </Button>
+          </OutlineButton>
         ) : onTableSearch && (
           <Box sx={{ position: 'relative', minWidth: 200 }}>
             <Box sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', zIndex: 1 }}>
@@ -1303,10 +1304,10 @@ export default function Review() {
               Mark all read
             </Button>
           )}
-          <Button variant="outlined" startIcon={<History size={16} />} onClick={() => setBinOpen(true)}
-            sx={{ textTransform: 'none', color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.3), height: '36px', px: 2, '&:hover': { bgcolor: alpha(PALETTE.PURPLE, 0.05), borderColor: PALETTE.PURPLE } }}>
+          <OutlineButton startIcon={<History size={16} />} onClick={() => setBinOpen(true)}
+            sx={{ color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.3), height: '36px', px: 2, '&:hover': { bgcolor: alpha(PALETTE.PURPLE, 0.05), borderColor: PALETTE.PURPLE } }}>
             Recycle Bin ({binItems.length})
-          </Button>
+          </OutlineButton>
           <ToggleButtonGroup value={view} exclusive onChange={(_, v) => v && setView(v)} size="small"
             sx={{ height: '36px', '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5, color: PALETTE.GRAY, border: `1px solid ${alpha(PALETTE.GRAY, 0.2)}`, '&.Mui-selected': { bgcolor: alpha(PALETTE.BLUE, 0.08), color: PALETTE.BLUE, borderColor: alpha(PALETTE.BLUE, 0.3) } } }}>
             <ToggleButton value="all"><List size={14} style={{ marginRight: 6 }} /> List</ToggleButton>

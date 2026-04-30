@@ -355,8 +355,7 @@ const RecycleBinModal = ({
                     }
                   }}>
                     <TableCell padding="checkbox" width={50} />
-                    <TableCell sx={{ minWidth: 120 }}>Work Order</TableCell>
-                    <TableCell sx={{ minWidth: 180 }}>Address</TableCell>
+                    <TableCell sx={{ minWidth: 150 }}>Customer Info</TableCell>
                     <TableCell sx={{ minWidth: 120 }}>Deleted By</TableCell>
                     <TableCell sx={{ minWidth: 120 }}>Deleted At</TableCell>
                     <TableCell width={150} sx={{ minWidth: 120 }}>Actions</TableCell>
@@ -392,34 +391,30 @@ const RecycleBinModal = ({
                           />
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" sx={{
-                            fontSize: isMobile ? '0.8rem' : '0.85rem',
-                            fontWeight: 500,
-                            color: TEXT_COLOR,
-                          }}>
-                            {workOrderNumber}
-                          </Typography>
-                          <Typography variant="caption" sx={{
-                            fontSize: '0.75rem',
-                            color: GRAY_COLOR,
-                          }}>
-                            {type}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{
-                            fontSize: isMobile ? '0.8rem' : '0.85rem',
-                            color: TEXT_COLOR,
-                            mb: 0.5,
-                          }}>
-                            {item.street || '—'}
-                          </Typography>
-                          <Typography variant="caption" sx={{
-                            fontSize: '0.75rem',
-                            color: GRAY_COLOR,
-                          }}>
-                            {[item.city, item.state, item.zip].filter(Boolean).join(', ') || '—'}
-                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                              <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" sx={{
+                                      fontSize: isMobile ? '0.8rem' : '0.85rem',
+                                      fontWeight: 500,
+                                      color: TEXT_COLOR,
+                                      mb: 0.25,
+                                      wordBreak: 'break-word',
+                                      overflowWrap: 'break-word',
+                                  }}>
+                                      {item.customerName || 'Unknown Customer'}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{
+                                      color: GRAY_COLOR,
+                                      fontSize: '0.75rem',
+                                      fontWeight: 400,
+                                      display: 'block',
+                                      wordBreak: 'break-word',
+                                      overflowWrap: 'break-word',
+                                  }}>
+                                      WO: {workOrderNumber}
+                                  </Typography>
+                              </Box>
+                          </Box>
                         </TableCell>
                         <TableCell>
                           <Box>

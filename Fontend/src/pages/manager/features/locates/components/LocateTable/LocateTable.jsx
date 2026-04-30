@@ -72,7 +72,7 @@ const LocateTable = ({
         let count = 1;
         if (showCallAction) count++;
         if (showTimerColumn) count++;
-        count += 5; // Customer, Address, Date, Tech, View
+        count += 4; // Customer, Date, Tech, View (removed Address column)
         if (showCalledBy) count++;
         if (showManualCompleteAction && tableType === 'inProgress') count++;
         return count;
@@ -379,8 +379,7 @@ const LocateTable = ({
                                 {isMobile ? 'Time' : 'Time Remaining'}
                             </TableCell>
                         )}
-                        <TableCell sx={{ minWidth: 150 }}>Customer</TableCell>
-                        <TableCell sx={{ minWidth: 180 }}>Address</TableCell>
+                        <TableCell sx={{ minWidth: 150 }}>Customer Info</TableCell>
                         <TableCell sx={{ minWidth: 180 }}>Date</TableCell>
                         <TableCell sx={{ minWidth: 120 }}>Technician</TableCell>
                         {showCalledBy && (
@@ -397,8 +396,6 @@ const LocateTable = ({
                 <TableBody>
                     {items.map(item => {
                         const isSelected = selected.has(item.id);
-                        const addressLine = item.street || item.original || '—';
-                        const location = [item.city, item.state, item.zip].filter(Boolean).join(', ');
                         const hasCheckmark = item.locatesCalled && item.calledByName;
 
                         return (
@@ -444,17 +441,6 @@ const LocateTable = ({
                                             </Typography>
                                         </Box>
                                     </Box>
-                                </TableCell>
-
-                                <TableCell sx={{ py: 1.5, minWidth: 180 }}>
-                                    <Typography variant="body2" sx={addressStyle(isMobile)}>
-                                        {addressLine}
-                                    </Typography>
-                                    {location && (
-                                        <Typography variant="caption" sx={locationStyle}>
-                                            {location}
-                                        </Typography>
-                                    )}
                                 </TableCell>
 
                                 <TableCell sx={{ py: 1.5, minWidth: 180 }}>
@@ -601,23 +587,6 @@ const workOrderStyle = {
     fontSize: '0.75rem',
     fontWeight: 400,
     display: 'block',
-    wordBreak: 'break-word',
-    overflowWrap: 'break-word',
-};
-
-const addressStyle = (isMobile) => ({
-    color: TEXT_COLOR,
-    fontSize: isMobile ? '0.8rem' : '0.85rem',
-    fontWeight: 400,
-    mb: 0.25,
-    wordBreak: 'break-word',
-    overflowWrap: 'break-word',
-});
-
-const locationStyle = {
-    color: GRAY_COLOR,
-    fontSize: '0.75rem',
-    fontWeight: 400,
     wordBreak: 'break-word',
     overflowWrap: 'break-word',
 };

@@ -31,7 +31,7 @@ const dashboardCards = [
   { label: 'Tank Repairs', route: '/manager-dashboard/repairs', handwritten: true, image: h6, notificationPath: null },
   { label: 'Locates', route: '/manager-dashboard/locates/work-orders', handwritten: true, image: h3, notificationPath: '/manager-dashboard/locates/work-orders' },
   { label: 'Customer Center', route: '/manager-dashboard/customer-center', handwritten: true, image: h1, notificationPath: '/manager-dashboard/customer-center' },
-  { label: '', route: null, handwritten: false, image: null, notificationPath: null },
+  { label: 'Invoice Proficiency', route: '/manager-dashboard/invoice-proficiency', handwritten: true, image: h5, notificationPath: null },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
 ];
 

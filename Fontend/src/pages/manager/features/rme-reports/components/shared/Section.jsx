@@ -51,6 +51,7 @@ const Section = ({
                         mb: isMobile ? 0 : 0,
                     }}>
                         <Typography
+                            component="div"
                             sx={{
                                 fontSize: isMobile ? '0.85rem' : '1rem',
                                 color: '#0F1115',

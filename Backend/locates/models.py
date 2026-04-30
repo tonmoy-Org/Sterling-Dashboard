@@ -155,6 +155,10 @@ class Locates(models.Model):
     scraped_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Error tracking
+    is_error = models.BooleanField(default=False)
+    error_type = models.CharField(max_length=100, blank=True, null=True)
 
     class Meta:
         db_table = 'locates_dashboard'

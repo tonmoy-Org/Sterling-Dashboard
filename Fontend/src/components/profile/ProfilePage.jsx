@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatDate } from '../../utils/dateFormats';
 import {
     Box,
     Typography,
@@ -594,11 +595,7 @@ export const ProfilePage = ({ roleLabel }) => {
                                             fontWeight: 400,
                                         }}
                                     >
-                                        Account created: {new Date(profile.createdAt).toLocaleDateString('en-US', {
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric'
-                                        })}
+                                        Account created: {formatDate(profile.createdAt)}
                                     </Typography>
                                 </Box>
                             )}

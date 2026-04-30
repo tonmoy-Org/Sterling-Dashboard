@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -40,39 +40,21 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { alpha } from '@mui/material/styles';
 import { repairsApi } from '../../../../api/services/repairs';
+import { rmeApi } from '../../../../api/services/rmeApi';
 import StyledTextField from '../../../../components/ui/StyledTextField';
 import {
-  CheckCircle,
-  Clock,
-  Timer,
-  X,
-  Trash2,
-  Search,
-  AlertCircle,
-  Edit,
-  Construction,
-  FileText,
-  CheckSquare,
-  Square,
-  Info,
-  ChevronRight,
-  ChevronDown,
-  Calendar,
-  Home,
-  User,
-  FileCheck,
-  ClipboardCheck,
-  ShieldCheck,
-  TestTube,
-  Award,
-  AlertTriangle,
-  History,
+  FileText, ChevronDown, ChevronUp, TrendingUp, TrendingDown,
+  AlertTriangle, CheckCircle, XCircle, Calendar, Clock, DollarSign,
+  Users, BarChart2, Zap, RefreshCw, Trash2, History, RotateCcw,
+  Search, Check, MoreHorizontal, AlertCircle, Eye, MousePointer2, X,
+  Home, ClipboardCheck, User, Info, Construction, CheckSquare, Square,
+  ChevronRight, FileCheck, ShieldCheck, TestTube, Award
 } from 'lucide-react';
+import { Add, ArrowBack, ArrowForward, ThumbUp, ExpandMore } from '@mui/icons-material';
 import { Helmet } from 'react-helmet-async';
 import DashboardLoader from '../../../../components/Loader/DashboardLoader';
-import { Add, ArrowBack, ArrowForward, ThumbUp, ExpandMore } from '@mui/icons-material';
 import GradientButton from '../../../../components/ui/GradientButton';
-import UpdateButton from '../../../../components/ui/UpdateButton';
+import RefreshButton from '../../../../components/ui/RefreshButton';
 import OutlineButton from '../../../../components/ui/OutlineButton';
 import RecycleBinModal from './RecycleBinModal';
 import { useAuth } from '../../../../auth/AuthProvider';
@@ -237,13 +219,18 @@ const transformToAPIFormat = (data) => {
   return apiData;
 };
 
-// Local DeleteConfirmationModal removed in favor of universal CommonDialog
-
 const Repairs = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const queryClient = useQueryClient();
+
+  const { data: scraperStatus } = useQuery({
+    queryKey: ['scraper-status'],
+    queryFn: () => rmeApi.getScraperStatus(),
+    refetchInterval: 5000,
+  });
+  const isRunning = scraperStatus?.data?.is_running;
   const { user } = useAuth();
   const { showSnackbar } = useGlobalSnackbar();
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -1004,7 +991,7 @@ const Repairs = () => {
     if (!dateString) return '—';
     const date = new Date(dateString);
     if (isNaN(date)) return '—';
-    return format(date, "MM/dd/yyyy hh:mm a");
+    return format(date, "MM/dd/yy hh:mm a");
   };
 
   const renderStageContent = (stageIndex, context = 'edit') => {
@@ -1554,21 +1541,21 @@ const Repairs = () => {
     const isMobileView = isMobile;
 
     return (
-      <Paper elevation={0} sx={{ mb: isMobileView ? 3 : 4, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${alpha(stage.color, 0.15)}`, bgcolor: 'white' }}>
+      <Paper key={stage.id} elevation={0} sx={{ mb: isMobileView ? 3 : 4, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${alpha(stage.color, 0.15)}`, bgcolor: 'white' }}>
         <Box sx={{ p: isMobileView ? 1 : 1.5, bgcolor: 'white', borderBottom: `1px solid ${alpha(stage.color, 0.1)}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '52px' }}>
           {selectedCount > 0 ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: RED_COLOR }}>
                 {selectedCount} item(s) selected
               </Typography>
-              <Button variant="contained" color="error" size="small" onClick={() => handleBulkSoftDeleteClick(stage.id)} startIcon={<Trash2 size={14} />}
-                sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 2, borderRadius: '6px', boxShadow: 'none' }}>
+              <OutlineButton color="error" size="small" onClick={() => handleBulkSoftDeleteClick(stage.id)} startIcon={<Trash2 size={14} />}
+                sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 2, borderRadius: '6px' }}>
                 Trash Selected
-              </Button>
+              </OutlineButton>
             </Box>
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Typography sx={{ fontSize: isMobileView ? '0.9rem' : '1rem', color: TEXT_COLOR, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography component="div" sx={{ fontSize: isMobileView ? '0.9rem' : '1rem', color: TEXT_COLOR, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
                 {stage.name}
                 <Chip size="small" label={items.length} sx={{ bgcolor: alpha(stage.color, 0.08), color: TEXT_COLOR, fontSize: isMobileView ? '0.7rem' : '0.75rem', fontWeight: 500, height: isMobileView ? '20px' : '22px' }} />
               </Typography>
@@ -1683,15 +1670,24 @@ const Repairs = () => {
           <Typography sx={{ fontWeight: 600, mb: 0.5, fontSize: isMobile ? '0.95rem' : '1rem', color: TEXT_COLOR, letterSpacing: '-0.01em' }}>Tank Repair</Typography>
           <Typography variant="body2" sx={{ color: GRAY_COLOR, fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 400 }}>Track and manage tank repairs through each stage of the process</Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 2, width: isMobile ? '100%' : 'auto', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-          <Button variant="outlined" startIcon={<History size={isMobile ? 14 : 16} />} onClick={handleOpenRecycleBin} fullWidth={isMobile}
-            sx={{ textTransform: 'none', fontSize: isMobile ? '0.75rem' : '0.85rem', fontWeight: 500, color: PURPLE_COLOR, borderColor: alpha(PURPLE_COLOR, 0.3), minWidth: isMobile ? '48%' : 'auto', '&:hover': { borderColor: PURPLE_COLOR, backgroundColor: alpha(PURPLE_COLOR, 0.05) } }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: isMobile ? '100%' : 'auto', flexWrap: isMobile ? 'wrap' : 'nowrap', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
+          {isRunning && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, bgcolor: alpha(BLUE_COLOR, 0.08), borderRadius: '20px', border: `1px solid ${alpha(BLUE_COLOR, 0.2)}` }}>
+              <Box className="animate-pulse" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: BLUE_COLOR }} />
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: BLUE_COLOR }}>
+                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+              </Typography>
+            </Box>
+          )}
+          <RefreshButton onRefresh={rmeApi.startWorkOrdersAndRmeScraping} />
+          <OutlineButton startIcon={<History size={isMobile ? 14 : 16} />} onClick={handleOpenRecycleBin} fullWidth={isMobile}
+            sx={{ color: PURPLE_COLOR, borderColor: alpha(PURPLE_COLOR, 0.3), minWidth: isMobile ? '48%' : 'auto', '&:hover': { borderColor: PURPLE_COLOR, backgroundColor: alpha(PURPLE_COLOR, 0.05) } }}>
             Recycle Bin ({deletedRepairs.length})
-          </Button>
+          </OutlineButton>
           <GradientButton variant="contained" startIcon={<Add sx={{ fontSize: isMobile ? 14 : 16 }} />} onClick={handleOpenNewRepair} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.75rem' : '0.85rem', fontWeight: 500, px: isMobile ? 1 : 2, minWidth: isMobile ? '48%' : 'auto' }}>
             New Repair Job
           </GradientButton>
-        </Box>
+        </Stack>
       </Box>
 
       {renderTopDashboard()}

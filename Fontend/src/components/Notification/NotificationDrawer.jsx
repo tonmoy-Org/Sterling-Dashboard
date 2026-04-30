@@ -1,5 +1,5 @@
-// NotificationDrawer.jsx - Optimistic updates for instant UI
 import React from 'react';
+import { formatRelativeDate, formatDate } from '../../utils/dateFormats';
 import { styled, alpha } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
@@ -69,30 +69,9 @@ const NotificationScrollableBox = styled(Box)({
 });
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
-const formatDate = (dateString) => {
-    if (!dateString) return '—';
-    try {
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-        if (diffInDays === 0) return `Today at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-        if (diffInDays === 1) return `Yesterday at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-        if (diffInDays < 7) return `${date.toLocaleDateString('en-US', { weekday: 'short' })} at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', '');
-    } catch {
-        return '—';
-    }
-};
+const formatDateLabel = (dateString) => formatRelativeDate(dateString);
 
-const formatGroupDate = (dateString) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-};
+const formatGroupDateLabel = (dateString) => formatDate(dateString);
 
 const parseDashboardAddress = (fullAddress) => {
     if (!fullAddress) return { street: '', city: '', state: '', zip: '', original: '' };
@@ -270,7 +249,7 @@ const NotificationDrawer = ({ onClose }) => {
                     workOrderNumber: locate.work_order_number || 'N/A',
                     customerName: locate.customer_name || 'Unknown',
                     timestamp: createdDate,
-                    formattedTime: formatDate(createdAt),
+                    formattedTime: formatDateLabel(createdAt),
                     icon: MapPin,
                     color: NOTIFICATION_COLORS.primary,
                     rawData: locate,
@@ -337,7 +316,7 @@ const NotificationDrawer = ({ onClose }) => {
                     workOrderNumber: workOrder.wo || 'N/A',
                     customerName: workOrder.customerName || 'Unknown',
                     timestamp: createdDate,
-                    formattedTime: formatDate(createdAt),
+                    formattedTime: formatDateLabel(createdAt),
                     icon: Wrench,
                     color: NOTIFICATION_COLORS.primary,
                     rawData: workOrder,
@@ -366,7 +345,7 @@ const NotificationDrawer = ({ onClose }) => {
                     workOrderNumber: 'N/A',
                     customerName: 'System',
                     timestamp: createdDate,
-                    formattedTime: formatDate(createdAt),
+                    formattedTime: formatDateLabel(createdAt),
                     icon: BarChart3,
                     color: GREEN_COLOR,
                     rawData: dkpi,
@@ -391,7 +370,7 @@ const NotificationDrawer = ({ onClose }) => {
                     workOrderNumber: 'N/A',
                     customerName: review.author_name || 'Customer',
                     timestamp: createdDate,
-                    formattedTime: formatDate(createdAt),
+                    formattedTime: formatDateLabel(createdAt),
                     icon: Star,
                     color: ORANGE_COLOR,
                     rawData: review,
@@ -417,7 +396,7 @@ const NotificationDrawer = ({ onClose }) => {
                     workOrderNumber: inv.workOrderNumber || 'N/A',
                     customerName: inv.customerName || 'Unknown',
                     timestamp: createdDate,
-                    formattedTime: formatDate(createdAt),
+                    formattedTime: formatDateLabel(createdAt),
                     icon: FileText,
                     color: TEAL_COLOR,
                     rawData: inv,
@@ -440,7 +419,7 @@ const NotificationDrawer = ({ onClose }) => {
     const groupedNotifications = React.useMemo(() => {
         const groups = {};
         latestNotifications.forEach((n) => {
-            const dateKey = formatGroupDate(n.timestamp);
+            const dateKey = formatGroupDateLabel(n.timestamp);
             if (!groups[dateKey]) groups[dateKey] = [];
             groups[dateKey].push(n);
         });

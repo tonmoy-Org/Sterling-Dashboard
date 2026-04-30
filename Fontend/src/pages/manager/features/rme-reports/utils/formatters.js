@@ -10,7 +10,7 @@ export const formatDate = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
     if (isNaN(date)) return '—';
-    return format(date, 'MMM dd, yyyy');
+    return format(date, 'MM/dd/yy');
 };
 
 export const formatTime = (dateString) => {
@@ -24,14 +24,14 @@ export const formatDateTimeWithTZ = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
     if (isNaN(date)) return '—';
-    return format(date, "dd/MM/yyyy hh:mm a");
+    return format(date, "MM/dd/yy hh:mm a");
 };
 
 export const formatFinalizedDate = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
     if (isNaN(date)) return '—';
-    return format(date, "MM/dd/yyyy hh:mm a");
+    return format(date, "MM/dd/yy hh:mm a");
 };
 
 export const calculateElapsedTime = (createdDate) => {

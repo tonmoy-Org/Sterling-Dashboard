@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, memo } from 'react';
+import OutlineButton from '../../../../components/ui/OutlineButton';
 import { format } from 'date-fns';
 import {
     Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
@@ -42,7 +43,7 @@ const PALETTE = {
 const formatDateTimeWithTZ = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
-    return isNaN(date) ? '—' : format(date, "MM/dd/yyyy hh:mm a");
+    return isNaN(date) ? '—' : format(date, "MM/dd/yy hh:mm a");
 };
 
 /* ── Address parser ──────────────────────────────────────────────────────── */
@@ -594,7 +595,7 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
     <Paper elevation={0} sx={{ mb: 4, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${alpha(color, 0.15)}`, bgcolor: 'white' }}>
         <Box sx={{ p: 1.5, bgcolor: 'white', borderBottom: `1px solid ${alpha(color, 0.1)}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Typography sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Typography component="div" sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
                     {title}
                     <Chip size="small" label={tableSearch ? `${filteredCount}/${count}` : count}
                         sx={{ bgcolor: alpha(color, 0.08), color: PALETTE.TEXT, fontSize: '0.75rem', fontWeight: 500, height: '24px', '& .MuiChip-label': { px: 1.2, py: 0 } }} />
@@ -603,10 +604,10 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
             </Box>
             <Stack direction="row" spacing={1} alignItems="center">
                 {selectedCount > 0 ? (
-                    <Button variant="contained" color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
-                        sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 2, borderRadius: '6px', boxShadow: 'none' }}>
+                    <OutlineButton color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
+                        sx={{ height: '32px', px: 2, borderRadius: '6px' }}>
                         Trash Selected ({selectedCount})
-                    </Button>
+                    </OutlineButton>
                 ) : (
                     <TableSearchBar value={tableSearch} onChange={onTableSearch} color={color} placeholder={tableSearchPlaceholder || `Search ${title.toLowerCase()}…`} />
                 )}
@@ -1199,10 +1200,10 @@ export default function CustomerCenter() {
                         </Box>
                     )}
                     <RefreshButton onRefresh={rmeApi.startWorkOrdersTagsScraping} />
-                    <Button variant="outlined" size="small" startIcon={<History size={15} />} onClick={handleOpenBin}
-                        sx={{ textTransform: 'none', fontSize: '0.8rem', fontWeight: 500, height: '34px', px: 1.75, color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) } }}>
+                    <OutlineButton startIcon={<History size={15} />} onClick={handleOpenBin}
+                        sx={{ height: '34px', px: 1.75, color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) } }}>
                         Recycle Bin ({deleted.length})
-                    </Button>
+                    </OutlineButton>
                 </Stack>
             </Box>
 

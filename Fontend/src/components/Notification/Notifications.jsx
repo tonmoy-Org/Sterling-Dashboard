@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useRef } from 'react';
+import { formatRelativeDate, formatDate } from '../../utils/dateFormats';
 import {
   Box,
   Typography,
@@ -51,47 +52,7 @@ const ORANGE_COLOR = '#f59e0b';
 const INDIGO_COLOR = '#6366f1';
 const TEAL_COLOR = '#008080';
 
-const formatDate = (dateString) => {
-  if (!dateString) return '—';
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInDays === 0) {
-      return `Today at ${date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })}`;
-    } else if (diffInDays === 1) {
-      return `Yesterday at ${date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })}`;
-    } else if (diffInDays < 7) {
-      return `${date.toLocaleDateString('en-US', {
-        weekday: 'short',
-      })} at ${date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })}`;
-    }
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }).replace(',', '');
-  } catch (e) {
-    return '—';
-  }
-};
+const formatDateLabel = (dateString) => formatRelativeDate(dateString);
 
 const parseDashboardAddress = (fullAddress) => {
   if (!fullAddress) return { street: '', city: '', state: '', zip: '', original: '' };
@@ -258,7 +219,7 @@ export default function Notifications() {
             workOrderNumber: workOrder.wo || 'N/A',
             customerName: customerName,
             timestamp: createdDate,
-            formattedTime: formatDate(createdAt),
+            formattedTime: formatDateLabel(createdAt),
             icon: Wrench,
             color: statusColor,
             status: workOrder.status,
@@ -294,7 +255,7 @@ export default function Notifications() {
             address: 'System',
             customerName: 'System',
             timestamp: createdDate,
-            formattedTime: formatDate(createdAt),
+            formattedTime: formatDateLabel(createdAt),
             icon: BarChart3,
             color: GREEN_COLOR,
             status: 'completed',
@@ -324,7 +285,7 @@ export default function Notifications() {
             rating: review.rating,
             customerName: review.author_name || 'Customer',
             timestamp: createdDate,
-            formattedTime: formatDate(createdAt),
+            formattedTime: formatDateLabel(createdAt),
             icon: Star,
             color: ORANGE_COLOR,
             rawData: review,
@@ -355,7 +316,7 @@ export default function Notifications() {
             workOrderNumber: inv.workOrderNumber || 'N/A',
             customerName: inv.customerName || 'Unknown',
             timestamp: createdDate,
-            formattedTime: formatDate(createdAt),
+            formattedTime: formatDateLabel(createdAt),
             icon: FileText,
             color: TEAL_COLOR,
             rawData: inv,
@@ -417,28 +378,10 @@ export default function Notifications() {
   const groupedNotifications = useMemo(() => {
     const groups = {};
 
-    const formatGroupDate = (dateString) => {
-      const date = new Date(dateString);
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      if (date.toDateString() === today.toDateString()) {
-        return 'Today';
-      } else if (date.toDateString() === yesterday.toDateString()) {
-        return 'Yesterday';
-      } else {
-        return date.toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        });
-      }
-    };
+    const formatGroupDateLabel = (dateString) => formatDate(dateString);
 
     visibleNotifications.forEach((notification) => {
-      const dateKey = formatGroupDate(notification.timestamp);
+      const dateKey = formatGroupDateLabel(notification.timestamp);
       if (!groups[dateKey]) {
         groups[dateKey] = [];
       }

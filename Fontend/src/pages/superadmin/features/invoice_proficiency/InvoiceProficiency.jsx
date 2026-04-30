@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import OutlineButton from '../../../../components/ui/OutlineButton';
+import { format } from 'date-fns';
 import {
     Box, Typography, Paper, Grid, MenuItem, Select, FormControl,
     InputLabel, TextField, Chip, Table, TableBody, TableCell,
@@ -66,13 +68,17 @@ const thinScrollbar = (thumbColor = P.MUTED) => ({
 // ─── DATE HELPERS ─────────────────────────────────────────────────────────────
 const today = new Date();
 const toDateStr = (d) => d.toISOString().split('T')[0];
+
+const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    return isNaN(date) ? '—' : format(date, 'MM/dd/yy');
+};
+
 const formatDateTimeWithTZ = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
-    return isNaN(date) ? '—' : date.toLocaleString('en-US', {
-        month: '2-digit', day: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', hour12: true
-    });
+    return isNaN(date) ? '—' : format(date, 'MM/dd/yy hh:mm a');
 };
 
 const quickRanges = {
@@ -119,7 +125,7 @@ const profLabel = (val) => {
     return `${(val * 100).toFixed(0)}%`;
 };
 
-// ─── TABLE SEARCH BAR (EXACT MATCH FROM CUSTOMER CENTER) ───────────────────────
+// ─── TABLE SEARCH BAR ───────────────────────────────────────────────────────
 const TableSearchBar = ({ value, onChange, color, placeholder = 'Search…' }) => (
     <Box sx={{ position: 'relative', minWidth: 220 }}>
         <Box sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', zIndex: 1 }}>
@@ -147,7 +153,7 @@ const TableSearchBar = ({ value, onChange, color, placeholder = 'Search…' }) =
     </Box>
 );
 
-// ─── STAT CARD (EXACT MATCH FROM CUSTOMER CENTER) ──────────────────────────────
+// ─── STAT CARD ──────────────────────────────────────────────────────────────
 const StatCard = ({ icon: Icon, label, value, sub, accent = P.BLUE, accentBg = P.BLUE_SOFT }) => (
     <Paper elevation={0} sx={{ p: { xs: 2, sm: 2.5 }, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE, height: '100%' }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1.5 }}>
@@ -180,7 +186,7 @@ const ProfBadge = ({ value }) => (
     />
 );
 
-// ─── SECTION DIVIDER (EXACT MATCH) ────────────────────────────────────────────
+// ─── SECTION DIVIDER ────────────────────────────────────────────────────────
 const SectionLabel = ({ children, color = P.BLUE }) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
         <Box sx={{ width: 3, height: 14, borderRadius: 2, bgcolor: color }} />
@@ -253,7 +259,7 @@ const DrainFieldCard = ({ pass, fail }) => {
                     </Box>
                 </Box>
                 <Typography sx={{ fontSize: '0.65rem', color: P.MUTED, textAlign: 'center', mt: 1 }}>
-                    Based on task "4 - DRAIN FIELD" and priority "[3] EXCAVATOR"
+                    Based on task "4 - DRAIN FIELD" and priority "[3] EXCAVATOR (EXCAVATION)"
                 </Typography>
             </Box>
         </Paper>
@@ -286,7 +292,7 @@ const ErrorReportPanel = ({ errors }) => {
     );
 };
 
-// ─── WORK ORDER ROW (COMPACT, MATCHING CUSTOMER CENTER STYLES) ────────────────
+// ─── WORK ORDER ROW (WITH TASK IN EXPANDABLE VIEW ONLY) ────────────────────────
 const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -337,12 +343,12 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                         </Box>
                         <Box>
                             <Typography sx={{ fontSize: '0.62rem', color: P.MUTED, textTransform: 'uppercase', fontWeight: 600 }}>Date</Typography>
-                            <Typography sx={{ fontSize: '0.78rem', color: P.TEXT }}>{wo.completedDate}</Typography>
+                            <Typography sx={{ fontSize: '0.78rem', color: P.TEXT }}>{formatDate(wo.completedDate)}</Typography>
                         </Box>
                         <Box>
                             <Typography sx={{ fontSize: '0.62rem', color: P.MUTED, textTransform: 'uppercase', fontWeight: 600 }}>Worked / Worth</Typography>
                             <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: P.TEXT }}>
-                                {wo.hoursWorked ? `${wo.hoursWorked}h` : '—'} / {wo.worthHours ? `${wo.worthHours}h` : '—'}
+                                {wo.hoursWorked ? `${Math.round(wo.hoursWorked * 60 * 1000) / 1000}min` : '—'} / {wo.worthHours ? `${Math.round(wo.worthHours * 60 * 1000) / 1000}min` : '—'}
                             </Typography>
                         </Box>
                         <Box>
@@ -367,7 +373,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                         <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px solid ${P.BORDER}` }}>
                             {hasError && (
                                 <Alert severity="error" sx={{ mb: 1.5, fontSize: '0.72rem', py: 0.5, borderRadius: '6px' }}>
-                                    Date mismatch: {wo.completedDate} vs {wo.invoiceDate} ({wo.dateDiff} days apart)
+                                    Date mismatch: {formatDate(wo.completedDate)} vs {formatDate(wo.invoiceDate)} ({wo.dateDiff} days apart)
                                 </Alert>
                             )}
                             <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: P.MUTED, mb: 1 }}>Task</Typography>
@@ -384,7 +390,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                             <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Qty: {item.qty}</Typography>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Rate: ${item.rate}</Typography>
-                                                <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Worth: {item.worth}h</Typography>
+                                                <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Worth: {item.worth ? `${Math.round(item.worth * 60 * 1000) / 1000}min` : '—'}</Typography>
                                             </Box>
                                         </Box>
                                     ))}
@@ -399,7 +405,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
         );
     }
 
-    // Desktop view
+    // Desktop view - Task removed from columns, only in expanded section
     return (
         <>
             <TableRow
@@ -427,7 +433,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                             {wo.workOrderNumber}
                         </Typography>
                         {hasError && (
-                            <Tooltip title={`Date mismatch: WO completed ${wo.completedDate}, Invoice dated ${wo.invoiceDate} (>${wo.dateDiff}d apart)`}>
+                            <Tooltip title={`Date mismatch: WO completed ${formatDate(wo.completedDate)}, Invoice dated ${formatDate(wo.invoiceDate)} (>${wo.dateDiff}d apart)`}>
                                 <AlertTriangle size={10} color={P.RED} />
                             </Tooltip>
                         )}
@@ -450,18 +456,13 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                     }} />
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
-                    <Typography sx={{ fontSize: '0.78rem', color: P.TEXT, maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {wo.task}
-                    </Typography>
+                    <Typography sx={{ fontSize: '0.78rem', color: P.MUTED }}>{formatDate(wo.completedDate)}</Typography>
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
-                    <Typography sx={{ fontSize: '0.78rem', color: P.MUTED }}>{wo.completedDate}</Typography>
+                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.TEXT }}>{wo.hoursWorked ? `${Math.round(wo.hoursWorked * 60 * 1000) / 1000}min` : '—'}</Typography>
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
-                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.TEXT }}>{wo.hoursWorked ? `${wo.hoursWorked}h` : '—'}</Typography>
-                </TableCell>
-                <TableCell sx={{ py: 0.5 }}>
-                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.TEXT }}>{wo.worthHours ? `${wo.worthHours}h` : '—'}</Typography>
+                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.TEXT }}>{wo.worthHours ? `${Math.round(wo.worthHours * 60 * 1000) / 1000}min` : '—'}</Typography>
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
                     <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.GREEN }}>
@@ -482,14 +483,14 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                 </TableCell>
             </TableRow>
 
-            {/* Expanded detail row */}
+            {/* Expanded detail row - Task appears here */}
             <TableRow>
-                <TableCell colSpan={showTech ? 12 : 11} sx={{ py: 0, border: 0, bgcolor: '#FAFAFB' }}>
+                <TableCell colSpan={showTech ? 11 : 10} sx={{ py: 0, border: 0, bgcolor: '#FAFAFB' }}>
                     <Collapse in={open} timeout="auto" unmountOnExit>
                         <Box sx={{ p: 1.5, borderBottom: `1px solid ${P.BORDER}` }}>
                             {hasError && (
                                 <Alert severity="error" sx={{ mb: 1.5, fontSize: '0.72rem', py: 0.5, borderRadius: '6px' }}>
-                                    Date mismatch: Work order completed on {wo.completedDate} but invoice dated {wo.invoiceDate} ({wo.dateDiff} days apart — exceeds 5-day threshold).
+                                    Date mismatch: Work order completed on {formatDate(wo.completedDate)} but invoice dated {formatDate(wo.invoiceDate)} ({wo.dateDiff} days apart — exceeds 5-day threshold).
                                 </Alert>
                             )}
                             <Grid container spacing={3}>
@@ -499,10 +500,11 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                         {[
                                             ['Customer', wo.customerName],
                                             ['Work Order #', wo.workOrderNumber],
-                                            ['Completed', wo.completedDate],
-                                            ['Invoice Date', wo.invoiceDate],
-                                            ['Worked Time', wo.hoursWorked ? `${wo.hoursWorked}h` : '—'],
-                                            ['Worth Time', wo.worthHours ? `${wo.worthHours}h` : '—'],
+                                            ['Task', wo.task],
+                                            ['Completed', formatDate(wo.completedDate)],
+                                            ['Invoice Date', formatDate(wo.invoiceDate)],
+                                            ['Worked Time', wo.hoursWorked ? `${Math.round(wo.hoursWorked * 60 * 1000) / 1000}min` : '—'],
+                                            ['Worth Time', wo.worthHours ? `${Math.round(wo.worthHours * 60 * 1000) / 1000}min` : '—'],
                                         ].map(([k, v]) => (
                                             <Box key={k}>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED, textTransform: 'uppercase', mb: 0.25 }}>{k}</Typography>
@@ -536,7 +538,15 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                                         <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, color: P.TEXT }}>{item.description}</TableCell>
                                                         <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, color: P.TEXT }}>{item.qty}</TableCell>
                                                         <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, color: P.TEXT }}>{item.rate ? `$${item.rate}` : '—'}</TableCell>
-                                                        <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, color: P.TEXT }}>{item.worth ? `${item.worth}h` : '—'}</TableCell>
+                                                        <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, color: P.TEXT }}>
+                                                            {item.breakdown ? (
+                                                                <Typography component="span" sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.PURPLE }}>
+                                                                    {item.breakdown}
+                                                                </Typography>
+                                                            ) : (
+                                                                item.worth ? `${Math.round(item.worth * 60 * 1000) / 1000}min` : '—'
+                                                            )}
+                                                        </TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
@@ -560,7 +570,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
     );
 };
 
-// ─── RECYCLE BIN MODAL (MATCHING EXACT STRUCTURE) ─────────────────────────────
+// ─── RECYCLE BIN MODAL ─────────────────────────────────────────────────────────
 const RecycleBinModal = ({ open, onClose, items, onRestore, onPermanentDelete, onBulkRestore, onBulkPermanentDelete }) => {
     const [search, setSearch] = useState('');
     const [selected, setSelected] = useState(new Set());
@@ -607,7 +617,9 @@ const RecycleBinModal = ({ open, onClose, items, onRestore, onPermanentDelete, o
                             else pageItems.forEach(i => selected.add(i.id));
                             setSelected(new Set(selected));
                         }} sx={{ padding: '4px', color: alpha(P.PURPLE, 0.4), '&.Mui-checked': { color: P.PURPLE } }} />
-                        <TableSearchBar value={search} onChange={v => { setSearch(v); setPage(0); }} color={P.PURPLE} placeholder="Search deleted items…" />
+                        {selected.size === 0 && (
+                            <TableSearchBar value={search} onChange={v => { setSearch(v); setPage(0); }} color={P.PURPLE} placeholder="Search deleted items…" />
+                        )}
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <Button variant="outlined" size="small" startIcon={<RotateCcw size={12} />} onClick={() => { onBulkRestore([...selected]); setSelected(new Set()); }} disabled={selected.size === 0}
@@ -637,11 +649,35 @@ const RecycleBinModal = ({ open, onClose, items, onRestore, onPermanentDelete, o
                         <TableBody>
                             {pageItems.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} sx={{ py: 6, textAlign: 'center' }}>
-                                        <History size={32} color={alpha(P.MUTED, 0.3)} style={{ marginBottom: 8 }} />
-                                        <Typography variant="body2" sx={{ color: P.MUTED, fontSize: '0.85rem' }}>
-                                            {search ? 'No matching deleted items' : 'No deleted items'}
-                                        </Typography>
+                                    <TableCell
+                                        colSpan={7}
+                                        sx={{
+                                            py: 6,
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                display: 'flex',
+                                                flexDirection: 'column', 
+                                                alignItems: 'center',        
+                                                justifyContent: 'center',
+                                            }}
+                                        >
+                                            <Box>
+                                                <History
+                                                    size={32}
+                                                    color={alpha(P.MUTED, 0.3)}
+                                                    style={{ marginBottom: 8 }}
+                                                />
+                                            </Box>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{ color: P.MUTED, fontSize: '0.85rem' }}
+                                            >
+                                                {search ? 'No matching deleted items' : 'No deleted items'}
+                                            </Typography>
+                                        </Box>
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -704,6 +740,10 @@ export const InvoiceProficiency = () => {
     const { user } = useAuth();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+    // Pagination state for main table - set to 10 rows per page by default
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const [selectedTech, setSelectedTech] = useState('');
     const [quickRange, setQuickRange] = useState('Last Week');
@@ -830,6 +870,7 @@ export const InvoiceProficiency = () => {
         return { validWOs: valid, errorWOs: errors, allForTech: all };
     }, [rawData, selectedTech, resolvedRange]);
 
+    // Search filtering
     const searchedWOs = useMemo(() => {
         if (!search) return allForTech;
         const low = search.toLowerCase();
@@ -841,15 +882,26 @@ export const InvoiceProficiency = () => {
         );
     }, [allForTech, search]);
 
+    // Reset page when search or filters change
+    React.useEffect(() => {
+        setPage(0);
+    }, [search, selectedTech, quickRange, dateFrom, dateTo]);
+
+    // Paginated data - fixed to show exactly rowsPerPage (10 by default) items
+    const paginatedWOs = useMemo(() => {
+        const start = page * rowsPerPage;
+        return searchedWOs.slice(start, start + rowsPerPage);
+    }, [searchedWOs, page, rowsPerPage]);
+
     const stats = useMemo(() => {
         const totalWOs = validWOs.length;
         const proficiencies = validWOs.map(w => w.proficiency).filter(p => p !== null && p !== undefined);
         const avgProf = proficiencies.length ? proficiencies.reduce((a, b) => a + b, 0) / proficiencies.length : null;
         const totals = validWOs.map(w => w.invoiceTotal).filter(t => t !== null && t !== undefined);
         const avgDollar = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null;
-        const totalWorthHours = validWOs.reduce((a, b) => a + (b.worthHours ?? 0), 0);
-        const totalWorkedHours = validWOs.reduce((a, b) => a + (b.hoursWorked ?? 0), 0);
-        return { totalWOs, avgProf, avgDollar, totalWorthHours, totalWorkedHours };
+        const totalWorthMinutes = validWOs.reduce((a, b) => a + ((b.worthHours ?? 0) * 60), 0);
+        const totalWorkedMinutes = validWOs.reduce((a, b) => a + ((b.hoursWorked ?? 0) * 60), 0);
+        return { totalWOs, avgProf, avgDollar, totalWorthMinutes, totalWorkedMinutes };
     }, [validWOs]);
 
     const categoryRows = useMemo(() => {
@@ -891,8 +943,8 @@ export const InvoiceProficiency = () => {
     };
 
     const toggleAll = () => {
-        if (selected.size === searchedWOs.length) setSelected(new Set());
-        else setSelected(new Set(searchedWOs.map(w => w.id)));
+        if (selected.size === paginatedWOs.length) setSelected(new Set());
+        else setSelected(new Set(paginatedWOs.map(w => w.id)));
     };
 
     const handleDeleteClick = (id) => setConfirmDelete({ open: true, id, bulk: false });
@@ -922,6 +974,9 @@ export const InvoiceProficiency = () => {
 
     if (isLoading) return <DashboardLoader />;
 
+    // Table column count based on whether technician column is shown
+    const colSpan = selectedTech === 'All Technicians' ? 11 : 10;
+
     return (
         <Box>
             <Helmet>
@@ -948,10 +1003,10 @@ export const InvoiceProficiency = () => {
                         </Box>
                     )}
                     <RefreshButton onRefresh={rmeApi.startInvoiceProficiencyScraping} />
-                    <Button variant="outlined" size="small" startIcon={<History size={15} />} onClick={() => setTrashOpen(true)}
-                        sx={{ textTransform: 'none', fontSize: '0.8rem', fontWeight: 500, height: '34px', px: 1.75, color: P.PURPLE, borderColor: alpha(P.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: P.PURPLE, bgcolor: alpha(P.PURPLE, 0.05) } }}>
+                    <OutlineButton startIcon={<History size={15} />} onClick={() => setTrashOpen(true)}
+                        sx={{ height: '34px', px: 1.75, color: P.PURPLE, borderColor: alpha(P.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: P.PURPLE, bgcolor: alpha(P.PURPLE, 0.05) } }}>
                         Recycle Bin ({trashedRecords.length})
-                    </Button>
+                    </OutlineButton>
                 </Stack>
             </Box>
 
@@ -967,6 +1022,7 @@ export const InvoiceProficiency = () => {
                                 onChange={e => setSelectedTech(e.target.value)}
                                 sx={{ fontSize: '0.78rem', borderRadius: '6px' }}
                                 startAdornment={<Users size={14} color={P.MUTED} style={{ marginRight: 6 }} />}
+                                MenuProps={{ disableScrollLock: true }}
                             >
                                 {technicians.map(t => <MenuItem key={t} value={t} sx={{ fontSize: '0.78rem' }}>{t}</MenuItem>)}
                             </Select>
@@ -981,6 +1037,7 @@ export const InvoiceProficiency = () => {
                                 onChange={e => setQuickRange(e.target.value)}
                                 sx={{ fontSize: '0.78rem', borderRadius: '6px' }}
                                 startAdornment={<Calendar size={14} color={P.MUTED} style={{ marginRight: 6 }} />}
+                                MenuProps={{ disableScrollLock: true }}
                             >
                                 {['Manual Entry', 'All Time', 'Last Week', 'Last Month', 'Last Quarter', 'Last Year'].map(r => <MenuItem key={r} value={r} sx={{ fontSize: '0.78rem' }}>{r}</MenuItem>)}
                             </Select>
@@ -1006,16 +1063,16 @@ export const InvoiceProficiency = () => {
                     {/* STAT CARDS */}
                     <Grid container spacing={1.5} sx={{ mb: { xs: 2, sm: 3 } }}>
                         <Grid size={{ xs: 6, sm: 4, md: 3 }}>
-                            <StatCard icon={BarChart2} label="Total WOs" value={stats.totalWOs} sub={`${stats.totalWorthHours.toFixed(0)}h Worth`} accent={P.BLUE} accentBg={P.BLUE_SOFT} />
+                            <StatCard icon={BarChart2} label="Total WOs" value={stats.totalWOs} sub={`${stats.totalWorthMinutes.toFixed(0)}min Worth`} accent={P.BLUE} accentBg={P.BLUE_SOFT} />
                         </Grid>
                         <Grid size={{ xs: 6, sm: 4, md: 3 }}>
-                            <StatCard icon={Zap} label="Avg Proficiency" value={stats.avgProf !== null ? profLabel(stats.avgProf) : '—'} sub={`${stats.totalWorkedHours.toFixed(0)}h Worked`} accent={stats.avgProf !== null ? profColor(stats.avgProf) : P.MUTED} accentBg={stats.avgProf !== null ? profBg(stats.avgProf) : '#F2F4F7'} />
+                            <StatCard icon={Zap} label="Avg Proficiency" value={stats.avgProf !== null ? profLabel(stats.avgProf) : '—'} sub={`${stats.totalWorkedMinutes.toFixed(1)}min Worked`} accent={stats.avgProf !== null ? profColor(stats.avgProf) : P.MUTED} accentBg={stats.avgProf !== null ? profBg(stats.avgProf) : '#F2F4F7'} />
                         </Grid>
                         <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                             <StatCard icon={DollarSign} label="Avg Invoice" value={stats.avgDollar !== null ? `$${stats.avgDollar.toFixed(0)}` : '—'} sub="Average amount" accent={P.GREEN} accentBg={P.GREEN_SOFT} />
                         </Grid>
                         <Grid size={{ xs: 6, sm: 4, md: 3 }}>
-                            <StatCard icon={Clock} label="Worked Hours" value={`${stats.totalWorkedHours.toFixed(1)}h`} sub="Cumulative time" accent={P.AMBER} accentBg={alpha(P.AMBER, 0.1)} />
+                            <StatCard icon={Clock} label="Worked Minutes" value={`${stats.totalWorkedMinutes.toFixed(1)}min`} sub="Cumulative time" accent={P.AMBER} accentBg={alpha(P.AMBER, 0.1)} />
                         </Grid>
                     </Grid>
 
@@ -1055,19 +1112,19 @@ export const InvoiceProficiency = () => {
                                 <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: P.TEXT }}>Work Orders</Typography>
                                 <Chip label={searchedWOs.length} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: P.BLUE_SOFT, color: P.BLUE, fontWeight: 600 }} />
                             </Box>
-                            
+
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 {selected.size > 0 ? (
-                                    <Button 
-                                        variant="contained" 
-                                        color="error" 
-                                        size="small" 
-                                        startIcon={<Trash2 size={14} />} 
-                                        onClick={handleBulkDeleteClick} 
-                                        sx={{ 
-                                            height: 32, 
-                                            fontSize: '0.78rem', 
-                                            textTransform: 'none', 
+                                    <Button
+                                        variant="contained"
+                                        color="error"
+                                        size="small"
+                                        startIcon={<Trash2 size={14} />}
+                                        onClick={handleBulkDeleteClick}
+                                        sx={{
+                                            height: 32,
+                                            fontSize: '0.78rem',
+                                            textTransform: 'none',
                                             borderRadius: '6px',
                                             boxShadow: 'none',
                                             '&:hover': { boxShadow: 'none', bgcolor: P.RED }
@@ -1081,56 +1138,76 @@ export const InvoiceProficiency = () => {
                             </Box>
                         </Box>
 
-                        {!isMobile ? (
-                            <TableContainer sx={{ maxHeight: '550px', overflow: 'auto', ...thinScrollbar(P.BLUE) }}>
-                                <Table stickyHeader size="small">
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: alpha(P.BLUE, 0.04), '& th': { borderBottom: `2px solid ${alpha(P.BLUE, 0.1)}`, fontWeight: 600, fontSize: '0.75rem', color: P.TEXT, py: 1.5, whiteSpace: 'nowrap' } }}>
-                                            <TableCell padding="checkbox" sx={{ pl: 2, width: 40 }}>
-                                                <Checkbox size="small" checked={searchedWOs.length > 0 && selected.size === searchedWOs.length} onChange={toggleAll} sx={{ color: P.TEXT, padding: '4px' }} />
+                        {/* Fixed height table container showing exactly rowsPerPage (10) items */}
+                        <TableContainer sx={{ height: 'auto', maxHeight: 'calc(52px * 10 + 52px)', overflow: 'auto', ...thinScrollbar(P.BLUE) }}>
+                            <Table stickyHeader size="small">
+                                <TableHead>
+                                    <TableRow sx={{ bgcolor: alpha(P.BLUE, 0.04), '& th': { borderBottom: `2px solid ${alpha(P.BLUE, 0.1)}`, fontWeight: 600, fontSize: '0.75rem', color: P.TEXT, py: 1.5, whiteSpace: 'nowrap' } }}>
+                                        <TableCell padding="checkbox" sx={{ pl: 2, width: 40 }}>
+                                            <Checkbox
+                                                size="small"
+                                                checked={paginatedWOs.length > 0 && selected.size === paginatedWOs.length}
+                                                indeterminate={selected.size > 0 && selected.size < paginatedWOs.length}
+                                                onChange={toggleAll}
+                                                sx={{ color: P.TEXT, padding: '4px' }}
+                                            />
+                                        </TableCell>
+                                        <TableCell sx={{ width: 36 }} />
+                                        <TableCell>Work Order</TableCell>
+                                        {selectedTech === 'All Technicians' && <TableCell>Technician</TableCell>}
+                                        <TableCell>Priority</TableCell>
+                                        <TableCell>Date</TableCell>
+                                        <TableCell>Worked (min)</TableCell>
+                                        <TableCell>Worth (min)</TableCell>
+                                        <TableCell>Invoice</TableCell>
+                                        <TableCell>Prof</TableCell>
+                                        <TableCell align="right" sx={{ pr: 2 }} />
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {paginatedWOs.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={colSpan} sx={{ textAlign: 'center', py: 6 }}>
+                                                <Search size={24} color={alpha(P.TEXT, 0.2)} />
+                                                <Typography sx={{ fontSize: '0.85rem', color: P.MUTED, mt: 1 }}>No matching records found.</Typography>
                                             </TableCell>
-                                            <TableCell sx={{ width: 36 }} />
-                                            <TableCell>Work Order</TableCell>
-                                            {selectedTech === 'All Technicians' && <TableCell>Technician</TableCell>}
-                                            <TableCell>Priority</TableCell>
-                                            <TableCell>Task</TableCell>
-                                            <TableCell>Date</TableCell>
-                                            <TableCell>Worked</TableCell>
-                                            <TableCell>Worth</TableCell>
-                                            <TableCell>Invoice</TableCell>
-                                            <TableCell>Prof</TableCell>
-                                            <TableCell align="right" sx={{ pr: 2 }} />
                                         </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {searchedWOs.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={selectedTech === 'All Technicians' ? 12 : 11} sx={{ textAlign: 'center', py: 6 }}>
-                                                    <Search size={24} color={alpha(P.TEXT, 0.2)} />
-                                                    <Typography sx={{ fontSize: '0.85rem', color: P.MUTED, mt: 1 }}>No matching records found.</Typography>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            searchedWOs.map(wo => (
-                                                <WorkOrderRow key={wo.id} wo={wo} isSelected={selected.has(wo.id)} onToggle={() => toggleSelect(wo.id)} onDelete={handleDeleteClick} showTech={selectedTech === 'All Technicians'} />
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        ) : (
-                            <Box sx={{ p: 1.5, maxHeight: '550px', overflow: 'auto', ...thinScrollbar() }}>
-                                {searchedWOs.length === 0 ? (
-                                    <Box sx={{ textAlign: 'center', py: 6 }}>
-                                        <Search size={28} color={alpha(P.TEXT, 0.2)} />
-                                        <Typography sx={{ fontSize: '0.85rem', color: P.MUTED, mt: 1 }}>No matching records found.</Typography>
-                                    </Box>
-                                ) : (
-                                    searchedWOs.map(wo => (
-                                        <WorkOrderRow key={wo.id} wo={wo} isSelected={selected.has(wo.id)} onToggle={() => toggleSelect(wo.id)} onDelete={handleDeleteClick} showTech={selectedTech === 'All Technicians'} />
-                                    ))
-                                )}
-                            </Box>
+                                    ) : (
+                                        paginatedWOs.map(wo => (
+                                            <WorkOrderRow
+                                                key={wo.id}
+                                                wo={wo}
+                                                isSelected={selected.has(wo.id)}
+                                                onToggle={() => toggleSelect(wo.id)}
+                                                onDelete={handleDeleteClick}
+                                                showTech={selectedTech === 'All Technicians'}
+                                            />
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+
+                        {/* Pagination - shows 10 rows per page by default */}
+                        {searchedWOs.length > 0 && (
+                            <TablePagination
+                                rowsPerPageOptions={[5, 10, 25, 50]}
+                                component="div"
+                                count={searchedWOs.length}
+                                rowsPerPage={rowsPerPage}
+                                page={page}
+                                onPageChange={(e, p) => setPage(p)}
+                                onRowsPerPageChange={e => {
+                                    setRowsPerPage(parseInt(e.target.value, 10));
+                                    setPage(0);
+                                }}
+                                sx={{
+                                    borderTop: `1px solid ${alpha(P.BLUE, 0.08)}`,
+                                    bgcolor: '#fafbfc',
+                                    '& .MuiTablePagination-toolbar': { minHeight: '44px' },
+                                    '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: '0.78rem', color: P.MUTED }
+                                }}
+                            />
                         )}
                     </Paper>
                 </>
@@ -1184,7 +1261,7 @@ export const InvoiceProficiency = () => {
                 icon={<AlertCircle size={16} />}
             >
                 <Typography sx={{ fontSize: '0.85rem', color: P.TEXT }}>
-                    Are you sure you want to permanently delete {confirmPermanent.bulk ? `${confirmPermanent.deleteIds.length} items` : 'this record'}? 
+                    Are you sure you want to permanently delete {confirmPermanent.bulk ? `${confirmPermanent.deleteIds.length} items` : 'this record'}?
                     This action <strong style={{ color: P.RED }}>cannot</strong> be undone.
                 </Typography>
             </CommonDialog>

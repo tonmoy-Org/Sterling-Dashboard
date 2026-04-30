@@ -1,508 +1,787 @@
 """
 Invoice Proficiency Scraper
 Scrapes invoice proficiency/performance data from the FieldEdge dashboard.
+
+FIXES:
+  1. Duplicate item/invoice rows — deduplicated by item_code ONLY (keeps the
+     row with the highest total_sold). Same item code appearing with qty=1 and
+     qty=2 is collapsed to ONE record — the one with the real dollar value.
+  2. Items with blank description AND blank item code are discarded (not saved).
+  3. Description is ALWAYS persisted — extracted with full innerText, newlines
+     converted to spaces, never truncated or silently dropped. Falls back to
+     Column_1, Column_2, Column_4, Column_5 when header detection fails.
+  4. parse_worked_time handles FieldEdge "Xh YYm" format.
+  5. Header detection falls back to Column_N index so added columns
+     (Invoice, Assignment Completed) are always found.
+  6. WO normalisation strips leading zeros / # so cross-table join never misses.
+  7. Scroll waits for stable row count before extracting.
 """
+
 import time as _time
 import traceback
-from datetime import datetime
+import re
+import json
+from datetime import datetime, timedelta
+
 from asgiref.sync import sync_to_async
 from django.utils import timezone
+
 from automation.scrapers.base_scraper import BaseScraper
 
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _normalise_wo(raw: str) -> str:
+    """Strip whitespace, #, commas and leading zeros for reliable WO matching."""
+    cleaned = str(raw).strip().replace('#', '').replace(',', '').strip()
+    stripped = re.sub(r'^0+', '', cleaned)
+    return stripped if stripped else cleaned
+
+
+def parse_worked_time(time_str: str) -> float:
+    """
+    Convert raw FieldEdge time string to decimal hours.
+
+    Supported formats:
+      "1h 31m"  -> 1.517 h
+      "0h 17m"  -> 0.284 h
+      "01:30"   -> 1.500 h
+      "90"      -> 1.503 h  (integer = minutes)
+      "1.5"     -> 1.500 h  (decimal = hours)
+      "" / None -> 0.0
+    """
+    if not time_str:
+        return 0.0
+    time_str = str(time_str).strip()
+    try:
+        # 1. "Xh YYm"
+        hm = re.match(r'(\d+)\s*h\s*(\d+)\s*m', time_str, re.IGNORECASE)
+        if hm:
+            return round(int(hm.group(1)) + int(hm.group(2)) * 0.0167, 4)
+        # 2. "Xh" only
+        h_only = re.match(r'^(\d+)\s*h$', time_str, re.IGNORECASE)
+        if h_only:
+            return float(h_only.group(1))
+        # 3. HH:MM
+        if ':' in time_str:
+            parts = time_str.split(':')
+            return round(float(parts[0]) + (float(parts[1]) if len(parts) > 1 else 0.0) * 0.0167, 4)
+        # 4. Decimal = hours
+        if '.' in time_str:
+            return round(float(re.sub(r'[^0-9.]', '', time_str)), 4)
+        # 5. Integer = minutes
+        minutes = float(re.sub(r'[^0-9]', '', time_str) or '0')
+        exact = {15: 0.25, 30: 0.5, 60: 1.0, 90: 1.5, 120: 2.0}
+        return exact.get(minutes, round(minutes * 0.0167, 4))
+    except Exception as exc:
+        print(f"DEBUG parse_worked_time: cannot parse '{time_str}': {exc}")
+        return 0.0
+
+
+def _dedup_items_by_code(raw_items: list) -> list:
+    """
+    Collapse duplicate item rows by item_code — keeps the row with the
+    highest total_sold value.
+
+    Problem this solves:
+      FieldEdge sometimes emits the same item code twice on the same WO
+      (e.g. 0PP1SEP--1HR with qty=1/no rate AND qty=2/$1198). The old dedup
+      used (item, description, qty, total_sold) as the key, so those two rows
+      looked different and BOTH were saved. Now we key on item_code alone and
+      keep whichever row has the real dollar value.
+
+    Items with a blank code are kept as-is (they may be free-text lines).
+    """
+    best_by_code: dict = {}   # item_code_upper -> (item_dict, total_sold_float)
+    blank_code_items: list = []
+
+    for item in raw_items:
+        item_code = (
+            item.get("Item") or
+            item.get("Item Name") or
+            item.get("Column_3") or
+            ""
+        ).strip()
+
+        total_sold_raw = str(
+            item.get("Total Sold") or item.get("Column_9") or "0"
+        )
+        try:
+            total_sold = float(re.sub(r'[^0-9.]', '', total_sold_raw)) if total_sold_raw else 0.0
+        except Exception:
+            total_sold = 0.0
+
+        if not item_code:
+            # Blank-code lines: keep all (they're free-text description rows)
+            blank_code_items.append(item)
+            continue
+
+        key = item_code.upper()
+        if key not in best_by_code or total_sold > best_by_code[key][1]:
+            best_by_code[key] = (item, total_sold)
+
+    deduped = [v[0] for v in best_by_code.values()] + blank_code_items
+    removed = len(raw_items) - len(deduped)
+    if removed > 0:
+        print(f"DEBUG _dedup_items_by_code: removed {removed} duplicate item row(s).")
+    return deduped
+
+
+# ---------------------------------------------------------------------------
+# Scraper
+# ---------------------------------------------------------------------------
 
 class InvoiceProficiencyScraper(BaseScraper):
     """
     Scraper for FieldEdge Invoice Proficiency reports.
     Inherits common browser automation from BaseScraper.
     """
-    
+
     def __init__(self):
-        """Initialize Invoice Proficiency scraper."""
         super().__init__()
 
-    async def scrape_report_table(self):
+    # ------------------------------------------------------------------
+    # Scroll / stability helpers
+    # ------------------------------------------------------------------
+
+    async def _wait_for_stable_rows(self, timeout_s: int = 60) -> None:
+        """Poll until tbody.fixed-body row count stops changing for ~1.5 s."""
+        deadline     = _time.time() + timeout_s
+        prev_count   = -1
+        stable_ticks = 0
+        while _time.time() < deadline:
+            count = await self.page.evaluate(
+                "() => document.querySelectorAll('tbody.fixed-body tr').length"
+            )
+            if count == prev_count:
+                stable_ticks += 1
+                if stable_ticks >= 3:
+                    print(f"DEBUG: Row count stable at {count}.")
+                    return
+            else:
+                stable_ticks = 0
+                prev_count   = count
+            await self.page.wait_for_timeout(500)
+        print(f"DEBUG: Row count did not stabilise within {timeout_s}s (last={prev_count}).")
+
+    async def _scroll_table_fully(self) -> None:
+        """Scroll all known FieldEdge viewport selectors to force virtual-render."""
+        selectors = [
+            "tbody.fixed-body",
+            ".fixed-body-container",
+            ".kgViewport",
+            ".grid-viewport",
+        ]
+        for sel in selectors:
+            try:
+                exists = await self.page.evaluate(
+                    f"() => !!document.querySelector('{sel}')"
+                )
+                if not exists:
+                    continue
+                for _ in range(10):
+                    await self.page.evaluate(
+                        f"() => {{ const el = document.querySelector('{sel}'); if (el) el.scrollTop += 1500; }}"
+                    )
+                    await self.page.wait_for_timeout(300)
+                await self.page.evaluate(
+                    f"() => {{ const el = document.querySelector('{sel}'); if (el) el.scrollTop = 0; }}"
+                )
+                await self.page.wait_for_timeout(500)
+                print(f"DEBUG: Scrolled '{sel}'.")
+            except Exception as exc:
+                print(f"DEBUG: Scroll error '{sel}': {exc}")
+
+    # ------------------------------------------------------------------
+    # Core table scraper
+    # ------------------------------------------------------------------
+
+    async def scrape_report_table(self) -> list:
         """
-        Scrape records from the main fixed-body table.
-        Detects boolean checkmark icons and returns rows as dictionaries mapped to headers.
+        Scrape ALL rows from the fixed-body table.
+
+        Every cell is stored under BOTH its named header key AND its
+        Column_N fallback key so downstream lookups never fail when
+        headers are missing or mis-indexed.
         """
         try:
-            # FieldEdge lists usually use tbody.fixed-body or .kgViewport
             await self.page.wait_for_selector(
-                "tbody.fixed-body tr, .kgRow, .table-row", state="attached", timeout=60000
+                "tbody.fixed-body tr, .kgRow",
+                state="attached",
+                timeout=60_000,
             )
-            # Also try to wait for header text to be present
-            await self.page.wait_for_timeout(2000)
-        except Exception as e:
-            print(f"Error waiting for table rows: {e}")
+        except Exception as exc:
+            print(f"ERROR: Timed out waiting for rows: {exc}")
             return []
 
+        # Try to show max rows
         try:
-            data = await self.page.evaluate(
-                r"""() => {
-                const results = [];
-                try {
-                    // Try to find headers with multiple strategies
+            dropdowns = await self.page.query_selector_all(
+                "select.input-sm, select[ng-model*='pageSize'], .page-size-selector select"
+            )
+            for drop in dropdowns:
+                await drop.select_option("100")
+                await self.page.wait_for_timeout(1500)
+                print("DEBUG: Set rows-per-page to 100.")
+        except Exception:
+            pass
+
+        await self._scroll_table_fully()
+        await self._wait_for_stable_rows()
+
+        try:
+            data = await self.page.evaluate(r"""
+                () => {
+                    const results = [];
+
+                    // ── Header detection ──────────────────────────────
                     let headers = [];
-                    
-                    // Strategy 1: Look for common FieldEdge/ko-grid header classes
-                    const kgHeaders = document.querySelectorAll('.kgHeaderCell .kgHeaderText, .kgHeaderRow div, .header-cell-text');
-                    if (kgHeaders.length > 0) {
-                        headers = Array.from(kgHeaders).map(el => el.innerText.trim()).filter(h => h !== "");
+                    const thEls = document.querySelectorAll(
+                        'thead th, .fixed-header th, .kgHeaderCell .kgHeaderText'
+                    );
+                    if (thEls.length > 0) {
+                        headers = Array.from(thEls)
+                            .map(el => el.innerText.replace(/\s+/g, ' ').trim())
+                            .filter(h => h !== '');
                     }
-                    
-                    // Strategy 2: Look for role-based headers
                     if (headers.length === 0) {
-                        const roleHeaders = document.querySelectorAll('[role="columnheader"]');
-                        if (roleHeaders.length > 0) {
-                            headers = Array.from(roleHeaders).map(el => el.innerText.trim()).filter(h => h !== "");
-                        }
+                        const rh = document.querySelectorAll('[role="columnheader"]');
+                        headers = Array.from(rh)
+                            .map(el => el.innerText.replace(/\s+/g, ' ').trim())
+                            .filter(h => h !== '');
                     }
 
-                    // Strategy 3: Standard table headers
-                    if (headers.length === 0) {
-                        const thHeaders = document.querySelectorAll('th, .fixed-header th');
-                        headers = Array.from(thHeaders).map(el => el.innerText.trim()).filter(h => h !== "");
-                    }
-
-                    const rows = document.querySelectorAll('tbody.fixed-body tr, .kgRow, .table-row');
+                    // ── Row extraction ────────────────────────────────
+                    const rows = document.querySelectorAll('tbody.fixed-body tr, .kgRow');
                     for (let i = 0; i < rows.length; i++) {
                         const row = rows[i];
-                        const cells = row.querySelectorAll('td, .kgCell, .table-cell');
-                        if (cells.length > 0) {
-                            const rowDict = {};
-                            Array.from(cells).forEach((td, index) => {
-                                let value = td.innerText.replace(/\s+/g, ' ').trim();
-                                
-                                // Detect Checkmarks (FieldEdge success icons)
-                                const checkImg = td.querySelector('img[src*="success-checkmark"]');
-                                let hasCheckmark = false;
-                                
-                                if (checkImg) {
-                                    // Check if the image or its parent container is hidden.
-                                    // offsetParent is null if the element or any grandparent has 'display: none'.
-                                    // We also check computed style as a secondary measure.
-                                    const isVisible = checkImg.offsetParent !== null && 
-                                                      window.getComputedStyle(checkImg).display !== 'none';
-                                    
-                                    if (isVisible) {
-                                        hasCheckmark = true;
-                                    }
-                                }
-                                
-                                if (hasCheckmark) {
-                                    value = "Yes";
-                                }
-                                
-                                const headerName = headers[index] || `Column_${index}`;
-                                rowDict[headerName] = value;
-                            });
-                            results.push(rowDict);
-                        }
+                        const tds = row.querySelectorAll('td, .kgCell');
+                        if (tds.length === 0) continue;
+
+                        const rowDict = {};
+                        Array.from(tds).forEach((td, idx) => {
+                            // Full innerText preserves multi-line descriptions
+                            let value = (td.innerText || td.textContent || '')
+                                .replace(/\t/g, ' ')
+                                .replace(/\n/g, ' ')
+                                .replace(/\s{2,}/g, ' ')
+                                .trim();
+
+                            // Boolean checkmark
+                            const img = td.querySelector('img[src*="success-checkmark"]');
+                            if (img) {
+                                const visible =
+                                    img.offsetParent !== null &&
+                                    window.getComputedStyle(img).display !== 'none';
+                                if (visible) value = 'Yes';
+                            }
+
+                            // Store by BOTH named key and Column_N
+                            const namedKey = (headers[idx] && headers[idx] !== '')
+                                ? headers[idx] : `Column_${idx}`;
+                            rowDict[namedKey]        = value;
+                            rowDict[`Column_${idx}`] = value;
+                        });
+
+                        results.push(rowDict);
                     }
-                } catch (err) {
-                    console.error("Scraping error:", err);
+                    return results;
                 }
-                return results;
-            }"""
-            )
-            print(f"Scraped {len(data)} row(s) from table.")
+            """)
+
+            print(f"DEBUG: Scraped {len(data)} row(s).")
+            if data:
+                print(f"DEBUG: First row keys: {list(data[0].keys())}")
             return data
-        except Exception as e:
-            print(f"Error during table evaluation: {e}")
+
+        except Exception as exc:
+            print(f"ERROR during JS evaluation: {exc}")
+            traceback.print_exc()
             return []
 
+    # ------------------------------------------------------------------
+    # Main workflow
+    # ------------------------------------------------------------------
+
     async def run(self):
-        """
-        Execute the complete Invoice Proficiency scraping workflow.
-        """
-        import time as _time
-        import traceback
-        import json
-        _start_time = _time.time()
-        _error_occurred = None
+        """Execute the complete Invoice Proficiency scraping workflow."""
+        _start_time        = _time.time()
+        _error_occurred    = None
         _records_processed = 0
 
         try:
             await self.initialize()
 
-            # 1. Login if necessary
-            dashboard_url = self.rules.get("dashboard_url", "https://login.fieldedge.com/Dashboard/")
+            # ── Login ─────────────────────────────────────────────────
+            dashboard_url = self.rules.get(
+                "dashboard_url", "https://login.fieldedge.com/Dashboard/"
+            )
             await self._goto_with_fallback(dashboard_url)
-            
             if "Login" in self.page.url:
                 await self.login_fieldedge()
 
-            # 2. Navigate and Scrape Reports
+            # ── Resolve report URLs ───────────────────────────────────
             report_urls = self.rules.get("invoice_proficiency_urls", [])
             if not report_urls:
-                # Fallback to singular if plural not found
-                single_url = self.rules.get("invoice_proficiency_url")
-                if single_url:
-                    report_urls = [single_url]
-
+                single = self.rules.get("invoice_proficiency_url")
+                if single:
+                    report_urls = [single]
             if not report_urls:
-                print("⚠️ No report URLs found in rules!")
+                print("⚠️ No report URLs configured.")
                 return None
 
-            all_scraped_data = {}
+            all_scraped_data: dict = {}
 
+            # ── Per-report loop ───────────────────────────────────────
             for index, report_url in enumerate(report_urls):
-                print(f"\n--- Processing Report: {report_url} ---")
+                print(f"\n{'='*60}")
+                print(f"Report {index}: {report_url}")
+                print('='*60)
+
                 await self._goto_with_fallback(report_url)
-                
-                # Wait for SPA to stabilize
                 await self.page.wait_for_timeout(2000)
 
                 # Add extra columns
                 if index == 0:
                     print("Adding 'Invoice' and 'Assignment Completed' columns...")
                     try:
-                        await self.perform_actions_by_xpaths(name="invoice_proficiency_add_column_xpath")
+                        await self.perform_actions_by_xpaths(
+                            name="invoice_proficiency_add_column_xpath"
+                        )
                         print("✅ Columns added.")
-                    except Exception as e:
-                        print(f"⚠️ Failed to add extra columns: {e}")
-                
+                    except Exception as exc:
+                        print(f"⚠️ Could not add extra columns: {exc}")
+                        
+                    print("Editing filter to add 'Is Helper'...")
+                    try:
+                        await self.perform_actions_by_xpaths(
+                            name="invoice_proficiency_edit_filter_xpath"
+                        )
+                        print("✅ Filter edited to add 'Is Helper'.")
+                    except Exception as exc:
+                        print(f"⚠️ Could not edit filter for 'Is Helper': {exc}")
                 elif index == 1:
                     print("Adding 'Invoice' column only...")
                     try:
-                        await self.perform_actions_by_xpaths(name="invoice_proficiency_add_column_invoice_only_xpath")
-                        print("✅ 'Invoice' column added.")
-                    except Exception as e:
-                        print(f"⚠️ Failed to add extra column: {e}")
+                        await self.perform_actions_by_xpaths(
+                            name="invoice_proficiency_add_column_invoice_only_xpath"
+                        )
+                        print("✅ Invoice column added.")
+                    except Exception as exc:
+                        print(f"⚠️ Could not add Invoice column: {exc}")
 
-                # 3. Apply Date Filter (Yesterday)
-                print("Applying date filter (Yesterday)...")
+                # Date filter
+                print("Applying date filter...")
                 try:
-                    # Wait for the filter UI to render
                     await self.page.wait_for_selector(
                         "div.secondary-filter.date-filter",
                         state="visible",
-                        timeout=30000,
+                        timeout=30_000,
                     )
-                    
-                    # Apply filter sequence: Open -> Today -> Select
-                    await self.perform_actions_by_xpaths(name="invoice_proficiency_status_xpath", raise_on_error=True)
-                    
-                    # Apply the filters
-                    await self.perform_actions_by_xpaths(name="submit_filter", raise_on_error=True)
-                    print(f"✅ Filter applied successfully for {report_url}.")
-                    
-                    # Wait for table to update after filter
+                    await self.perform_actions_by_xpaths(
+                        name="invoice_proficiency_status_xpath", raise_on_error=True
+                    )
+                    await self.perform_actions_by_xpaths(
+                        name="submit_filter", raise_on_error=True
+                    )
+                    print(f"✅ Filter applied for report {index}.")
                     await self.page.wait_for_timeout(3000)
-                    
-                except Exception as e:
-                    print(f"⚠️ Failed to apply filter for {report_url}: {e}. Attempting to scrape anyway...")
+                except Exception as exc:
+                    print(f"⚠️ Filter failed for report {index}: {exc}. Scraping anyway...")
 
-                # 4. Scrape the data
-                scraped_rows = await self.scrape_report_table()
-                
-                if scraped_rows:
-                    # Log the headers found in the first row
-                    print(f"DEBUG: Headers found for {report_url}: {list(scraped_rows[0].keys())}")
-                
-                # Apply business logic filtering for Work Performance table (index 0)
                 if index == 0:
-                    print("Applying specification filters for Work Performance data...")
-                    if scraped_rows:
-                        print(f"DEBUG Sample Row: {scraped_rows[0]}")
+                    print("Applying 'Is Helper' filter...")
+                    try:
+                        await self.perform_actions_by_xpaths(
+                            name="invoice_proficiency_helper_xpath", raise_on_error=True
+                        )
+                        await self.perform_actions_by_xpaths(
+                            name="submit_filter", raise_on_error=True
+                        )
+                        print("✅ 'Is Helper' filter applied and submitted.")
+                        await self.page.wait_for_timeout(3000)
+                    except Exception as exc:
+                        print(f"⚠️ 'Is Helper' filter failed: {exc}. Scraping anyway...")
 
-                    # Filter: Invoice must not be blank and Assignment Completed must be 'Yes'
-                    filtered_rows = []
-                    for row in scraped_rows:
-                        # Try multiple keys for Invoice, including column indices if headers failed
-                        invoice = (row.get("Invoice") or row.get("Invoice #") or 
-                                   row.get("Transaction") or row.get("Number") or 
-                                   row.get("Column_10") or # Fallback for added column 'Invoice'
-                                   "").strip()
-                        
-                        # Try multiple keys for Assignment Completed, including column indices
-                        completed = (row.get("Assignment Completed") or 
-                                     row.get("Completed") or 
-                                     row.get("Is Completed") or 
-                                     row.get("Column_11")) # Fallback for added column 'Assignment Completed'
-                        
-                        if invoice and completed == "Yes":
-                            filtered_rows.append(row)
-                    
-                    print(f"📋 Validated {len(filtered_rows)} of {len(scraped_rows)} rows (excluded blank invoices or incomplete assignments).")
-                    scraped_rows = filtered_rows
+                scraped_rows = await self.scrape_report_table()
 
                 if scraped_rows:
-                    print(f"\n📋 JSON DATA FROM {report_url} ({len(scraped_rows)} rows):")
-                    print(json.dumps(scraped_rows, indent=2))
-                    all_scraped_data[f"table_{index}"] = scraped_rows
-                else:
-                    print(f"No valid data found for {report_url}")
+                    print(f"DEBUG: Sample row:\n{json.dumps(scraped_rows[0], indent=2)}")
 
-            # 5. Process Data and Save to Database
-            from asgiref.sync import sync_to_async
-            from django.utils import timezone
+                # Table 0: keep only Invoice-present + Assignment Completed = Yes
+                if index == 0:
+                    print("Filtering: invoice present + Assignment Completed = Yes ...")
+                    filtered = []
+                    for row in scraped_rows:
+                        invoice = (
+                            row.get("Invoice") or row.get("Invoice #") or
+                            row.get("Transaction") or row.get("Number") or
+                            row.get("Column_10") or row.get("Column_11") or ""
+                        ).strip()
+
+                        completed = str(
+                            row.get("Assignment Completed") or
+                            row.get("Completed") or
+                            row.get("Is Completed") or
+                            row.get("Column_11") or
+                            row.get("Column_12") or ""
+                        ).strip()
+
+                        if invoice and completed == "Yes":
+                            filtered.append(row)
+
+                    print(f"📋 {len(filtered)} / {len(scraped_rows)} rows passed filter.")
+                    scraped_rows = filtered
+
+                all_scraped_data[f"table_{index}"] = scraped_rows
+                print(f"Stored {len(scraped_rows)} row(s) as table_{index}.")
+
+            # ── Merge and persist ─────────────────────────────────────
             from invoice_proficiency.models import InvoiceProficiency
-            import re
 
-            def parse_worked_time(time_str):
-                """
-                Convert raw time from 'Worked Time' column to decimal hours.
-                Supported formats:
-                 - "120" (minutes) -> 120 * 0.0167 = 2.0 hrs
-                 - "01:30" (HH:MM) -> 1.5 hrs
-                 - "2.5" (hours)   -> 2.5 hrs (if detected as non-integer decimal)
-                Rule: 1 minute = 0.0167 hours.
-                """
-                if not time_str: return 0.0
-                time_str = str(time_str).strip()
-                
-                try:
-                    # 1. Handle HH:MM format
-                    if ":" in time_str:
-                        parts = time_str.split(":")
-                        hrs = float(parts[0])
-                        mins = float(parts[1]) if len(parts) > 1 else 0
-                        return round(hrs + (mins * 0.0167), 4)
-                    
-                    # 2. Handle numeric values
-                    # If it's a decimal like 2.5, we assume it's already hours
-                    if "." in time_str:
-                        val = float(re.sub(r'[^0-9.]', '', time_str))
-                        return round(val, 4)
-                    
-                    # 3. Handle integer values as minutes
-                    minutes = float(re.sub(r'[^0-9.]', '', time_str))
-                    
-                    # Align with Model logic for clean rounding of common values
-                    if minutes == 30: return 0.5
-                    if minutes == 60: return 1.0
-                    if minutes == 15: return 0.25
-                    
-                    # Requirement specifies 0.0167 conversion factor
-                    return round(minutes * 0.0167, 4)
-                except Exception as e:
-                    print(f"DEBUG: Error parsing worked time '{time_str}': {e}")
-                    return 0.0
-
-            def save_results(table_0, table_1):
-                """
-                Merge tables, calculate proficiency, and save to database.
-                """
+            def save_results(table_0: list, table_1: list) -> int:
                 if not table_0:
-                    print("⚠️ Table 0 (Work Performance) is empty. Nothing to save.")
+                    print("⚠️ table_0 is empty — nothing to save.")
                     return 0
-                
-                print(f"DEBUG: Processing {len(table_0)} work performance rows and {len(table_1)} invoiced item rows.")
 
-                # Group items by Work Order Number
-                items_by_wo = {}
+                print(
+                    f"DEBUG: Merging {len(table_0)} work-performance rows "
+                    f"with {len(table_1)} invoice-item rows."
+                )
+
+                # ── Index Table 1 by normalised WO ────────────────────
+                items_by_wo: dict = {}
                 for item_row in table_1:
-                    # Column order confirmed from DOM:
-                    # Col0=Employee, Col1=Date, Col2=Category, Col3=Item,
-                    # Col4=Description, Col5=Customer, Col6=WO#,
-                    # Col7=Agreement, Col8=Qty.Sold, Col9=TotalSold,
-                    # Col10=CompletedDate, Col11=Invoice(added), Col12=Task(added)
-                    wo_num = (item_row.get("WO #") or item_row.get("Work Order #") or 
-                              item_row.get("WO") or item_row.get("Work Order") or 
-                              item_row.get("Column_6"))  # Col6 = WO #
-                    
-                    if not wo_num: continue
-                    
-                    # Clean WO (sometimes it has a link or whitespace)
-                    wo_num = str(wo_num).strip()
-                    if wo_num not in items_by_wo:
-                        items_by_wo[wo_num] = []
-                    items_by_wo[wo_num].append(item_row)
+                    wo_raw = (
+                        item_row.get("WO #") or
+                        item_row.get("Work Order #") or
+                        item_row.get("WO") or
+                        item_row.get("Work Order") or
+                        item_row.get("Column_6") or
+                        item_row.get("Column_5") or
+                        item_row.get("Column_7") or
+                        ""
+                    )
+                    if not wo_raw:
+                        continue
+                    key = _normalise_wo(wo_raw)
+                    items_by_wo.setdefault(key, []).append(item_row)
 
-                print(f"DEBUG: Grouped items for {len(items_by_wo)} distinct Work Orders.")
+                print(
+                    f"DEBUG: Indexed {len(items_by_wo)} distinct WOs "
+                    f"from {len(table_1)} item rows."
+                )
 
                 processed_count = 0
-                for wo_row in table_0:
-                    # Identify WO number in first table
-                    wo_num = (wo_row.get("Work Order") or wo_row.get("Work Order #") or 
-                              wo_row.get("WO #") or wo_row.get("Column_2"))
-                    
-                    if not wo_num: 
-                        print("DEBUG: Skipping row without WO #:", wo_row.keys())
-                        continue
-                    
-                    wo_num = str(wo_num).strip()
-                    tech_name = wo_row.get("Technician") or wo_row.get("Employee") or wo_row.get("Column_0") or "Unknown"
-                    # Handle Summary or Notes
-                    wo_summary = wo_row.get("Summary") or wo_row.get("Notes") or ""
-                    worked_time_raw = wo_row.get("Worked Time") or wo_row.get("Column_8") or "0"
-                    
-                    # Requirement: 1 minute = 0.0167 Hours
-                    worked_hours = parse_worked_time(worked_time_raw)
-                    
-                    # Match with Invoiced Items
-                    invoiced_items = items_by_wo.get(wo_num, [])
-                    if not invoiced_items:
-                        print(f"DEBUG: Periodic check - No invoiced items found for WO {wo_num}. Skipping.")
-                        continue 
 
-                    total_worth_hours = 0.0   # kept for legacy variable; actual calc is in model
-                    items_detail = []
-                    invoice_total = 0.0
-                    invoice_num = ""
-                    # Two separate date fields from Table 1:
-                    #   completed_date_str = "Completed Date" (Col10) -> work_order_date
-                    #   invoice_date_str   = "Date" (Col1)            -> invoice_date
-                    completed_date_str = ""
-                    invoice_date_str = ""
-                    has_excavation_pass_item = False
-                    
-                    # --- Raw items: no worth calculation here ---
-                    # Model.save() calls compute_invoiced_time() which uses
-                    # InvoiceProficiency.calculate_worth_time() to derive worth from item codes.
+                for wo_row in table_0:
+                    wo_raw = (
+                        wo_row.get("Work Order") or
+                        wo_row.get("Work Order #") or
+                        wo_row.get("WO #") or
+                        wo_row.get("Column_2") or
+                        wo_row.get("Column_1") or
+                        ""
+                    )
+                    if not wo_raw:
+                        print(
+                            f"DEBUG: Skipping row — no WO number. "
+                            f"Keys: {list(wo_row.keys())}"
+                        )
+                        continue
+
+                    wo_key    = _normalise_wo(wo_raw)
+                    tech_name = (
+                        wo_row.get("Technician") or
+                        wo_row.get("Employee") or
+                        wo_row.get("Column_0") or
+                        "Unknown"
+                    )
+                    wo_summary      = wo_row.get("Summary") or wo_row.get("Notes") or ""
+                    worked_time_raw = wo_row.get("Worked Time") or wo_row.get("Column_8") or "0"
+                    worked_hours    = parse_worked_time(worked_time_raw)
+
+                    # ── FIX: Deduplicate by item_code, keep highest total_sold ──
+                    raw_invoiced_items = items_by_wo.get(wo_key, [])
+                    invoiced_items     = _dedup_items_by_code(raw_invoiced_items)
+
+                    if not invoiced_items:
+                        print(
+                            f"DEBUG: WO {wo_raw} (key={wo_key}) — "
+                            f"no matching invoice items. Skipping."
+                        )
+                        continue
+
+                    # ── Build validated item list ──────────────────────
+                    items_detail: list   = []
+                    invoice_total        = 0.0
+                    invoice_num          = ""
+                    completed_date_str   = ""
+                    invoice_date_str     = ""
+                    has_excavation_pass  = False
+
                     for item in invoiced_items:
-                        item_name = item.get("Item") or item.get("Item Name") or item.get("Column_3") or ""  # Col3
-                        qty_str = str(item.get("Qty. Sold") or item.get("Column_8") or "1.0")  # Col8
+
+                        # ── Item code ──────────────────────────────────
+                        item_name = (
+                            item.get("Item") or
+                            item.get("Item Name") or
+                            item.get("Column_3") or
+                            ""
+                        ).strip()
+
+                        # ── Description — full fallback chain ──────────
+                        # FIX: added Column_1 and Column_2 as earlier fallbacks.
+                        # In the invoice-items table, Description is typically
+                        # the 2nd column (index 1) when header detection fails.
+                        # We also log the raw keys once to confirm during testing.
+                        description = (
+                            item.get("Description") or
+                            item.get("Desc") or
+                            item.get("Column_1") or
+                            item.get("Column_2") or
+                            item.get("Column_4") or
+                            item.get("Column_5") or
+                            ""
+                        ).strip()
+
+                        print(
+                            f"DEBUG item extract — "
+                            f"code='{item_name}' "
+                            f"desc='{description[:60]}' "
+                            f"keys={list(item.keys())[:10]}"
+                        )
+
+                        # Discard row if BOTH item code AND description are blank
+                        if not item_name and not description:
+                            print(
+                                f"DEBUG: WO {wo_raw} — skipping row: "
+                                f"blank item_name AND blank description."
+                            )
+                            continue
+
+                        # ── Quantity ───────────────────────────────────
+                        qty_raw = str(
+                            item.get("Qty. Sold") or
+                            item.get("Qty") or
+                            item.get("Column_8") or
+                            "1"
+                        )
                         try:
-                            qty = float(re.sub(r'[^0-9.]', '', qty_str)) if qty_str else 1.0
-                        except:
+                            qty = float(re.sub(r'[^0-9.]', '', qty_raw)) if qty_raw else 1.0
+                        except Exception:
                             qty = 1.0
 
-                        # NOTE: Table 1 has no 'Rate' column — only Total Sold (Col9)
-                        total_sold_str = str(item.get("Total Sold") or item.get("Column_9") or "0")  # Col9
+                        # ── Total sold ─────────────────────────────────
+                        total_sold_raw = str(
+                            item.get("Total Sold") or
+                            item.get("Column_9") or
+                            "0"
+                        )
                         try:
-                            total_sold = float(re.sub(r'[^0-9.]', '', total_sold_str)) if total_sold_str else 0.0
-                        except:
+                            total_sold = float(
+                                re.sub(r'[^0-9.]', '', total_sold_raw)
+                            ) if total_sold_raw else 0.0
+                        except Exception:
                             total_sold = 0.0
 
+                        # Accumulate invoice total
                         invoice_total += total_sold
-                        invoice_num = item.get("Invoice") or item.get("Column_11") or invoice_num  # Col11 (added)
-                        
-                        # Col10 = Completed Date (when the WO was completed)
-                        completed_date_str = item.get("Completed Date") or item.get("Column_10") or completed_date_str
-                        # Col1 = Date (the invoice date)
-                        invoice_date_str = item.get("Date") or item.get("Column_1") or invoice_date_str
 
-                        # Check excavation pass item
+                        # Invoice number (keep last non-empty value)
+                        invoice_num = (
+                            item.get("Invoice") or
+                            item.get("Invoice #") or
+                            item.get("Column_11") or
+                            invoice_num
+                        )
+
+                        # Dates (keep last non-empty value)
+                        completed_date_str = (
+                            item.get("Completed Date") or
+                            item.get("Column_10") or
+                            completed_date_str
+                        )
+                        invoice_date_str = (
+                            item.get("Date") or
+                            item.get("Column_1") or
+                            invoice_date_str
+                        )
+
+                        # Excavation pass check
                         if "6SP1DRA" in item_name.upper():
-                            has_excavation_pass_item = True
+                            has_excavation_pass = True
 
-                        # Store ONLY raw item fields — no worth, no is_counted
+                        # Append deduplicated, validated item
                         items_detail.append({
-                            "item": item_name,
-                            "qty": qty,
-                            "description": item.get("Description") or item.get("Column_4") or "",  # Col4
-                            "total_sold": total_sold,
+                            "item":        item_name,
+                            "qty":         qty,
+                            "description": description,
+                            "total_sold":  total_sold,
                         })
 
-                    print(f"DEBUG: WO {wo_num} - {len(items_detail)} raw item(s) collected for DB save.")
-                    # Date discrepancy check:
-                    #   work_order_date  = "Completed Date" from Table 1 (Col10)
-                    #   invoice_date     = "Date" from Table 1 (Col1)
-                    # Spec: "discard any workorder and invoice that have dates more
-                    #        than 5 days off one another either in the future or past."
-                    from datetime import datetime, timedelta
-                    fmt = "%m/%d/%Y"
-                    parsed_wo_date = None
+                    # Skip WO if nothing valid remains after all filtering
+                    if not items_detail:
+                        print(
+                            f"DEBUG: WO {wo_raw} — all items were blank after "
+                            f"filtering. Skipping DB save."
+                        )
+                        continue
+
+                    print(
+                        f"DEBUG: WO {wo_raw} — "
+                        f"{len(items_detail)} unique valid item(s), "
+                        f"total=${invoice_total:.2f}, "
+                        f"inv={invoice_num}"
+                    )
+
+                    # ── Date parsing ───────────────────────────────────
+                    fmt             = "%m/%d/%Y"
+                    parsed_wo_date  = None
                     parsed_inv_date = None
                     try:
                         if completed_date_str:
-                            parsed_wo_date = datetime.strptime(completed_date_str.strip(), fmt).date()
+                            parsed_wo_date = datetime.strptime(
+                                completed_date_str.strip(), fmt
+                            ).date()
                         if invoice_date_str:
-                            parsed_inv_date = datetime.strptime(invoice_date_str.strip(), fmt).date()
-                        
-                        # Fallback: if no completed date, use invoice date
+                            parsed_inv_date = datetime.strptime(
+                                invoice_date_str.strip(), fmt
+                            ).date()
                         if not parsed_wo_date and parsed_inv_date:
                             parsed_wo_date = parsed_inv_date
-                    except:
-                        pass 
+                    except Exception:
+                        pass
 
                     if not parsed_wo_date:
                         parsed_wo_date = timezone.now().date()
-                    
-                    # SPEC RULE: Discard WOs where Completed Date and Invoice Date
-                    # differ by more than 5 days — these are likely errors.
+
+                    # Date mismatch check
+                    is_error   = False
+                    error_type = None
                     if parsed_wo_date and parsed_inv_date:
                         day_diff = abs((parsed_wo_date - parsed_inv_date).days)
                         if day_diff > 5:
-                            print(f"⚠️ DISCARDING WO {wo_num}: Completed Date ({parsed_wo_date}) and "
-                                  f"Invoice Date ({parsed_inv_date}) differ by {day_diff} days (>5). Likely error.")
-                            continue
+                            print(
+                                f"⚠️ DATE MISMATCH WO {wo_raw}: "
+                                f"{day_diff} days apart. Flagging as error."
+                            )
+                            is_error   = True
+                            error_type = "DATE_MISMATCH"
 
-                    # Excavation Logic
+                    # Excavation logic
                     priority = wo_row.get("Priority") or wo_row.get("Column_12") or ""
-                    task = wo_row.get("Task") or wo_row.get("Column_13") or ""
+                    task     = wo_row.get("Task")     or wo_row.get("Column_13") or ""
                     excavation_status = None
-                    if "EXCAVATOR" in priority.upper() and ("DRAIN FIELD" in task.upper() or "DRAINFIELD" in task.upper()):
-                        excavation_status = "Pass" if has_excavation_pass_item else "Fail"
+                    if "EXCAVATOR" in priority.upper() and (
+                        "DRAIN FIELD" in task.upper() or "DRAINFIELD" in task.upper()
+                    ):
+                        excavation_status = "Pass" if has_excavation_pass else "Fail"
 
-                    # Save raw data to DB.
-                    # invoiced_time_hours and proficiency_percentage are NOT set here;
-                    # InvoiceProficiency.save() computes them from items_detail automatically.
+                    final_summary = (
+                        f"Excavation: {excavation_status}"
+                        if excavation_status else wo_summary
+                    )
+
+                    # ── Persist ────────────────────────────────────────
                     try:
-                        proficiency_record, created = InvoiceProficiency.objects.update_or_create(
-                            work_order_number=wo_num,
+                        _, created = InvoiceProficiency.objects.update_or_create(
+                            work_order_number=wo_raw,
                             defaults={
-                                "technician_name": tech_name,
-                                "work_order_date": parsed_wo_date,
-                                "invoice_date": parsed_inv_date or parsed_wo_date,
-                                "invoice_number": invoice_num or wo_row.get("Invoice") or wo_row.get("Column_10"),
-                                "assignment_completed": (wo_row.get("Assignment Completed") or wo_row.get("Column_11")) == "Yes",
-                                # worked_time_hours is raw from scraper (in decimal hours)
-                                "worked_time_hours": round(worked_hours, 4),
-                                # invoiced_time_hours and proficiency_percentage are NOT set here;
-                                # they are auto-calculated by InvoiceProficiency.save()
-                                "total_amount": invoice_total,
-                                "customer_name": wo_row.get("Customer") or wo_row.get("Column_3") or "Unknown",
-                                "priority": priority,
-                                "task_name": task,
-                                "items_detail": items_detail,
-                                "work_order_summary": f"Excavation: {excavation_status}" if excavation_status else wo_summary
-                            }
+                                "technician_name":      tech_name,
+                                "work_order_date":      parsed_wo_date,
+                                "invoice_date":         parsed_inv_date or parsed_wo_date,
+                                "invoice_number":       invoice_num or "",
+                                "assignment_completed": True,
+                                "worked_time_hours":    round(worked_hours, 4),
+                                "total_amount":         round(invoice_total, 2),
+                                "customer_name": (
+                                    wo_row.get("Customer") or
+                                    wo_row.get("Column_3") or
+                                    "Unknown"
+                                ),
+                                "priority":             priority,
+                                "task_name":            task,
+                                "items_detail":         items_detail,
+                                "work_order_summary":   final_summary,
+                                "is_error":             is_error,
+                                "error_type":           error_type,
+                            },
                         )
                         processed_count += 1
-                        print(f"DEBUG: Saved/Updated WO {wo_num} ({'Created' if created else 'Updated'})")
+                        print(
+                            f"✅ WO {wo_raw} — "
+                            f"{'Created' if created else 'Updated'} | "
+                            f"{len(items_detail)} item(s) | "
+                            f"${invoice_total:.2f} | "
+                            f"inv={invoice_num}"
+                        )
                     except Exception as db_err:
-                        print(f"❌ Database error saving WO {wo_num}: {db_err}")
+                        print(f"❌ DB error saving WO {wo_raw}: {db_err}")
+                        traceback.print_exc()
 
-                # SPEC RULE: "Need error report if invoices do not correspond to a workorder."
-                # Check for orphan invoices in Table 1 that have no matching WO in Table 0.
-                table_0_wos = set()
-                for wo_row in table_0:
-                    wo = (wo_row.get("Work Order") or wo_row.get("Work Order #") or 
-                          wo_row.get("WO #") or wo_row.get("Column_2") or "")
+                # ── Orphan invoice report ──────────────────────────────
+                table_0_wo_keys = set()
+                for row in table_0:
+                    wo = (
+                        row.get("Work Order") or row.get("Work Order #") or
+                        row.get("WO #") or row.get("Column_2") or ""
+                    )
                     if wo:
-                        table_0_wos.add(str(wo).strip())
-                
-                orphan_wos = set(items_by_wo.keys()) - table_0_wos
-                if orphan_wos:
-                    print(f"\n⚠️ ORPHAN INVOICE REPORT: {len(orphan_wos)} invoice WO(s) have no matching Work Performance entry:")
-                    for orphan_wo in sorted(orphan_wos):
-                        orphan_items = items_by_wo[orphan_wo]
-                        inv = orphan_items[0].get("Invoice") or orphan_items[0].get("Column_11") or "N/A"
-                        print(f"   - WO {orphan_wo} (Invoice: {inv}, {len(orphan_items)} item(s))")
+                        table_0_wo_keys.add(_normalise_wo(wo))
+
+                orphans = set(items_by_wo.keys()) - table_0_wo_keys
+                if orphans:
+                    print(
+                        f"\n⚠️ ORPHAN INVOICES — {len(orphans)} WO(s) in "
+                        f"Table 1 with no Work Performance match:"
+                    )
+                    for orphan_key in sorted(orphans):
+                        sample = items_by_wo[orphan_key][0]
+                        inv    = (
+                            sample.get("Invoice") or
+                            sample.get("Column_11") or
+                            "N/A"
+                        )
+                        print(
+                            f"   WO key={orphan_key} | "
+                            f"Invoice={inv} | "
+                            f"{len(items_by_wo[orphan_key])} item(s)"
+                        )
 
                 return processed_count
 
-            # Execute Save
+            # Run save
             table_0 = all_scraped_data.get("table_0", [])
             table_1 = all_scraped_data.get("table_1", [])
-            
-            print(f"DEBUG: Final check before DB - table_0: {len(table_0)}, table_1: {len(table_1)}")
-            
+
+            print(
+                f"\nDEBUG: Pre-save — "
+                f"table_0={len(table_0)} rows, table_1={len(table_1)} rows"
+            )
+
             _records_processed = await sync_to_async(save_results)(table_0, table_1)
-            
-            print("\n" + "="*50)
-            print(f"🚀 FINAL SUMMARY: saved {_records_processed} records to database.")
-            print("="*50 + "\n")
-            
+
+            print("\n" + "=" * 50)
+            print(f"🚀 DONE: {_records_processed} record(s) saved to database.")
+            print("=" * 50 + "\n")
+
             return all_scraped_data
 
-        except Exception as e:
-            print(f"Critical error in Invoice Proficiency Scraper: {e}")
-            _error_occurred = f"{str(e)}\n{traceback.format_exc()}"
+        except Exception as exc:
+            print(f"CRITICAL ERROR: {exc}")
+            _error_occurred = f"{str(exc)}\n{traceback.format_exc()}"
             return None
 
         finally:
             await self.cleanup()
-            # ... (rest of logging logic)
 
-            # ── Log execution result to ScraperExecutionLog and Incident ──
             _elapsed = _time.time() - _start_time
             try:
                 from status.models import ScraperExecutionLog, Incident
-                
+
                 def _log_execution():
                     ScraperExecutionLog.objects.create(
                         scraper_name="invoice-proficiency-scraper",
@@ -511,40 +790,46 @@ class InvoiceProficiencyScraper(BaseScraper):
                         records_processed=_records_processed,
                         execution_time_seconds=round(_elapsed, 2),
                     )
-                    
                     if _error_occurred:
                         incident, created = Incident.objects.get_or_create(
                             service_name="invoice-proficiency-scraper",
                             status="active",
                             defaults={
-                                "title": "Invoice Proficiency Scraper Error",
-                                "description": _error_occurred
-                            }
+                                "title":       "Invoice Proficiency Scraper Error",
+                                "description": _error_occurred,
+                            },
                         )
                         if not created:
                             incident.description = _error_occurred
                             incident.save()
                     else:
-                        active_incidents = Incident.objects.filter(
+                        for incident in Incident.objects.filter(
                             service_name="invoice-proficiency-scraper",
-                            status="active"
-                        )
-                        if active_incidents.exists():
-                            for incident in active_incidents:
-                                incident.status = "resolved"
-                                incident.resolved_at = timezone.now()
-                                incident.resolution_description = "Automation started properly and automatically resolved the incident."
-                                incident.save()
-                                
+                            status="active",
+                        ):
+                            incident.status               = "resolved"
+                            incident.resolved_at          = timezone.now()
+                            incident.resolution_description = (
+                                "Automation resolved automatically."
+                            )
+                            incident.save()
+
                 await sync_to_async(_log_execution)()
-                print(f"📝 Execution logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s)")
+                print(
+                    f"📝 Logged: "
+                    f"{'ERROR' if _error_occurred else 'SUCCESS'} "
+                    f"({round(_elapsed, 1)}s, {_records_processed} records)"
+                )
+
             except Exception as log_err:
                 print(f"⚠️ Failed to log execution: {log_err}")
-                
+
             if _error_occurred:
                 try:
                     from status.email_service import send_outage_email
-                    await sync_to_async(send_outage_email)('Invoice Proficiency Scraper', _error_occurred)
-                    print("📧 Sent direct outage notification email from scraper.")
+                    await sync_to_async(send_outage_email)(
+                        "Invoice Proficiency Scraper", _error_occurred
+                    )
+                    print("📧 Outage email sent.")
                 except Exception as mail_err:
-                    print(f"⚠️ Failed to send direct email: {mail_err}")
+                    print(f"⚠️ Failed to send outage email: {mail_err}")

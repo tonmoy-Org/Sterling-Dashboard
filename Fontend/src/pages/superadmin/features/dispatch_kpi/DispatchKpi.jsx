@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, memo, useEffect, useRef } from 'react';
+import OutlineButton from '../../../../components/ui/OutlineButton';
 import { format } from 'date-fns';
 import {
     Box,
@@ -75,7 +76,7 @@ const dispatchers = [
 const formatDateTimeWithTZ = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
-    return isNaN(date) ? '—' : format(date, 'MM/dd/yyyy hh:mm a');
+    return isNaN(date) ? '—' : format(date, 'MM/dd/yy hh:mm a');
 };
 
 const transformRecord = (raw) => ({
@@ -877,20 +878,10 @@ export default function DispatchKpi() {
                         </Box>
                     )}
                     <RefreshButton onRefresh={rmeApi.startDispatcherBookedScraping} />
-                    <Button
-                        variant="outlined" size="small"
-                        startIcon={<History size={15} />}
-                        onClick={() => setBinOpen(true)}
-                        sx={{
-                            textTransform: 'none', fontSize: '0.8rem', fontWeight: 500,
-                            height: '34px', px: 1.75,
-                            color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35),
-                            borderRadius: '6px',
-                            '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) },
-                        }}
-                    >
+                    <OutlineButton startIcon={<History size={15} />} onClick={() => setBinOpen(true)}
+                        sx={{ height: '34px', px: 1.75, color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) } }}>
                         Recycle Bin ({deletedData.length})
-                    </Button>
+                    </OutlineButton>
                 </Box>
             </Box>
 
@@ -1085,7 +1076,7 @@ export default function DispatchKpi() {
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1,
                 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Typography component="div" sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
                             Daily Performance Breakdown
                             <Chip
                                 size="small"
@@ -1096,20 +1087,15 @@ export default function DispatchKpi() {
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         {selectedIds.size > 0 ? (
-                            <Button
-                                variant="contained"
+                            <OutlineButton
                                 color="error"
                                 size="small"
                                 startIcon={<Trash2 size={14} />}
                                 onClick={handleBulkMoveToBin}
-                                sx={{
-                                    textTransform: 'none', fontSize: '0.78rem', height: 32,
-                                    borderRadius: '6px', px: 2, boxShadow: 'none',
-                                    '&:hover': { boxShadow: 'none', bgcolor: PALETTE.RED }
-                                }}
+                                sx={{ height: 32, borderRadius: '6px', px: 2 }}
                             >
                                 Trash Selected ({selectedIds.size})
-                            </Button>
+                            </OutlineButton>
                         ) : (
                             <TableSearchBar value={tableSearch} onChange={setTableSearch} color={PALETTE.BLUE} placeholder="Search by date…" />
                         )}

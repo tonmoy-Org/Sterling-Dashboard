@@ -324,7 +324,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[contains(.,'Today')]"
+        "xpath": "//li[contains(.,'Yesterday')]"
       },
       {
         "action": "wait",
@@ -333,6 +333,28 @@
       {
         "action": "click",
         "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+      }
+    ],
+    "invoice_proficiency_helper_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[@class='filter-name' and contains(text(), 'Helper')]"
+      },
+      {
+        "action": "wait",
+        "timeout": 1000
+      },
+      {
+        "action": "click",
+        "xpath": "//div[contains(@class, 'boolean-popup')]//div[@class='filter-option' and normalize-space(text())='No']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//*[@id='settings-sub-menu-id']/div[2]/div[5]/div/div[5]/div[3]/div/div/div[4]/div/div/button[2]"
       }
     ],
     "invoice_proficiency_add_column_xpath": [
@@ -409,6 +431,20 @@
       {
         "action": "click",
         "xpath": "//button[contains(@class,'confirm_hsagT') and .//span[normalize-space(text())='Save']]"
+      }
+    ],
+    "invoice_proficiency_edit_filter_xpath": [
+      {
+        "action": "click",
+        "xpath": "//button[@class='bttn-with-icon add-filter-button']"
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='IsHelperlabel']"
+      },
+      {
+        "action": "click",
+        "xpath": "(//div[@class='add-filter-container']//button)[last()]"
       }
     ],
     "save_edit_form_btn": "//input[@value='SAVE'] | //input[@id='btnSaveChanges2']",

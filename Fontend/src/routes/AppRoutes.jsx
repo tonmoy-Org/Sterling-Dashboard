@@ -189,6 +189,7 @@ export const AppRoutes = () => {
           <Route path="health-department-report-tracking/rss" element={<RSSReports />} />
           <Route path="health-department-report-tracking/tos" element={<TOSReports />} />
           <Route path="customer-center" element={<CustomerCenter />} />
+          <Route path="invoice-proficiency" element={<InvoiceProficiency />} />
 
           <Route path="notifications" element={<Notifications />} />
         </Route>

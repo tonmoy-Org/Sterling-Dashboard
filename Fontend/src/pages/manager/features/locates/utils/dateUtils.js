@@ -4,21 +4,21 @@ export const formatDate = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
     if (isNaN(date)) return '—';
-    return format(date, "MM/dd/yyyy hh:mm a");
+    return format(date, "MM/dd/yy hh:mm a");
 };
 
 export const formatDateShort = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
     if (isNaN(date)) return '—';
-    return format(date, "MM/dd/yyyy hh:mm a");
+    return format(date, "MM/dd/yy hh:mm a");
 };
 
 export const formatMonthDay = (dateString) => {
     if (!dateString) return '—';
     try {
         const date = parseISO(dateString);
-        return format(date, 'dd/MM/yyyy');
+        return format(date, 'MM/dd/yy');
     } catch (e) {
         return '—';
     }

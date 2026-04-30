@@ -197,45 +197,68 @@ const SectionLabel = ({ children, color = P.BLUE }) => (
 );
 
 // ─── CATEGORY TABLE ───────────────────────────────────────────────────────────
-const CategoryTable = ({ title, rows, color = P.BLUE }) => (
-    <Box>
-        <SectionLabel color={color}>{title}</SectionLabel>
-        <TableContainer sx={{ maxHeight: 300, overflow: 'auto', ...thinScrollbar(color) }}>
-            <Table size="small" stickyHeader>
-                <TableHead>
-                    <TableRow sx={{ bgcolor: alpha(color, 0.04), '& th': { borderBottom: `2px solid ${alpha(color, 0.1)}`, fontWeight: 600, fontSize: '0.75rem', color: P.TEXT, py: 1.5, whiteSpace: 'nowrap' } }}>
-                        {['Priority', 'Task', 'Count', 'Avg Prof', 'Avg $'].map(h => (
-                            <TableCell key={h} sx={{ fontSize: '0.75rem', fontWeight: 600 }}>{h}</TableCell>
-                        ))}
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {rows.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
-                                <Typography sx={{ fontSize: '0.78rem', color: P.MUTED }}>No data available</Typography>
-                            </TableCell>
+const CategoryTable = ({ title, rows, color = P.BLUE }) => {
+    const [page, setPage] = useState(0);
+    const rowsPerPage = 5;
+
+    const paginatedRows = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+    return (
+        <Box>
+            <SectionLabel color={color}>{title}</SectionLabel>
+            <TableContainer sx={{ maxHeight: 350, overflow: 'auto', ...thinScrollbar(color) }}>
+                <Table size="small" stickyHeader>
+                    <TableHead>
+                        <TableRow sx={{ bgcolor: alpha(color, 0.04), '& th': { borderBottom: `2px solid ${alpha(color, 0.1)}`, fontWeight: 600, fontSize: '0.75rem', color: P.TEXT, py: 1.5, whiteSpace: 'nowrap' } }}>
+                            {['Priority', 'Task', 'Count', 'Avg Prof', 'Avg $'].map(h => (
+                                <TableCell key={h} sx={{ fontSize: '0.75rem', fontWeight: 600 }}>{h}</TableCell>
+                            ))}
                         </TableRow>
-                    ) : (
-                        rows.map((row, i) => (
-                            <TableRow key={i} hover sx={{ '&:last-child td': { borderBottom: 'none' } }}>
-                                <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                                    <Chip label={row.priority} size="small" sx={{ fontSize: '0.65rem', fontWeight: 600, height: 20, bgcolor: alpha(color, 0.1), color, border: `1px solid ${alpha(color, 0.2)}` }} />
-                                </TableCell>
-                                <TableCell sx={{ fontSize: '0.75rem', color: P.TEXT, py: 0.75 }}>{row.task}</TableCell>
-                                <TableCell sx={{ fontSize: '0.75rem', fontWeight: 600, color: P.TEXT, py: 0.75 }}>{row.invCount ?? 0}</TableCell>
-                                <TableCell sx={{ py: 0.75 }}><ProfBadge value={row.avgProficiency} /></TableCell>
-                                <TableCell sx={{ fontSize: '0.75rem', fontWeight: 600, color: P.TEXT, py: 0.75 }}>
-                                    {row.avgDollar !== undefined && row.avgDollar !== null ? `$${Number(row.avgDollar).toFixed(0)}` : '—'}
+                    </TableHead>
+                    <TableBody>
+                        {paginatedRows.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
+                                    <Typography sx={{ fontSize: '0.78rem', color: P.MUTED }}>No data available</Typography>
                                 </TableCell>
                             </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
-        </TableContainer>
-    </Box>
-);
+                        ) : (
+                            paginatedRows.map((row, i) => (
+                                <TableRow key={i} hover sx={{ '&:last-child td': { borderBottom: 'none' } }}>
+                                    <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
+                                        <Chip label={row.priority} size="small" sx={{ fontSize: '0.65rem', fontWeight: 600, height: 20, bgcolor: alpha(color, 0.1), color, border: `1px solid ${alpha(color, 0.2)}` }} />
+                                    </TableCell>
+                                    <TableCell sx={{ fontSize: '0.75rem', color: P.TEXT, py: 0.75 }}>{row.task}</TableCell>
+                                    <TableCell sx={{ fontSize: '0.75rem', fontWeight: 600, color: P.TEXT, py: 0.75 }}>{row.invCount ?? 0}</TableCell>
+                                    <TableCell sx={{ py: 0.75 }}><ProfBadge value={row.avgProficiency} /></TableCell>
+                                    <TableCell sx={{ fontSize: '0.75rem', fontWeight: 600, color: P.TEXT, py: 0.75 }}>
+                                        {row.avgDollar !== undefined && row.avgDollar !== null ? `$${Number(row.avgDollar).toFixed(0)}` : '—'}
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+            {rows.length > rowsPerPage && (
+                <TablePagination
+                    component="div"
+                    count={rows.length}
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={(e, newPage) => setPage(newPage)}
+                    rowsPerPageOptions={[]}
+                    sx={{
+                        borderTop: `1px solid ${alpha(color, 0.08)}`,
+                        '& .MuiTablePagination-toolbar': { minHeight: '36px', px: 1 },
+                        '& .MuiTablePagination-displayedRows': { fontSize: '0.7rem', color: P.MUTED },
+                        '& .MuiTablePagination-actions': { ml: 0.5 }
+                    }}
+                />
+            )}
+        </Box>
+    );
+};
 
 // ─── DRAIN FIELD CARD ─────────────────────────────────────────────────────────
 const DrainFieldCard = ({ pass, fail }) => {

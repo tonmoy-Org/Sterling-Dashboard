@@ -206,7 +206,7 @@ const CategoryTable = ({ title, rows, color = P.BLUE }) => {
     return (
         <Box>
             <SectionLabel color={color}>{title}</SectionLabel>
-            <TableContainer sx={{ maxHeight: 350, overflow: 'auto', ...thinScrollbar(color) }}>
+            <TableContainer sx={{ overflowX: 'auto', ...thinScrollbar(color) }}>
                 <Table size="small" stickyHeader>
                     <TableHead>
                         <TableRow sx={{ bgcolor: alpha(color, 0.04), '& th': { borderBottom: `2px solid ${alpha(color, 0.1)}`, fontWeight: 600, fontSize: '0.75rem', color: P.TEXT, py: 1.5, whiteSpace: 'nowrap' } }}>
@@ -1162,7 +1162,7 @@ export const InvoiceProficiency = () => {
                         </Box>
 
                         {/* Fixed height table container showing exactly rowsPerPage (10) items */}
-                        <TableContainer sx={{ height: 'auto', maxHeight: 'calc(52px * 10 + 52px)', overflow: 'auto', ...thinScrollbar(P.BLUE) }}>
+                        <TableContainer sx={{ overflowX: 'auto', ...thinScrollbar(P.BLUE) }}>
                             <Table stickyHeader size="small">
                                 <TableHead>
                                     <TableRow sx={{ bgcolor: alpha(P.BLUE, 0.04), '& th': { borderBottom: `2px solid ${alpha(P.BLUE, 0.1)}`, fontWeight: 600, fontSize: '0.75rem', color: P.TEXT, py: 1.5, whiteSpace: 'nowrap' } }}>

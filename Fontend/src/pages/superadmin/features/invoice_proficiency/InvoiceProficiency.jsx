@@ -248,6 +248,7 @@ const CategoryTable = ({ title, rows, color = P.BLUE }) => {
                     rowsPerPage={rowsPerPage}
                     onPageChange={(e, newPage) => setPage(newPage)}
                     rowsPerPageOptions={[]}
+                    SelectProps={{ MenuProps: { disableScrollLock: true } }}
                     sx={{
                         borderTop: `1px solid ${alpha(color, 0.08)}`,
                         '& .MuiTablePagination-toolbar': { minHeight: '36px', px: 1 },
@@ -749,6 +750,7 @@ const RecycleBinModal = ({ open, onClose, items, onRestore, onPermanentDelete, o
                     page={page}
                     onPageChange={(e, p) => setPage(p)}
                     onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                    SelectProps={{ MenuProps: { disableScrollLock: true } }}
                     sx={{ borderTop: `1px solid ${alpha(P.PURPLE, 0.08)}`, bgcolor: '#fafbfc', '& .MuiTablePagination-toolbar': { minHeight: '44px' }, '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: '0.78rem', color: P.MUTED } }}
                 />
             </Box>
@@ -1224,6 +1226,7 @@ export const InvoiceProficiency = () => {
                                     setRowsPerPage(parseInt(e.target.value, 10));
                                     setPage(0);
                                 }}
+                                SelectProps={{ MenuProps: { disableScrollLock: true } }}
                                 sx={{
                                     borderTop: `1px solid ${alpha(P.BLUE, 0.08)}`,
                                     bgcolor: '#fafbfc',

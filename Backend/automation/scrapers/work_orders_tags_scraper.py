@@ -6,6 +6,7 @@ Updated to print all table data after filters are applied.
 """
 
 import copy
+import asyncio
 from datetime import datetime
 from typing import List, Dict, Optional
 from asgiref.sync import sync_to_async
@@ -24,20 +25,6 @@ class WorkOrdersTagsScraper(BaseScraper):
     def __init__(self):
         """Initialize work orders scraper."""
         super().__init__()
-
-    async def _goto_with_fallback(self, url: str, *, timeout_ms: int = 60000):
-        """Navigate reliably for pages that keep background requests alive."""
-        if not url:
-            return
-
-        try:
-            await self.page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-            return
-        except Exception as e:
-            print(f"⚠️ networkidle navigation failed for {url}: {e}")
-
-        # Fallback for SPA pages where network never becomes fully idle.
-        await self.page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
 
     async def scrape_work_orders_table(self):
         """
@@ -353,17 +340,29 @@ class WorkOrdersTagsScraper(BaseScraper):
                 # Prepare XPath with work order number
                 xpath_config = copy.deepcopy(base_xpath_config)
                 wo_xpath = xpath_config[0]["xpath"]
-                xpath_config[0]["xpath"] = wo_xpath.replace(
+                final_wo_xpath = wo_xpath.replace(
                     "{work_order_number}", wo_number
                 )
+                xpath_config[0]["xpath"] = final_wo_xpath
+
+                # Ensure we are on the main page and table is stable (Matching work_orders_scraper style)
+                try:
+                    await self.page.bring_to_front()
+                    # Wait for ANY row to be visible to ensure table is loaded
+                    await self.page.wait_for_selector("tbody.fixed-body tr", state="visible", timeout=10000)
+                except:
+                    pass
 
                 # Open work order in new tab
                 try:
                     async with self.page.context.expect_page() as new_page_info:
+                        # Attempt to click the specific work order
+                        # If the span isn't found, try a broader row search as fallback
                         await self.perform_actions_by_xpaths(action_list=xpath_config)
 
                     new_page = await new_page_info.value
-                    await new_page.wait_for_load_state()
+                    # Wait for domcontentloaded (faster and more stable than full load)
+                    await new_page.wait_for_load_state(state="domcontentloaded", timeout=60000)
 
                     current_url = new_page.url
                     if "https://login.fieldedge.com/Account/Login?ReturnUrl=" in current_url:
@@ -481,7 +480,7 @@ class WorkOrdersTagsScraper(BaseScraper):
             await self.perform_actions_by_xpaths(name="workorder_tags_status_xpath")
             await self.perform_actions_by_xpaths(name="tags_select_all_xpath")
             await self.perform_actions_by_xpaths(name="scheduled_date_filter_xpath")
-            await self.perform_actions_by_xpaths(name="completed_date_filter_xpath")
+            # await self.perform_actions_by_xpaths(name="completed_date_filter_xpath")
             await self.perform_actions_by_xpaths(name="submit_filter")
 
             # Wait for table to reload with new column

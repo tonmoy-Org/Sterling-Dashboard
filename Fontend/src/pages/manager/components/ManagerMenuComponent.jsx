@@ -8,6 +8,8 @@ import {
     UserCog,
     BarChart3,
     Star,
+    UserCog2,
+    FileText,
 } from 'lucide-react';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { workOrdersApi } from '../../../api/services/workOrders';
@@ -383,17 +385,12 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
             section: 'SYSTEM',
         },
         {
-            text: 'Dispatch KPI',
-            icon: <BarChart3 size={18} />,
-            path: '/manager-dashboard/dispatch-kpi',
+            text: 'Invoice Proficiency',
+            icon: <FileText size={18} />,
+            path: '/manager-dashboard//invoice-proficiency',
             section: 'SYSTEM',
         },
-        {
-            text: 'Review Tracking',
-            icon: <Star size={18} />,
-            path: '/manager-dashboard/review-tracking',
-            section: 'SYSTEM',
-        },
+    
         {
             text: 'Lookup',
             icon: <Search size={18} />,

@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import {
   Box,
   Typography,
@@ -12,6 +14,7 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  Stack,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Helmet } from 'react-helmet-async';
@@ -63,11 +66,7 @@ const getCalledAtDate = (item) => {
   if (isNaN(date.getTime())) return '—';
 
   // Format the date
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return format(date, 'MM/dd/yy');
 };
 
 const Locates = () => {
@@ -129,6 +128,13 @@ const Locates = () => {
       markSeenMutation,
     },
   } = useLocates(currentUserName, currentUserEmail);
+
+  const { data: scraperStatus } = useQuery({
+    queryKey: ['scraper-status'],
+    queryFn: () => rmeApi.getScraperStatus(),
+    refetchInterval: 5000,
+  });
+  const isRunning = scraperStatus?.data?.is_running;
 
   const { invalidateCache } = useNotifications();
 
@@ -470,17 +476,21 @@ const Locates = () => {
             Dispatch and monitor locate
           </Typography>
         </Box>
-        <Box sx={{ mt: isMobile ? 1 : 0 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: isMobile ? 1 : 0 }}>
+          {isRunning && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, bgcolor: alpha(BLUE_COLOR, 0.08), borderRadius: '20px', border: `1px solid ${alpha(BLUE_COLOR, 0.2)}` }}>
+              <Box className="animate-pulse" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: BLUE_COLOR }} />
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: BLUE_COLOR }}>
+                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+              </Typography>
+            </Box>
+          )}
           <RefreshButton onRefresh={rmeApi.startFieldedgeScraping} />
-          <Button
-            variant="outlined"
+          <OutlineButton
             startIcon={<History size={16} />}
             onClick={() => setRecycleBinOpen(true)}
             sx={{
-              textTransform: 'none',
-              fontSize: '0.85rem',
-              fontWeight: 500,
-              ml: isMobile ? 1 : 1,
+              ml: 0,
               color: PURPLE_COLOR,
               borderColor: alpha(PURPLE_COLOR, 0.3),
               '&:hover': {
@@ -490,8 +500,8 @@ const Locates = () => {
             }}
           >
             {isMobile ? `Bin (${recycleBinItems.length})` : `Recycle Bin (${recycleBinItems.length})`}
-          </Button>
-        </Box>
+          </OutlineButton>
+        </Stack>
       </Box>
 
       {/* Pending Locates */}
@@ -519,7 +529,7 @@ const Locates = () => {
             width: isMobile ? '100%' : 'auto',
             justifyContent: isMobile ? 'space-between' : 'flex-start',
           }}>
-            <Typography sx={{
+            <Typography component="div" sx={{
               fontSize: isMobile ? '0.85rem' : '1rem',
               color: TEXT_COLOR,
               fontWeight: 600,
@@ -626,7 +636,7 @@ const Locates = () => {
             width: isMobile ? '100%' : 'auto',
             justifyContent: isMobile ? 'space-between' : 'flex-start',
           }}>
-            <Typography sx={{
+            <Typography component="div" sx={{
               fontSize: isMobile ? '0.85rem' : '1rem',
               color: TEXT_COLOR,
               fontWeight: 600,
@@ -755,7 +765,7 @@ const Locates = () => {
             width: isMobile ? '100%' : 'auto',
             justifyContent: isMobile ? 'space-between' : 'flex-start',
           }}>
-            <Typography sx={{
+            <Typography component="div" sx={{
               fontSize: isMobile ? '0.85rem' : '1rem',
               color: TEXT_COLOR,
               fontWeight: 600,

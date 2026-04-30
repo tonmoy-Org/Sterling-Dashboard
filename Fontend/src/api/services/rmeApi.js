@@ -35,4 +35,22 @@ export const rmeApi = {
         return Promise.all(promises);
     },
     startReviewTrackerScraping: () => axiosInstance.post('/work-orders-today/start-review-tracker-scraping/'),
+    startYelpReviewScraping: () => axiosInstance.post('/work-orders-today/start-yelp-review-scraping/'),
+    startInvoiceProficiencyScraping: () => axiosInstance.post('/work-orders-today/start-invoice-proficiency-scraping/'),
+
+    // Invoice Proficiency Records
+    getInvoiceProficiency: () => axiosInstance.get('/invoice-proficiency/records/'),
+    getInvoiceProficiencyData: () => axiosInstance.get('/invoice-proficiency/records/'),
+    getTrashedInvoiceProficiency: () => axiosInstance.get('/invoice-proficiency/records/trashed/'),
+    deleteInvoiceProficiency: (id, data) => axiosInstance.delete(`/invoice-proficiency/records/${id}/`, { data }),
+    restoreInvoiceProficiency: (id) => axiosInstance.post(`/invoice-proficiency/records/${id}/restore/`),
+    permanentDeleteInvoiceProficiency: (id) => axiosInstance.delete(`/invoice-proficiency/records/${id}/permanent-delete/`),
+
+    // Bulk Operations for Invoice Proficiency
+    bulkDeleteInvoiceProficiency: (ids, data) => Promise.all(ids.map(id => axiosInstance.delete(`/invoice-proficiency/records/${id}/`, { data }))),
+    bulkRestoreInvoiceProficiency: (ids) => Promise.all(ids.map(id => axiosInstance.post(`/invoice-proficiency/records/${id}/restore/`))),
+    bulkPermanentDeleteInvoiceProficiency: (ids) => Promise.all(ids.map(id => axiosInstance.delete(`/invoice-proficiency/records/${id}/permanent-delete/`))),
+
+    markSeenInvoiceProficiency: (id) => axiosInstance.post(`/invoice-proficiency/records/${id}/mark-seen/`),
+    markAllSeenInvoiceProficiency: () => axiosInstance.post('/invoice-proficiency/records/mark-all-seen/'),
 };

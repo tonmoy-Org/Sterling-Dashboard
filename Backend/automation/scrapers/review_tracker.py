@@ -9,6 +9,7 @@ from datetime import datetime
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 from automation.scrapers.base_scraper import BaseScraper
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 class ReviewTrackerScraper(BaseScraper):
     """
@@ -20,260 +21,317 @@ class ReviewTrackerScraper(BaseScraper):
         """Initialize review tracker scraper."""
         super().__init__()
         # Target URL for Sterling Septic & Plumbing LLC reviews on Google Maps
-        self.target_url = "https://www.google.com/maps/place/Sterling+Septic+%26+Plumbing+LLC/@47.1477057,-122.3684081,4154m/data=!3m1!1e3!4m10!1m2!2m1!1sSeptic+system+service!3m6!1s0x54911ceea9f5605f:0xa8488b08b377e811!8m2!3d47.1477077!4d-122.3529584!15sChVTZXB0aWMgc3lzdGVtIHNlcnZpY2VaFyIVc2VwdGljIHN5c3RlbSBzZXJ2aWNlkgEVc2VwdGljX3N5c3RlbV9zZXJ2aWNlmgEjQ2haRFNVaE5NRzluUzBWSlEwRm5TVVIxY1dOSFdGTm5FQUXgAQD6AQQIABBD!16s%2Fg%2F11dyb5zmdk?entry=ttu&g_ep=EgoyMDI2MDQxNC4wIKXMDSoASAFQAw%3D%3D"
+        self.target_url = "https://www.google.com/maps/place/Sterling+Septic+%26+Plumbing+LLC/@47.1477057,-122.3684081,4933m/data=!3m1!1e3!4m12!1m2!2m1!1sSeptic+system+service!3m8!1s0x54911ceea9f5605f:0xa8488b08b377e811!8m2!3d47.1477077!4d-122.3529584!9m1!1b1!15sChVTZXB0aWMgc3lzdGVtIHNlcnZpY2VaFyIVc2VwdGljIHN5c3RlbSBzZXJ2aWNlkgEVc2VwdGljX3N5c3RlbV9zZXJ2aWNlmgEjQ2haRFNVaE5NRzluUzBWSlEwRm5TVVIxY1dOSFdGTm5FQUXgAQD6AQQIABBD!16s%2Fg%2F11dyb5zmdk?entry=ttu&g_ep=EgoyMDI2MDQxOS4wIKXMDSoASAFQAw%3D%3D"
+        self.business_name = "Unknown_Business"
 
-    async def dismiss_google_consent(self):
-        """Handle Google's 'Before you continue' cookie consent dialog."""
+    # ----------------------------
+    # GET BUSINESS NAME
+    # ----------------------------
+    async def get_business_name(self):
         try:
-            # Common selectors for Google consent buttons
-            consent_selectors = [
-                "button:has-text('Accept all')",
-                "button:has-text('I agree')",
-                "button:has-text('Accept')",
-                "button[aria-label='Accept all']",
-                "form[action*='consent'] button"
-            ]
-            
-            for selector in consent_selectors:
-                btn = self.page.locator(selector)
-                if await btn.count() > 0:
-                    print(f"➡️ Dismissing Google consent dialog using: {selector}")
-                    await btn.first.click()
-                    await asyncio.sleep(2)
-                    return True
-            return False
-        except Exception:
-            return False
+            name_el = self.page.locator("h1.DUwDvf")
+            if await name_el.count() > 0:
+                return await name_el.inner_text()
+            return "Unknown_Business"
+        except:
+            return "Unknown_Business"
 
+    # ----------------------------
+    # OPEN REVIEWS TAB
+    # ----------------------------
     async def open_reviews_tab(self):
-        """Navigate to the reviews tab."""
         try:
-            print("➡️ Opening reviews tab...")
-            
-            # 1. Give Google Maps some extra time to load the sidebar components
-            await self.page.wait_for_timeout(5000)
-            
-            # 2. List of possible Review tab selectors (Google changes these often)
-            tab_selectors = [
-                "button[role='tab']:has-text('Reviews')",
-                "button[aria-label^='Reviews']",
-                "button:has-text('Reviews')",
-                "div[role='tab']:has-text('Reviews')"
-            ]
-            
-            review_tab = None
-            for selector in tab_selectors:
-                loc = self.page.locator(selector)
-                if await loc.count() > 0:
-                    review_tab = loc.first
-                    print(f"✅ Found Reviews tab using selector: {selector}")
-                    break
-            
-            if not review_tab:
-                # Last resort: search for anything with "Reviews" text
-                loc = self.page.get_by_text("Reviews", exact=False)
-                if await loc.count() > 0:
-                    review_tab = loc.first
-                    print("✅ Found Reviews tab using text search")
+            print("--> Opening reviews tab...")
 
-            if review_tab:
-                # Check if it's already selected
-                aria_selected = await review_tab.get_attribute("aria-selected")
-                if aria_selected == "true":
-                    print("ℹ️ Reviews tab is already selected")
-                else:
-                    await review_tab.click()
-                    print("✅ Clicked Reviews tab")
-                
-                # Wait for reviews panel to load
-                # Google Maps uses div[role='feed'] for the reviews list
+            # Click the Reviews tab
+            review_tab = self.page.locator("button[role='tab']").filter(has_text="Reviews").first
+            await review_tab.wait_for(timeout=10000)
+            await review_tab.click()
+            print("[v] Clicked Reviews tab")
+
+            # Wait for reviews panel to appear
+            # Try multiple selectors since Google Maps changes class names frequently
+            panel_selectors = [
+                "div.m6QErb.DxyBCb.kA9KIf",
+                "div.m6QErb.DxyBCb",
+                "div.m6QErb.WNBkOb",
+            ]
+
+            panel_found = False
+            for selector in panel_selectors:
                 try:
-                    await self.page.wait_for_selector("div[role='feed']", timeout=15000)
-                    print("✅ Reviews panel opened")
-                    return True
+                    await self.page.wait_for_selector(selector, timeout=8000)
+                    print(f"[v] Reviews panel loaded ({selector})")
+                    panel_found = True
+                    break
                 except:
-                    # Even if selector doesn't appear, check if some reviews loaded
-                    if await self.page.locator("div.jftiEf").count() > 0:
-                        print("✅ Reviews detected even without role='feed'")
-                        return True
-                    print("⚠️ Clicked tab but feed didn't load")
-                    return False
-            else:
-                print("⚠️ Reviews tab not found")
-                # DEBUG: Take a screenshot if possible? (not in this env)
-                return False
-            
+                    continue
+
+            if not panel_found:
+                print("[!] Reviews panel selector not matched, continuing anyway...")
+
+            await asyncio.sleep(2)
+            return True
+
         except Exception as e:
-            print(f"❌ Error opening reviews tab: {e}")
+            print(f"[x] Error opening reviews tab: {e}")
             return False
 
-    async def scroll_reviews(self, scrolls=25):
-        """Scroll down the review feed to load more reviews."""
+    # ----------------------------
+    # SORT BY NEWEST
+    # ----------------------------
+    async def sort_reviews_by_newest(self):
         try:
-            print(f"➡️ Scrolling reviews ({scrolls} times)...")
-            feed = self.page.locator("div[role='feed']")
+            print("--> Sorting reviews by Newest...")
             
-            if await feed.count() == 0:
-                print("❌ Review feed not found")
-                return
+            # Click the Sort button
+            # Selector derived from provided HTML: button[aria-label='Sort reviews']
+            sort_btn = self.page.locator("button[aria-label='Sort reviews']").first
+            await sort_btn.wait_for(timeout=5000)
+            await sort_btn.click()
+            await asyncio.sleep(1.5) # Wait for drop-down menu
             
-            # Hover over the feed to make sure scroll events reach it
-            await feed.first.hover()
+            # Click 'Newest' - Google usually uses role='menuitemradio' or 'menuitem'
+            # We use text filtering as it's the most reliable across dynamic class names
+            newest_option = self.page.locator("div[role='menuitem'], div[role='menuitemradio'], button").filter(has_text="Newest")
             
+            if await newest_option.count() > 0:
+                await newest_option.first.click()
+                print("[v] Selected 'Newest' sort option")
+            else:
+                # Fallback to direct text search if role matches fail
+                print("[!] Role-based selector failed, trying text-only fallback...")
+                await self.page.click("text=Newest")
+            
+            await asyncio.sleep(3) # Wait for list to refresh
+            return True
+        except Exception as e:
+            print(f"[x] Error sorting reviews: {e}")
+            return False
+
+    # ----------------------------
+    # SCROLL REVIEWS
+    # ----------------------------
+    async def scroll_reviews(self, scrolls=100, max_reviews=15):
+        try:
+            print(f"--> Scrolling reviews (targeting {max_reviews} max)...")
+            await asyncio.sleep(3)
+
+            # Ensure mouse is over the left panel so scrolling works
+            reviews_list = self.page.locator("div.jftiEf")
+            if await reviews_list.count() > 0:
+                await reviews_list.first.hover()
+                await asyncio.sleep(1)
+
             previous_count = 0
-            no_new_reviews_count = 0
-            
+            no_new_count = 0
+
             for i in range(scrolls):
-                # Use mouse wheel for more natural scrolling that triggers Google's lazy loading
-                await self.page.mouse.wheel(0, 8000)
-                await asyncio.sleep(2.5)
-                
-                # Check how many reviews we have now
-                current_reviews = self.page.locator("div.jftiEf")
-                current_count = await current_reviews.count()
-                
-                print(f"  Scroll {i+1}: Found {current_count} reviews so far")
-                
-                if current_count == previous_count:
-                    # Fallback: manual scroll evaluation if mouse wheel didn't trigger load
-                    await feed.first.evaluate("el => el.scrollBy(0, el.scrollHeight)")
-                    await asyncio.sleep(3)
+                try:
+                    # Best way to trigger Maps infinite scroll is to scroll the last review into view
+                    current_reviews = self.page.locator("div.jftiEf")
                     current_count = await current_reviews.count()
                     
-                    if current_count == previous_count:
-                        no_new_reviews_count += 1
-                        if no_new_reviews_count >= 3:
-                            print("  No new reviews loading, stopping scroll")
-                            break
-                    else:
-                        no_new_reviews_count = 0
-                        previous_count = current_count
-                else:
-                    no_new_reviews_count = 0
-                    previous_count = current_count
-                
-                await asyncio.sleep(0.5)
-            
-            print(f"✅ Scrolling done. Total reviews found: {previous_count}")
-            
-        except Exception as e:
-            print(f"❌ Scroll error: {e}")
+                    if current_count > 0:
+                        last_review = current_reviews.nth(current_count - 1)
+                        await last_review.scroll_into_view_if_needed()
+                    
+                    # Also do a giant mouse wheel down just in case
+                    await self.page.mouse.wheel(0, 10000)
+                except:
+                    await self.page.mouse.wheel(0, 10000)
 
-    async def scrape_reviews(self):
-        """Extract all loaded reviews from the page."""
+                await asyncio.sleep(3)  # Need decent wait for Google's API to fetch & append
+
+                current_count = await self.page.locator("div.jftiEf").count()
+                print(f"  Scroll {i+1}/{scrolls}: {current_count} reviews loaded")
+
+                if current_count >= max_reviews:
+                    print(f"  Reached target of {max_reviews} reviews. Stopping scroll.")
+                    break
+
+                if current_count == previous_count:
+                    no_new_count += 1
+                    if no_new_count >= 5:  # 5 consecutive empty scrolls = end of list
+                        print(f"  No new reviews after 5 attempts — reached end of list.")
+                        break
+                else:
+                    no_new_count = 0
+                    previous_count = current_count
+
+            print(f"[v] Scrolling done. Total reviews in DOM: {previous_count}")
+
+        except Exception as e:
+            print(f"[x] Scroll error: {e}")
+
+    # ----------------------------
+    # EXPAND ALL "MORE" BUTTONS
+    # ----------------------------
+    async def expand_all_reviews(self):
         try:
-            print("➡️ Scraping reviews...")
+            print("--> Expanding truncated reviews...")
+            more_buttons = self.page.locator("button.w8nwRe")
+            count = await more_buttons.count()
+            print(f"  Found {count} 'More' buttons")
+
+            for i in range(count):
+                try:
+                    btn = more_buttons.nth(i)
+                    if await btn.is_visible():
+                        text = await btn.inner_text()
+                        if "More" in text:
+                            await btn.click()
+                            await asyncio.sleep(0.3)
+                except:
+                    continue
+
+            print("[v] Done expanding reviews")
+        except Exception as e:
+            print(f"[x] Error expanding reviews: {e}")
+
+    # ----------------------------
+    # SCRAPE REVIEWS
+    # ----------------------------
+    async def scrape_reviews(self, max_reviews=15):
+        try:
+            print("--> Scraping reviews...")
             await asyncio.sleep(2)
-            
+
+            # Expand all truncated reviews first
+            await self.expand_all_reviews()
+            await asyncio.sleep(1)
+
             reviews = self.page.locator("div.jftiEf")
             review_count = await reviews.count()
-            print(f"✅ Found {review_count} reviews in feed")
-            
+            if review_count > max_reviews:
+                review_count = max_reviews
+                
+            print(f"[v] Found {review_count} reviews to scrape")
+
             scraped_data = []
-            
+
             for i in range(review_count):
                 try:
                     review = reviews.nth(i)
-                    
-                    # 1. REVIEWER NAME
+
+                    # Reviewer name
                     name_el = review.locator("div.d4r55")
-                    reviewer_name = await name_el.inner_text() if await name_el.count() > 0 else "N/A"
-                    
-                    # 2. RATING
+                    reviewer_name = "N/A"
+                    if await name_el.count() > 0:
+                        reviewer_name = (await name_el.inner_text()).strip()
+
+                    # Reviewer info (Local Guide, review count)
+                    info_el = review.locator("div.RfnDt")
+                    reviewer_info = "N/A"
+                    if await info_el.count() > 0:
+                        reviewer_info = (await info_el.inner_text()).strip()
+
+                    # Rating
                     rating_el = review.locator("span.kvMYJc")
-                    rating_text = "N/A"
+                    rating = "N/A"
                     rating_value = 0
                     if await rating_el.count() > 0:
                         aria_label = await rating_el.get_attribute("aria-label")
                         if aria_label:
-                            rating_text = aria_label
+                            rating = aria_label
                             try:
-                                # Extract number from "5 stars"
                                 rating_value = int(aria_label.split()[0])
                             except:
                                 rating_value = 0
-                    
-                    # 3. DATE
+
+                    # Date
                     date_el = review.locator("span.rsqaWe")
-                    review_date = await date_el.inner_text() if await date_el.count() > 0 else "N/A"
-                    
-                    # 4. REVIEW TEXT
+                    date = "N/A"
+                    if await date_el.count() > 0:
+                        date = (await date_el.inner_text()).strip()
+
+                    # Review text
                     text_el = review.locator("span.wiI7pd").first
-                    review_text = await text_el.inner_text() if await text_el.count() > 0 else ""
-                    
-                    # Check for "More" button to expand full text
-                    # We target expandReview specifically to avoid clicking expandOwnerResponse
-                    more_button = review.locator("button.w8nwRe[jsaction*='expandReview']").first
+                    review_text = "No text"
+                    if await text_el.count() > 0:
+                        review_text = (await text_el.inner_text()).strip()
+
+                    # Try clicking "More" for this specific review if still truncated
+                    more_button = review.locator("button.w8nwRe").first
                     if await more_button.count() > 0:
                         try:
-                            button_text = await more_button.inner_text()
-                            if "More" in button_text:
+                            btn_text = await more_button.inner_text()
+                            if "More" in btn_text and await more_button.is_visible():
                                 await more_button.click()
-                                await asyncio.sleep(0.5)
-                                review_text = await text_el.inner_text() if await text_el.count() > 0 else review_text
+                                await asyncio.sleep(0.4)
+                                if await text_el.count() > 0:
+                                    review_text = (await text_el.inner_text()).strip()
                         except:
                             pass
-                    
-                    # 5. PRICE ASSESSMENT & SERVICES
+
+                    # Owner response
+                    owner_response = "N/A"
+                    response_el = review.locator("div.CDe7pd div.wiI7pd")
+                    if await response_el.count() > 0:
+                        owner_response = (await response_el.inner_text()).strip()
+
+                    # Price & services from structured info blocks
                     price_assessment = "N/A"
                     price_range = "N/A"
                     services_mentioned = "N/A"
-                    
+
                     info_divs = review.locator("div.PBK6be")
-                    info_count = await info_divs.count()
-                    
-                    for j in range(info_count):
-                        div = info_divs.nth(j)
-                        div_text = await div.inner_text()
-                        
-                        if "Price assessment" in div_text or "Reasonable price" in div_text:
-                            spans = div.locator("span.RfDO5c")
-                            for k in range(await spans.count()):
-                                span_text = await spans.nth(k).inner_text()
-                                if "Price assessment" not in span_text and "Reasonable price" not in span_text:
-                                    if span_text and len(span_text) < 50:
-                                        price_assessment = span_text
-                                        break
-                        
-                        if "$" in div_text or "above" in div_text.lower():
-                            spans = div.locator("span.RfDO5c")
-                            for k in range(await spans.count()):
-                                span_text = await spans.nth(k).inner_text()
-                                if "$" in span_text or "above" in span_text:
-                                    price_range = span_text
-                                    break
-                        
-                        if any(service in div_text.lower() for service in ["septic", "sewer", "repair", "installation", "pumping"]):
-                            spans = div.locator("span.RfDO5c")
-                            services_list = []
-                            for k in range(await spans.count()):
-                                span_text = await spans.nth(k).inner_text()
-                                if any(service in span_text.lower() for service in ["septic", "sewer", "repair", "installation", "pumping"]):
-                                    services_list.append(span_text)
-                            if services_list:
-                                services_mentioned = ", ".join(services_list)
-                    
+                    for j in range(await info_divs.count()):
+                        try:
+                            div = info_divs.nth(j)
+                            div_text = await div.inner_text()
+                            if "Price" in div_text:
+                                spans = div.locator("span.RfDO5c")
+                                for k in range(await spans.count()):
+                                    s = await spans.nth(k).inner_text()
+                                    if "$" in s:
+                                        price_range = s
+                                    elif s and len(s) < 50 and "Price" not in s:
+                                        price_assessment = s
+                            if any(w in div_text.lower() for w in ["septic", "sewer", "repair", "pumping", "drain", "plumbing"]):
+                                spans = div.locator("span.RfDO5c")
+                                svc = []
+                                for k in range(await spans.count()):
+                                    svc.append(await spans.nth(k).inner_text())
+                                if svc:
+                                    services_mentioned = ", ".join(svc)
+                        except:
+                            continue
+
+                    # Validate basic info
+                    if reviewer_name == "N/A" or rating_value == 0:
+                        continue
+
                     scraped_data.append({
                         "reviewer_name": reviewer_name,
-                        "rating_text": rating_text,
+                        "reviewer_info": reviewer_info,
+                        "rating_text": rating,
                         "rating_value": rating_value,
-                        "review_date": review_date,
+                        "review_date": date,
                         "review_text": review_text,
+                        "owner_response": owner_response,
                         "price_assessment": price_assessment,
                         "price_range": price_range,
                         "services_mentioned": services_mentioned
                     })
-                    
+
+                    if (i + 1) % 25 == 0:
+                        print(f"  Scraped {i+1}/{review_count}...")
+
                 except Exception as e:
-                    print(f"⚠️ Error reading review {i+1}: {e}")
+                    print(f"  [!] Error on review {i+1}: {e}")
                     continue
-            
+
+            print(f"[v] Scraping complete: {len(scraped_data)} reviews")
             return scraped_data
-            
+
         except Exception as e:
-            print(f"❌ Scraping error: {e}")
+            print(f"[x] Scraping error: {e}")
             return []
 
+    # ----------------------------
+    # MAIN WORKFLOW
+    # ----------------------------
     async def run(self):
         """Execute the complete review scraping workflow."""
         _start_time = _time.time()
@@ -285,22 +343,40 @@ class ReviewTrackerScraper(BaseScraper):
             print("=== Starting Review Tracker Scraper ===")
             await self.initialize()
             
-            print(f"Navigating to: {self.target_url}")
-            await self.page.goto(self.target_url, wait_until="domcontentloaded", timeout=60000)
+            print(f"Opening: {self.target_url}")
+            await self.page.goto(self.target_url, timeout=60000)
             
-            # Dismiss any Google cookie consent popups (common on VPS/clean browsers)
-            await self.dismiss_google_consent()
-
-            # Wait for business page load
+            # Wait for either the business title or search results
             try:
-                await self.page.wait_for_selector("h1.DUwDvf", timeout=30000)
-            except:
-                print("Warning: Business title not immediately visible.")
+                await self.page.wait_for_selector("h1.DUwDvf, a.hfpxzc", timeout=30000)
+                
+                # If we landed on a search results list, click the first one
+                if await self.page.locator("h1.DUwDvf").count() == 0 and await self.page.locator("a.hfpxzc").count() > 0:
+                    print("--> Search results found. Clicking first business...")
+                    await self.page.locator("a.hfpxzc").first.click()
+                    await self.page.wait_for_selector("h1.DUwDvf", timeout=20000)
 
-            # Open reviews tab and extract data
+                await asyncio.sleep(3)
+                print("[v] Business page loaded")
+            except Exception as e:
+                print(f"[x] Error waiting for business page: {e}")
+
+            # Get business name
+            self.business_name = await self.get_business_name()
+            print(f"\nBusiness: {self.business_name}\n")
+
+                # Open reviews tab and extract data
             if await self.open_reviews_tab():
-                await self.scroll_reviews(scrolls=20)
-                reviews = await self.scrape_reviews()
+                await asyncio.sleep(2)
+                
+                # Sort by Newest (User Requirement)
+                await self.sort_reviews_by_newest()
+                
+                # Scroll to load reviews (limiting to 15 max as per original script)
+                await self.scroll_reviews(scrolls=100, max_reviews=15)
+                
+                # Scrape reviews
+                reviews = await self.scrape_reviews(max_reviews=15)
                 reviews_scraped_count = len(reviews)
                 
                 if reviews:
@@ -312,6 +388,25 @@ class ReviewTrackerScraper(BaseScraper):
                             _records_processed += 1
                     
                     print(f"✅ Successfully inserted/verified {_records_processed} reviews.")
+                    
+                    # Summary Output
+                    print(f"\n{'='*40}")
+                    print(f"SUMMARY")
+                    print(f"{'='*40}")
+                    print(f"Business:        {self.business_name}")
+                    print(f"Total reviews:   {len(reviews)}")
+                    ratings = [float(r['rating_value']) for r in reviews if r['rating_value'] != 'N/A']
+                    if ratings:
+                        print(f"Average rating:  {sum(ratings)/len(ratings):.2f} / 5.0")
+                        rating_dist = {}
+                        for r in ratings:
+                            key = str(int(r))
+                            rating_dist[key] = rating_dist.get(key, 0) + 1
+                        print(f"Rating breakdown:")
+                        for star in ["5", "4", "3", "2", "1"]:
+                            count = rating_dist.get(star, 0)
+                            print(f"  {star} stars: {count}")
+                    print(f"{'='*40}")
                 else:
                     print("❌ No reviews found after scrolling.")
             else:
@@ -371,5 +466,10 @@ class ReviewTrackerScraper(BaseScraper):
                 print(f"⚠️ Failed to log execution: {log_err}")
 
 if __name__ == "__main__":
+    import django
+    import os
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+    django.setup()
+    
     scraper = ReviewTrackerScraper()
     asyncio.run(scraper.run())

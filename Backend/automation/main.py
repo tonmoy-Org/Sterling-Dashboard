@@ -212,14 +212,58 @@ async def run_review_tracker_scraper():
                 pass
 
 
+async def run_yelp_review_scraper():
+    """Execute Yelp Review scraping workflow."""
+    from automation.scrapers.yelp_review_scraper import YelpReviewScraper
+    print("\n=== Starting Yelp Review Scraper ===")
+    scraper = None
+
+    try:
+        scraper = YelpReviewScraper()
+        await scraper.run()
+        print("Yelp Review scraping completed.")
+
+    except Exception as e:
+        print(f"Error during Yelp Review execution: {e}")
+    finally:
+        if scraper:
+            try:
+                del scraper
+            except:
+                pass
+
+
+async def run_invoice_proficiency_scraper():
+    """Execute Invoice Proficiency scraping workflow."""
+    from automation.scrapers.invoice_proficiency_scraper import InvoiceProficiencyScraper
+    print("\n=== Starting Invoice Proficiency Scraper ===")
+    scraper = None
+
+    try:
+        scraper = InvoiceProficiencyScraper()
+        await scraper.run()
+        print("Invoice Proficiency scraping completed.")
+
+    except Exception as e:
+        print(f"Error during Invoice Proficiency execution: {e}")
+    finally:
+        if scraper:
+            try:
+                del scraper
+            except:
+                pass
+
+
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
-    # await fieldedge_scraper()
-    # await run_work_orders_scraper()
-    # await run_online_rme_scraper()
-    # await run_work_orders_tags_scraper()
-    # await run_dispatcher_booked_scraper()
+    await fieldedge_scraper()
+    await run_work_orders_scraper()
+    await run_online_rme_scraper()
+    await run_work_orders_tags_scraper()
+    await run_dispatcher_booked_scraper()
     await run_review_tracker_scraper()
+    await run_yelp_review_scraper()
+    await run_invoice_proficiency_scraper()
 
 @track_scraper
 def start_fieldedge_scraper():
@@ -300,6 +344,30 @@ def start_review_tracker_scraper():
     print("=" * 50 + "\n")
     try:
         asyncio.run(run_review_tracker_scraper())
+    except Exception as e:
+        print(f"\nCritical error: {e}")
+
+
+@track_scraper
+def start_yelp_review_scraper():
+    """Initialize and start the Yelp Review scraping process."""
+    print("\n" + "=" * 50)
+    print("STERLING DASHBOARD SCRAPER - YELP REVIEW INITIALIZED")
+    print("=" * 50 + "\n")
+    try:
+        asyncio.run(run_yelp_review_scraper())
+    except Exception as e:
+        print(f"\nCritical error: {e}")
+
+
+@track_scraper
+def start_invoice_proficiency_scraper():
+    """Initialize and start the Invoice Proficiency scraping process."""
+    print("\n" + "=" * 50)
+    print("STERLING DASHBOARD SCRAPER - INVOICE PROFICIENCY INITIALIZED")
+    print("=" * 50 + "\n")
+    try:
+        asyncio.run(run_invoice_proficiency_scraper())
     except Exception as e:
         print(f"\nCritical error: {e}")
 

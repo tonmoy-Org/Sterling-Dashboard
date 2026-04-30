@@ -76,30 +76,8 @@ class DispatcherBookedScraper(BaseScraper):
         # Apply the specific dispatcher status filter
         await self.perform_actions_by_xpaths(name=status_xpath, raise_on_error=True)
 
-        # After clicking the date-filter div, explicitly wait for the
-        # dropdown list to appear before attempting to click 'Today'.
-        # This fixes the intermittent "Element not found" failure on
-        # the last URL where the SPA renders slightly slower.
-        today_xpath = "//div[contains(@class,'date-filter-select')]//following::ul[1]//li[contains(.,'Today')]"
-        try:
-            await self.page.wait_for_selector(
-                today_xpath,
-                state="visible",
-                timeout=10000,
-            )
-        except Exception:
-            print("⚠️ 'Today' option not visible after first click — retrying dropdown open...")
-            try:
-                date_filter_div = self.page.locator("div.secondary-filter.date-filter")
-                await date_filter_div.click()
-                await self.page.wait_for_timeout(800)
-                await self.page.wait_for_selector(
-                    today_xpath,
-                    state="visible",
-                    timeout=8000,
-                )
-            except Exception:
-                print("⚠️ 'Today' option still not visible after retry, proceeding anyway...")
+        # The date filter (Today) is already applied by the perform_actions_by_xpaths(name=status_xpath)
+        # call above, which handles the full sequence: Open -> Today -> Select.
 
         # Robust wait for the Submit/Apply button before clicking
         try:

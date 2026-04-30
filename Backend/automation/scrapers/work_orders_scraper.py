@@ -345,7 +345,7 @@ class WorkOrdersScraper(BaseScraper):
 
             # Navigate to dispatch board
             dashboard_url = self.rules.get("dashboard_url")
-            await self.page.goto(dashboard_url, wait_until="domcontentloaded")
+            await self._goto_with_fallback(dashboard_url)
 
             # Login if necessary
             if "Login" in self.page.url:
@@ -354,7 +354,7 @@ class WorkOrdersScraper(BaseScraper):
             # Navigate to work orders list if needed
             work_order_url = self.rules.get("work_order_url", "")
             if work_order_url and work_order_url != self.page.url:
-                await self.page.goto(work_order_url, wait_until="domcontentloaded")
+                await self._goto_with_fallback(work_order_url)
 
             # Wait for table to load
             try:

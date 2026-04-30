@@ -62,7 +62,7 @@ import { ResourcesLibrary } from '../pages/tech/pages/ResourcesLibrary';
 import Repairs from '../pages/superadmin/features/Repairs/Repairs';
 import CustomerCenter from '../pages/superadmin/features/customer-center/CustomerCenter';
 import DispatchKpi from '../pages/superadmin/features/dispatch_kpi/DispatchKpi';
-
+import { InvoiceProficiency } from '../pages/superadmin/features/invoice_proficiency/InvoiceProficiency';
 
 export const AppRoutes = () => {
   const { user } = useAuth();
@@ -150,6 +150,7 @@ export const AppRoutes = () => {
           <Route path="notifications" element={<Notifications />} />
           <Route path="customer-center" element={<CustomerCenter />} />
           <Route path="dispatch-kpi" element={<DispatchKpi />} />
+          <Route path="invoice-proficiency" element={<InvoiceProficiency />} />
         </Route>
 
         {/* Manager */}
@@ -179,7 +180,6 @@ export const AppRoutes = () => {
           <Route path="risk-management" element={<RiskManagement />} />
           <Route path="scorecards" element={<Scorecards />} />
           <Route path="forms" element={<Forms />} />
-          <Route path="review-tracking" element={<Review />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="training" element={<Training />} />
           <Route path="tasks" element={<Tasks />} />
@@ -189,7 +189,7 @@ export const AppRoutes = () => {
           <Route path="health-department-report-tracking/rss" element={<RSSReports />} />
           <Route path="health-department-report-tracking/tos" element={<TOSReports />} />
           <Route path="customer-center" element={<CustomerCenter />} />
-          <Route path="dispatch-kpi" element={<DispatchKpi />} />
+          <Route path="invoice-proficiency" element={<InvoiceProficiency />} />
 
           <Route path="notifications" element={<Notifications />} />
         </Route>

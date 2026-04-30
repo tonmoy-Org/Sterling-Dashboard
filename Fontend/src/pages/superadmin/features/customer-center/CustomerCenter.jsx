@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, memo } from 'react';
+import OutlineButton from '../../../../components/ui/OutlineButton';
 import { format } from 'date-fns';
 import {
     Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
@@ -42,7 +43,7 @@ const PALETTE = {
 const formatDateTimeWithTZ = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
-    return isNaN(date) ? '—' : format(date, "MM/dd/yyyy hh:mm a");
+    return isNaN(date) ? '—' : format(date, "MM/dd/yy hh:mm a");
 };
 
 /* ── Address parser ──────────────────────────────────────────────────────── */
@@ -151,10 +152,12 @@ const applyFilter = (arr, q) => {
     if (!q) return arr;
     const lq = q.toLowerCase();
     return arr.filter(i =>
-        i.customerName.toLowerCase().includes(lq)       ||
-        i.workOrderAddress.toLowerCase().includes(lq)   ||
-        i.workOrderSummary.toLowerCase().includes(lq)   ||
-        i.technicianName.toLowerCase().includes(lq)
+        (i.customerName || '').toLowerCase().includes(lq)       ||
+        (i.workOrderAddress || '').toLowerCase().includes(lq)   ||
+        (i.workOrderSummary || '').toLowerCase().includes(lq)   ||
+        (i.tag || '').toLowerCase().includes(lq)                ||
+        (i.wo || '').toLowerCase().includes(lq)                 ||
+        (i.technicianName || '').toLowerCase().includes(lq)
     );
 };
 
@@ -592,7 +595,7 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
     <Paper elevation={0} sx={{ mb: 4, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${alpha(color, 0.15)}`, bgcolor: 'white' }}>
         <Box sx={{ p: 1.5, bgcolor: 'white', borderBottom: `1px solid ${alpha(color, 0.1)}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Typography sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Typography component="div" sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
                     {title}
                     <Chip size="small" label={tableSearch ? `${filteredCount}/${count}` : count}
                         sx={{ bgcolor: alpha(color, 0.08), color: PALETTE.TEXT, fontSize: '0.75rem', fontWeight: 500, height: '24px', '& .MuiChip-label': { px: 1.2, py: 0 } }} />
@@ -600,12 +603,13 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
                 {subtitle && <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.78rem' }}>{subtitle}</Typography>}
             </Box>
             <Stack direction="row" spacing={1} alignItems="center">
-                <TableSearchBar value={tableSearch} onChange={onTableSearch} color={color} placeholder={tableSearchPlaceholder || `Search ${title.toLowerCase()}…`} />
-                {selectedCount > 0 && (
-                    <Button variant="outlined" color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
-                        sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 1.5 }}>
-                        Delete ({selectedCount})
-                    </Button>
+                {selectedCount > 0 ? (
+                    <OutlineButton color="error" size="small" onClick={onDelete} startIcon={<Trash2 size={14} />}
+                        sx={{ height: '32px', px: 2, borderRadius: '6px' }}>
+                        Trash Selected ({selectedCount})
+                    </OutlineButton>
+                ) : (
+                    <TableSearchBar value={tableSearch} onChange={onTableSearch} color={color} placeholder={tableSearchPlaceholder || `Search ${title.toLowerCase()}…`} />
                 )}
             </Stack>
         </Box>
@@ -867,8 +871,15 @@ export default function CustomerCenter() {
         cacheTime: 10 * 60 * 1000,
     });
 
-    /* ── Mutations ─────────────────────────────────────────────────────────── */
+    /* ── Scraper status ──────────────────────────────────────────────────────── */
+    const { data: scraperStatus } = useQuery({
+        queryKey: ['scraper-status'],
+        queryFn: () => rmeApi.getScraperStatus(),
+        refetchInterval: 5000,
+    });
+    const isRunning = scraperStatus?.data?.is_running;
 
+    /* ── Mutations ─────────────────────────────────────────────────────────── */
     // Update a single work order field(s)
     const updateWorkOrderMutation = useMutation({
         mutationFn: async ({ id, data }) => {
@@ -1036,6 +1047,8 @@ export default function CustomerCenter() {
     const [binPage,          setBinPage]          = useState(0);
     const [binRpp,           setBinRpp]           = useState(10);
     const [binSel,           setBinSel]           = useState(new Set());
+    const [confirmRestore,   setConfirmRestore]   = useState({ open: false, item: null, bulk: false, ids: [] });
+    const [confirmPermanent, setConfirmPermanent] = useState({ open: false, item: null, bulk: false, ids: [] });
 
     /* ── Derived lists ─────────────────────────────────────────────────────── */
     const items = workOrders || [];
@@ -1053,11 +1066,12 @@ export default function CustomerCenter() {
         if (!recycleBinSearch) return deleted;
         const lq = recycleBinSearch.toLowerCase();
         return deleted.filter(i =>
-            i.customerName?.toLowerCase().includes(lq)    ||
-            i.workOrderAddress?.toLowerCase().includes(lq)||
-            i.deletedBy?.toLowerCase().includes(lq)       ||
-            i.deletedByEmail?.toLowerCase().includes(lq)  ||
-            `WO-${i.id}`.toLowerCase().includes(lq)
+            (i.customerName || '').toLowerCase().includes(lq)    ||
+            (i.workOrderAddress || '').toLowerCase().includes(lq)||
+            (i.tag || '').toLowerCase().includes(lq)             ||
+            (i.wo || '').toLowerCase().includes(lq)              ||
+            (i.deletedBy || '').toLowerCase().includes(lq)       ||
+            (i.deletedByEmail || '').toLowerCase().includes(lq)
         );
     }, [deleted, recycleBinSearch]);
 
@@ -1109,29 +1123,25 @@ export default function CustomerCenter() {
         setFn(new Set());
     }, [bulkSoftDeleteMutation]);
 
-    // Single restore
-    const handleRestore = useCallback(async (id) => {
-        await restoreMutation.mutateAsync(id);
-        setBinSel(p => { const s = new Set(p); s.delete(id); return s; });
-    }, [restoreMutation]);
-
-    // Bulk restore
-    const handleBulkRestore = useCallback(async () => {
-        await bulkRestoreMutation.mutateAsync(Array.from(binSel));
+    // Restore handlers
+    const handleSingleRestore = (item) => setConfirmRestore({ open: true, item, bulk: false, ids: [item.id] });
+    const handleBulkRestore = () => setConfirmRestore({ open: true, item: null, bulk: true, ids: [...binSel] });
+    const executeRestore = async () => {
+        if (confirmRestore.bulk) await bulkRestoreMutation.mutateAsync(confirmRestore.ids);
+        else await restoreMutation.mutateAsync(confirmRestore.item.id);
+        setConfirmRestore({ open: false, item: null, bulk: false, ids: [] });
         setBinSel(new Set());
-    }, [bulkRestoreMutation, binSel]);
+    };
 
-    // Single permanent delete
-    const handlePermanentDelete = useCallback(async (id) => {
-        await permanentDeleteMutation.mutateAsync(id);
-        setBinSel(p => { const s = new Set(p); s.delete(id); return s; });
-    }, [permanentDeleteMutation]);
-
-    // Bulk permanent delete
-    const handleBulkPermanentDelete = useCallback(async () => {
-        await bulkPermanentDeleteMutation.mutateAsync(Array.from(binSel));
+    // Permanent delete handlers
+    const handleSinglePermanent = (item) => setConfirmPermanent({ open: true, item, bulk: false, ids: [item.id] });
+    const handleBulkPermanent = () => setConfirmPermanent({ open: true, item: null, bulk: true, ids: [...binSel] });
+    const executePermanent = async () => {
+        if (confirmPermanent.bulk) await bulkPermanentDeleteMutation.mutateAsync(confirmPermanent.ids);
+        else await permanentDeleteMutation.mutateAsync(confirmPermanent.item.id);
+        setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] });
         setBinSel(new Set());
-    }, [bulkPermanentDeleteMutation, binSel]);
+    };
 
     // Selection toggle helpers
     const toggleSel = useCallback((setFn, id) => {
@@ -1181,11 +1191,19 @@ export default function CustomerCenter() {
                     </Typography>
                 </Box>
                 <Stack direction="row" spacing={1.5} alignItems="center">
+                    {isRunning && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, bgcolor: alpha(PALETTE.BLUE, 0.08), borderRadius: '20px', border: `1px solid ${alpha(PALETTE.BLUE, 0.2)}` }}>
+                            <Box className="animate-pulse" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: PALETTE.BLUE }} />
+                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: PALETTE.BLUE }}>
+                                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+                            </Typography>
+                        </Box>
+                    )}
                     <RefreshButton onRefresh={rmeApi.startWorkOrdersTagsScraping} />
-                    <Button variant="outlined" size="small" startIcon={<History size={15} />} onClick={handleOpenBin}
-                        sx={{ textTransform: 'none', fontSize: '0.8rem', fontWeight: 500, height: '34px', px: 1.75, color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) } }}>
+                    <OutlineButton startIcon={<History size={15} />} onClick={handleOpenBin}
+                        sx={{ height: '34px', px: 1.75, color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) } }}>
                         Recycle Bin ({deleted.length})
-                    </Button>
+                    </OutlineButton>
                 </Stack>
             </Box>
 
@@ -1240,12 +1258,41 @@ export default function CustomerCenter() {
                 onToggle={id => toggleSel(setBinSel, id)}
                 onToggleAll={pgItems => toggleAll(setBinSel, pgItems, binSel)}
                 onBulkRestore={handleBulkRestore}
-                onBulkDelete={handleBulkPermanentDelete}
-                onSingleRestore={item => handleRestore(item.id)}
-                onSingleDelete={item => handlePermanentDelete(item.id)}
+                onBulkDelete={handleBulkPermanent}
+                onSingleRestore={handleSingleRestore}
+                onSingleDelete={handleSinglePermanent}
                 search={recycleBinSearch}
                 onSearchChange={setRecycleBinSearch}
             />
+
+            <CommonDialog
+                open={confirmRestore.open}
+                onClose={() => setConfirmRestore({ open: false, item: null, bulk: false, ids: [] })}
+                onConfirm={executeRestore}
+                title="Restore Records"
+                variant="success"
+                confirmText="Restore"
+                icon={<RotateCcw size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+                    Restore {confirmRestore.bulk ? `${confirmRestore.ids.length} records` : 'this record'} back to the customer center?
+                </Typography>
+            </CommonDialog>
+
+            <CommonDialog
+                open={confirmPermanent.open}
+                onClose={() => setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] })}
+                onConfirm={executePermanent}
+                title="Delete Permanently"
+                variant="danger"
+                confirmText="Delete Forever"
+                icon={<AlertCircle size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+                    Are you sure you want to permanently delete {confirmPermanent.bulk ? `${confirmPermanent.ids.length} records` : 'this record'}? 
+                    This action <strong style={{ color: PALETTE.RED }}>cannot</strong> be undone.
+                </Typography>
+            </CommonDialog>
         </Box>
     );
 }

@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useRef } from 'react';
+import { formatRelativeDate, formatDate } from '../../utils/dateFormats';
 import {
   Box,
   Typography,
@@ -27,6 +28,7 @@ import {
   X,
   BarChart3,
   Star,
+  FileText,
 } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { Helmet } from 'react-helmet-async';
@@ -48,48 +50,9 @@ const GRAY_COLOR = '#6b7280';
 const PURPLE_COLOR = '#8b5cf6';
 const ORANGE_COLOR = '#f59e0b';
 const INDIGO_COLOR = '#6366f1';
+const TEAL_COLOR = '#008080';
 
-const formatDate = (dateString) => {
-  if (!dateString) return '—';
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInDays === 0) {
-      return `Today at ${date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })}`;
-    } else if (diffInDays === 1) {
-      return `Yesterday at ${date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })}`;
-    } else if (diffInDays < 7) {
-      return `${date.toLocaleDateString('en-US', {
-        weekday: 'short',
-      })} at ${date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })}`;
-    }
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }).replace(',', '');
-  } catch (e) {
-    return '—';
-  }
-};
+const formatDateLabel = (dateString) => formatRelativeDate(dateString);
 
 const parseDashboardAddress = (fullAddress) => {
   if (!fullAddress) return { street: '', city: '', state: '', zip: '', original: '' };
@@ -130,6 +93,7 @@ export default function Notifications() {
   const { notifications: combinedData, isLoading, error, refetch, clearLocalCache } = useNotifications();
   const { showSnackbar } = useGlobalSnackbar();
   const prevNotificationsRef = useRef([]);
+  const [itemsToShow, setItemsToShow] = React.useState(30);
 
   const getDashboardBasePath = () => {
     switch (user?.role?.toUpperCase()) {
@@ -148,7 +112,7 @@ export default function Notifications() {
   const notifications = useMemo(() => {
     if (!combinedData) return [];
 
-    const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [] } = combinedData;
+    const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [], invoiceProficiency = [] } = combinedData;
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
@@ -255,7 +219,7 @@ export default function Notifications() {
             workOrderNumber: workOrder.wo || 'N/A',
             customerName: customerName,
             timestamp: createdDate,
-            formattedTime: formatDate(createdAt),
+            formattedTime: formatDateLabel(createdAt),
             icon: Wrench,
             color: statusColor,
             status: workOrder.status,
@@ -291,7 +255,7 @@ export default function Notifications() {
             address: 'System',
             customerName: 'System',
             timestamp: createdDate,
-            formattedTime: formatDate(createdAt),
+            formattedTime: formatDateLabel(createdAt),
             icon: BarChart3,
             color: GREEN_COLOR,
             status: 'completed',
@@ -321,7 +285,7 @@ export default function Notifications() {
             rating: review.rating,
             customerName: review.author_name || 'Customer',
             timestamp: createdDate,
-            formattedTime: formatDate(createdAt),
+            formattedTime: formatDateLabel(createdAt),
             icon: Star,
             color: ORANGE_COLOR,
             rawData: review,
@@ -334,8 +298,49 @@ export default function Notifications() {
       }
     });
 
+    // Process Invoice Proficiency
+    invoiceProficiency.forEach((inv) => {
+      const createdAt = inv.createdAt || inv.completedDate;
+      if (!createdAt || inv.is_deleted) return;
+
+      try {
+        const createdDate = new Date(createdAt);
+        if (createdDate >= oneMonthAgo) {
+          const profValue = inv.proficiency ? `${(inv.proficiency * 100).toFixed(0)}%` : '—';
+          allNotifications.push({
+            id: `invoice-${inv.id}`,
+            type: 'invoice',
+            title: 'Invoice Added',
+            description: `New invoice for ${inv.customerName || inv.workOrderNumber} by ${inv.technician || 'Unknown'} (${profValue})`,
+            address: inv.customerName || 'Unknown',
+            workOrderNumber: inv.workOrderNumber || 'N/A',
+            customerName: inv.customerName || 'Unknown',
+            timestamp: createdDate,
+            formattedTime: formatDateLabel(createdAt),
+            icon: FileText,
+            color: TEAL_COLOR,
+            rawData: inv,
+            is_seen: inv.is_seen || false,
+            entityId: inv.id,
+          });
+        }
+      } catch (e) {
+        console.error('Error parsing invoice date:', e);
+      }
+    });
+
     return allNotifications.sort((a, b) => b.timestamp - a.timestamp);
   }, [combinedData]);
+
+  const visibleNotifications = useMemo(() => {
+    return notifications.slice(0, itemsToShow);
+  }, [notifications, itemsToShow]);
+
+  const hasMore = notifications.length > itemsToShow;
+
+  const handleLoadMore = () => {
+    setItemsToShow(prev => prev + 30);
+  };
 
   useEffect(() => {
     if (notifications.length > 0) {
@@ -358,6 +363,8 @@ export default function Notifications() {
             message = `Dispatch KPI updated`;
           } else if (notification.type === 'review') {
             message = `New ${notification.rating}-star review from ${notification.customerName}`;
+          } else if (notification.type === 'invoice') {
+            message = `New invoice: ${notification.workOrderNumber}`;
           }
 
           showSnackbar(message, 'info');
@@ -371,28 +378,10 @@ export default function Notifications() {
   const groupedNotifications = useMemo(() => {
     const groups = {};
 
-    const formatGroupDate = (dateString) => {
-      const date = new Date(dateString);
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
+    const formatGroupDateLabel = (dateString) => formatDate(dateString);
 
-      if (date.toDateString() === today.toDateString()) {
-        return 'Today';
-      } else if (date.toDateString() === yesterday.toDateString()) {
-        return 'Yesterday';
-      } else {
-        return date.toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        });
-      }
-    };
-
-    notifications.forEach((notification) => {
-      const dateKey = formatGroupDate(notification.timestamp);
+    visibleNotifications.forEach((notification) => {
+      const dateKey = formatGroupDateLabel(notification.timestamp);
       if (!groups[dateKey]) {
         groups[dateKey] = [];
       }
@@ -400,7 +389,7 @@ export default function Notifications() {
     });
 
     return groups;
-  }, [notifications]);
+  }, [visibleNotifications]);
 
   const counts = useMemo(() => {
     const locateCount = notifications.filter(n => n.type === 'locate').length;
@@ -408,6 +397,7 @@ export default function Notifications() {
     const woCount = notifications.filter(n => n.type === 'work-order').length;
     const dkpiCount = notifications.filter(n => n.type === 'dispatch-kpi').length;
     const reviewCount = notifications.filter(n => n.type === 'review').length;
+    const invoiceCount = notifications.filter(n => n.type === 'invoice').length;
     const unseenCount = notifications.filter(n => !n.is_seen).length;
     const seenCount = notifications.filter(n => n.is_seen).length;
 
@@ -446,6 +436,11 @@ export default function Notifications() {
         });
       } else if (notification.type === 'review') {
         await reviewsApi.markSeen(notification.entityId);
+      } else if (notification.type === 'invoice') {
+        // Use the same endpoint as others if available, or specific one
+        await rmeApi.markInvoiceProficiencySeen({
+          ids: [notification.entityId],
+        });
       }
     },
     onMutate: async (notification) => {
@@ -495,6 +490,12 @@ export default function Notifications() {
                 item.id === notification.entityId ? { ...item, is_seen: true } : item
               )
               : old.reviews,
+          invoiceProficiency:
+            notification.type === 'invoice'
+              ? (old.invoiceProficiency || []).map((item) =>
+                item.id === notification.entityId ? { ...item, is_seen: true } : item
+              )
+              : old.invoiceProficiency,
         };
       });
 
@@ -539,6 +540,10 @@ export default function Notifications() {
         .filter((n) => n.type === 'review' && !n.is_seen)
         .map((n) => n.entityId);
 
+      const invoiceIds = notifications
+        .filter((n) => n.type === 'invoice' && !n.is_seen)
+        .map((n) => n.entityId);
+
       const promises = [];
 
       if (locateIds.length > 0) {
@@ -567,6 +572,10 @@ export default function Notifications() {
 
       if (reviewIds.length > 0) {
         promises.push(reviewsApi.markAllSeen());
+      }
+
+      if (invoiceIds.length > 0) {
+        promises.push(rmeApi.markInvoiceProficiencySeen({ ids: invoiceIds }));
       }
 
       await Promise.all(promises);
@@ -598,6 +607,7 @@ export default function Notifications() {
                 : [{ user: user?.id }],
           })),
           reviews: (old.reviews || []).map((item) => ({ ...item, is_seen: true })),
+          invoiceProficiency: (old.invoiceProficiency || []).map((item) => ({ ...item, is_seen: true })),
         };
       });
 
@@ -625,7 +635,8 @@ export default function Notifications() {
             (i) => Array.isArray(i.user_seen_records) && i.user_seen_records.length === 0
           ).length;
           const unseenReviews = reviews.filter((i) => !i.is_seen).length;
-          return unseenLocates + unseenWO + unseenAllWO + unseenDkpi + unseenReviews;
+          const unseenInvoices = (invoiceProficiency || []).filter((i) => !i.is_seen).length;
+          return unseenLocates + unseenWO + unseenAllWO + unseenDkpi + unseenReviews + unseenInvoices;
         })()
         : counts.unseenCount;
 
@@ -697,6 +708,14 @@ export default function Notifications() {
       navigate(`${dashboardBasePath}/review-tracking`, {
         state: {
           highlightReviewId: notification.entityId,
+          fromNotifications: true,
+          scrollToTop: true,
+        },
+      });
+    } else if (notification.type === 'invoice') {
+      navigate(`${dashboardBasePath}/invoice-proficiency`, {
+        state: {
+          highlightInvoiceId: notification.entityId,
           fromNotifications: true,
           scrollToTop: true,
         },
@@ -1028,7 +1047,9 @@ export default function Notifications() {
                                       ? 'RME'
                                       : notification.type === 'dispatch-kpi'
                                         ? 'KPI'
-                                        : 'WO'
+                                        : notification.type === 'invoice'
+                                          ? 'INV'
+                                          : 'WO'
                                 }
                                 size="small"
                                 sx={{
@@ -1090,6 +1111,31 @@ export default function Notifications() {
               </List>
             </Box>
           ))}
+          
+          {hasMore && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={handleLoadMore}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  color: BLUE_COLOR,
+                  borderColor: alpha(BLUE_COLOR, 0.4),
+                  px: 4,
+                  py: 1,
+                  borderRadius: '12px',
+                  '&:hover': {
+                    borderColor: BLUE_COLOR,
+                    bgcolor: alpha(BLUE_COLOR, 0.05),
+                  }
+                }}
+              >
+                Load More Notifications ({notifications.length - itemsToShow} remaining)
+              </Button>
+            </Box>
+          )}
         </Paper>
       )}
 
@@ -1141,6 +1187,11 @@ export default function Notifications() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: GREEN_COLOR }} />
               <span>{counts.dkpiCount} KPI</span>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: TEAL_COLOR }} />
+              <span>{counts.invoiceCount} Invoices</span>
             </Box>
           </Typography>
         </Box>

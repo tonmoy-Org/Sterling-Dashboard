@@ -11,12 +11,14 @@ import {
     DialogActions,
     CircularProgress,
     Alert,
+    Stack,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { AlertTriangle, History, RotateCcw, Trash2, Lock, XCircle, CheckCircle2 } from 'lucide-react';
 import CommonDialog from '../../../../components/ui/CommonDialog';
+import OutlineButton from '../../../../components/ui/OutlineButton';
 
 import { useRmeData } from './hooks/useRmeData';
 import { useRmeMutations } from './hooks/useRmeMutations';
@@ -254,6 +256,13 @@ const RMEReports = () => {
         isLoading,
         currentUser
     } = useRmeData();
+
+    const { data: scraperStatus } = useQuery({
+        queryKey: ['scraper-status'],
+        queryFn: () => rmeApi.getScraperStatus(),
+        refetchInterval: 5000,
+    });
+    const isRunning = scraperStatus?.data?.is_running;
 
     const {
         bulkSoftDeleteMutation,
@@ -620,19 +629,27 @@ const RMEReports = () => {
                         Track RME reports through 4 stages
                     </Typography>
                 </Box>
-                <Box>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                    {isRunning && (
+                        <Box sx={{
+                            display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5,
+                            bgcolor: alpha(BLUE_COLOR, 0.08), borderRadius: '20px',
+                            border: `1px solid ${alpha(BLUE_COLOR, 0.2)}`
+                        }}>
+                            <Box className="animate-pulse" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: BLUE_COLOR }} />
+                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: BLUE_COLOR }}>
+                                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+                            </Typography>
+                        </Box>
+                    )}
                     <RefreshButton onRefresh={rmeApi.startWorkOrdersAndRmeScraping} />
-                    <Button
-                        variant="outlined"
+                    <OutlineButton
                         startIcon={<History size={isMobile ? 14 : 16} />}
                         onClick={() => setRecycleBinModalOpen(true)}
                         sx={{
-                            textTransform: 'none',
-                            ml: 1,
-                            fontSize: isMobile ? '0.8rem' : '0.85rem',
-                            fontWeight: 500,
                             color: PURPLE_COLOR,
                             borderColor: alpha(PURPLE_COLOR, 0.3),
+                            ml: 0,
                             minWidth: isMobile ? 'auto' : undefined,
                             '&:hover': {
                                 borderColor: PURPLE_COLOR,
@@ -641,8 +658,8 @@ const RMEReports = () => {
                         }}
                     >
                         {`Recycle Bin (${deletedWorkOrders.length})`}
-                    </Button>
-                </Box>
+                    </OutlineButton>
+                </Stack>
             </Box>
 
             <Section
@@ -653,16 +670,15 @@ const RMEReports = () => {
                 additionalActions={
                     <Box sx={{ width: '100%', mt: isMobile ? 1 : 0 }}>
                         {selectedReportNeeded.size > 0 ? (
-                            <Button
-                                variant="outlined"
+                            <OutlineButton
                                 color="error"
                                 size="small"
                                 startIcon={<Trash2 size={16} />}
                                 onClick={() => handleSoftDelete(selectedReportNeeded, 'Report Needed')}
-                                sx={{ textTransform: 'none', fontSize: '0.8rem', fontWeight: 500, width: isMobile ? '100%' : 'auto' }}
+                                sx={{ width: isMobile ? '100%' : 'auto' }}
                             >
                                 {isMobile ? `Delete (${selectedReportNeeded.size})` : `Delete Selected (${selectedReportNeeded.size})`}
-                            </Button>
+                            </OutlineButton>
                         ) : (
                             <Box sx={{ width: '100%' }}>
                                 <SearchInput
@@ -708,16 +724,15 @@ const RMEReports = () => {
                 additionalActions={
                     <Box sx={{ width: '100%', mt: isMobile ? 1 : 0 }}>
                         {selectedReportSubmitted.size > 0 ? (
-                            <Button
-                                variant="outlined"
+                            <OutlineButton
                                 color="error"
                                 size="small"
                                 startIcon={<Trash2 size={16} />}
                                 onClick={() => handleSoftDelete(selectedReportSubmitted, 'Report Submitted')}
-                                sx={{ textTransform: 'none', fontSize: '0.8rem', fontWeight: 500, width: isMobile ? '100%' : 'auto' }}
+                                sx={{ width: isMobile ? '100%' : 'auto' }}
                             >
                                 {isMobile ? `Delete (${selectedReportSubmitted.size})` : `Delete Selected (${selectedReportSubmitted.size})`}
-                            </Button>
+                            </OutlineButton>
                         ) : (
                             <Box sx={{ width: '100%' }}>
                                 <SearchInput

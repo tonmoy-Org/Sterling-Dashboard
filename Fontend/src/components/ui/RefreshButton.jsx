@@ -1,4 +1,7 @@
-import { alpha, Button, styled, Dialog, DialogTitle, DialogContent, DialogActions, Typography, Box, CircularProgress } from '@mui/material';
+import { 
+    alpha, Button, styled, Dialog, DialogTitle, DialogContent, 
+    DialogActions, Typography, Box, CircularProgress, keyframes 
+} from '@mui/material';
 import { useState } from 'react';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -6,6 +9,11 @@ import AutorenewIcon from '@mui/icons-material/Autorenew';
 import { scraperApi } from '../../api/services/scraperApi';
 import { rmeApi } from '../../api/services/rmeApi';
 import { useScraping } from '../../context/ScrapingContext'; // ← ADD THIS
+
+const spin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
 
 const StyledRefreshButton = styled(Button)(({ theme }) => ({
     color: '#fff',
@@ -32,6 +40,9 @@ const StyledRefreshButton = styled(Button)(({ theme }) => ({
         '& svg': {
             fontSize: '1.2rem',
         },
+    },
+    '& .spin': {
+        animation: `${spin} 1s linear infinite`,
     },
 }));
 
@@ -161,15 +172,6 @@ const RefreshButton = ({ onRefresh }) => {
                 </DialogActions>
             </StyledDialog>
 
-            <style jsx>{`
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-                .spin {
-                    animation: spin 1s linear infinite;
-                }
-            `}</style>
         </>
     );
 };

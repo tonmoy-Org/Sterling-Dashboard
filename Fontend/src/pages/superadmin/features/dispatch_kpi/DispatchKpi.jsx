@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, memo, useEffect, useRef } from 'react';
+import OutlineButton from '../../../../components/ui/OutlineButton';
 import { format } from 'date-fns';
 import {
     Box,
@@ -75,7 +76,7 @@ const dispatchers = [
 const formatDateTimeWithTZ = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
-    return isNaN(date) ? '—' : format(date, 'MM/dd/yyyy hh:mm a');
+    return isNaN(date) ? '—' : format(date, 'MM/dd/yy hh:mm a');
 };
 
 const transformRecord = (raw) => ({
@@ -556,10 +557,20 @@ export default function DispatchKpi() {
     const [tableSearch,     setTableSearch]     = useState('');
     const [selectedIds,     setSelectedIds]     = useState(new Set());
     const [moveToBinDialog, setMoveToBinDialog] = useState({ open: false, item: null, isBulk: false });
+    const [confirmRestore,  setConfirmRestore]  = useState({ open: false, item: null, bulk: false, ids: [] });
+    const [confirmPermanent,setConfirmPermanent]= useState({ open: false, item: null, bulk: false, ids: [] });
     const [detailOpen,      setDetailOpen]      = useState(false);
     const [detailItem,      setDetailItem]      = useState(null);
     const highlightedRef = useRef(null);
     const location = useLocation();
+
+    // ── Scraper status ────────────────────────────────────────────────────────
+    const { data: scraperStatus } = useQuery({
+        queryKey: ['scraper-status'],
+        queryFn: () => rmeApi.getScraperStatus(),
+        refetchInterval: 5000,
+    });
+    const isRunning = scraperStatus?.data?.is_running;
 
     // ── Data fetching ─────────────────────────────────────────────────────────
     const { data: serverData = [], isLoading } = useQuery({
@@ -797,10 +808,22 @@ export default function DispatchKpi() {
         setMoveToBinDialog(p => ({ ...p, open: false }));
     }, [moveToBinDialog, selectedIds, bulkSoftDeleteMutation]);
 
-    const handleRestore             = useCallback((item)  => restoreMutation.mutate(item.id),                   [restoreMutation]);
-    const handleBulkRestore         = useCallback((items) => bulkRestoreMutation.mutate(items.map(i => i.id)),   [bulkRestoreMutation]);
-    const handlePermanentDelete     = useCallback((item)  => permanentDeleteMutation.mutate(item.id),            [permanentDeleteMutation]);
-    const handleBulkPermanentDelete = useCallback((items) => bulkPermanentDeleteMutation.mutate(items.map(i => i.id)), [bulkPermanentDeleteMutation]);
+    const handleRestore             = useCallback((item)  => setConfirmRestore({ open: true, item, bulk: false, ids: [item.id] }), []);
+    const handleBulkRestore         = useCallback((items) => setConfirmRestore({ open: true, item: null, bulk: true, ids: items.map(i => i.id) }), []);
+    const handlePermanentDelete     = useCallback((item)  => setConfirmPermanent({ open: true, item, bulk: false, ids: [item.id] }), []);
+    const handleBulkPermanentDelete = useCallback((items) => setConfirmPermanent({ open: true, item: null, bulk: true, ids: items.map(i => i.id) }), []);
+
+    const executeRestore = useCallback(async () => {
+        if (confirmRestore.bulk) await bulkRestoreMutation.mutateAsync(confirmRestore.ids);
+        else await restoreMutation.mutateAsync(confirmRestore.item.id);
+        setConfirmRestore({ open: false, item: null, bulk: false, ids: [] });
+    }, [confirmRestore, bulkRestoreMutation, restoreMutation]);
+
+    const executePermanent = useCallback(async () => {
+        if (confirmPermanent.bulk) await bulkPermanentDeleteMutation.mutateAsync(confirmPermanent.ids);
+        else await permanentDeleteMutation.mutateAsync(confirmPermanent.item.id);
+        setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] });
+    }, [confirmPermanent, bulkPermanentDeleteMutation, permanentDeleteMutation]);
 
     // Reset table to first page when search changes
     React.useEffect(() => { setPage(0); }, [tableSearch]);
@@ -846,21 +869,19 @@ export default function DispatchKpi() {
                     </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {isRunning && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, bgcolor: alpha(PALETTE.BLUE, 0.08), borderRadius: '20px', border: `1px solid ${alpha(PALETTE.BLUE, 0.2)}` }}>
+                            <Box className="animate-pulse" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: PALETTE.BLUE }} />
+                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: PALETTE.BLUE }}>
+                                Scraper Running... ({scraperStatus?.data?.elapsed_minutes}m)
+                            </Typography>
+                        </Box>
+                    )}
                     <RefreshButton onRefresh={rmeApi.startDispatcherBookedScraping} />
-                    <Button
-                        variant="outlined" size="small"
-                        startIcon={<History size={15} />}
-                        onClick={() => setBinOpen(true)}
-                        sx={{
-                            textTransform: 'none', fontSize: '0.8rem', fontWeight: 500,
-                            height: '34px', px: 1.75,
-                            color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35),
-                            borderRadius: '6px',
-                            '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) },
-                        }}
-                    >
+                    <OutlineButton startIcon={<History size={15} />} onClick={() => setBinOpen(true)}
+                        sx={{ height: '34px', px: 1.75, color: PALETTE.PURPLE, borderColor: alpha(PALETTE.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: PALETTE.PURPLE, bgcolor: alpha(PALETTE.PURPLE, 0.05) } }}>
                         Recycle Bin ({deletedData.length})
-                    </Button>
+                    </OutlineButton>
                 </Box>
             </Box>
 
@@ -977,7 +998,7 @@ export default function DispatchKpi() {
                         {/* Total Jobs Booked */}
                         <Grid size={{ xs: 6, sm: 3 }}>
                             <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${alpha(PALETTE.GREEN, 0.15)}`, bgcolor: alpha(PALETTE.GREEN, 0.03), height: '100%' }}>
-                                <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.73rem', display: 'block', mb: 0.5, fontWeight: 500 }}>Total Jobs Booked</Typography>
+                                <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.73rem', display: 'block', mb: 0.5, fontWeight: 500 }}>Total Booked</Typography>
                                 <Typography sx={{ fontWeight: 700, color: PALETTE.GREEN, fontSize: '2rem', lineHeight: 1.1, mb: 0.5 }}>{kpiData.totalJobsBooked}</Typography>
                                 <Typography variant="caption" sx={{ color: PALETTE.GRAY, fontSize: '0.72rem' }}>Successfully converted</Typography>
                             </Box>
@@ -1055,7 +1076,7 @@ export default function DispatchKpi() {
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1,
                 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Typography component="div" sx={{ fontSize: '1rem', color: PALETTE.TEXT, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
                             Daily Performance Breakdown
                             <Chip
                                 size="small"
@@ -1064,19 +1085,21 @@ export default function DispatchKpi() {
                             />
                         </Typography>
                     </Box>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                        <TableSearchBar value={tableSearch} onChange={setTableSearch} color={PALETTE.BLUE} placeholder="Search by date…" />
-                        {selectedIds.size > 0 && (
-                            <Button
-                                variant="outlined" color="error" size="small"
-                                onClick={handleBulkMoveToBin}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        {selectedIds.size > 0 ? (
+                            <OutlineButton
+                                color="error"
+                                size="small"
                                 startIcon={<Trash2 size={14} />}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 1.5 }}
+                                onClick={handleBulkMoveToBin}
+                                sx={{ height: 32, borderRadius: '6px', px: 2 }}
                             >
-                                Delete ({selectedIds.size})
-                            </Button>
+                                Trash Selected ({selectedIds.size})
+                            </OutlineButton>
+                        ) : (
+                            <TableSearchBar value={tableSearch} onChange={setTableSearch} color={PALETTE.BLUE} placeholder="Search by date…" />
                         )}
-                    </Stack>
+                    </Box>
                 </Box>
 
                 {/* Table */}
@@ -1101,7 +1124,7 @@ export default function DispatchKpi() {
                                     { label: 'Eric Booked',       align: 'center', width: 105 },
                                     { label: 'Eric Total',        align: 'center', width: 95  },
                                     { label: 'Eric %',            align: 'center', width: 85  },
-                                    { label: 'Total Jobs Booked', align: 'center', width: 145 },
+                                    { label: 'Total Booked', align: 'center', width: 145 },
                                     { label: 'All Leads',         align: 'center', width: 100 },
                                     { label: 'Pickup Ratio',      align: 'center', width: 110 },
                                     { label: 'Actions',           align: 'center', width: 110 },
@@ -1246,6 +1269,35 @@ export default function DispatchKpi() {
                 onBulkPermanentDelete={handleBulkPermanentDelete}
                 onView={handleViewDetails}
             />
+
+            <CommonDialog
+                open={confirmRestore.open}
+                onClose={() => setConfirmRestore({ open: false, item: null, bulk: false, ids: [] })}
+                onConfirm={executeRestore}
+                title="Restore Dispatch Records"
+                variant="success"
+                confirmText="Restore"
+                icon={<RotateCcw size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+                    Restore {confirmRestore.bulk ? `${confirmRestore.ids.length} records` : 'this record'} back to the tracker?
+                </Typography>
+            </CommonDialog>
+
+            <CommonDialog
+                open={confirmPermanent.open}
+                onClose={() => setConfirmPermanent({ open: false, item: null, bulk: false, ids: [] })}
+                onConfirm={executePermanent}
+                title="Delete Permanently"
+                variant="danger"
+                confirmText="Delete Forever"
+                icon={<AlertCircle size={16} />}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
+                    Are you sure you want to permanently delete {confirmPermanent.bulk ? `${confirmPermanent.ids.length} records` : 'this record'}? 
+                    This action <strong style={{ color: PALETTE.RED }}>cannot</strong> be undone.
+                </Typography>
+            </CommonDialog>
 
             <DispatchKpiDetailDialog
                 open={detailOpen}

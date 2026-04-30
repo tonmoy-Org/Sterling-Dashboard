@@ -1,5 +1,5 @@
-// NotificationDrawer.jsx - Optimistic updates for instant UI
 import React from 'react';
+import { formatRelativeDate, formatDate } from '../../utils/dateFormats';
 import { styled, alpha } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
@@ -21,7 +21,7 @@ import { rmeApi } from '../../api/services/rmeApi';
 import { workOrdersApi } from '../../api/services/workOrders';
 import { dispatchKpiApi } from '../../api/services/dispatchKpi';
 import { useAuth } from '../../auth/AuthProvider';
-import { Bell, X, Clock, MapPin, Wrench, ArrowRight, Check, BarChart3, Star } from 'lucide-react';
+import { Bell, X, Clock, MapPin, Wrench, ArrowRight, Check, BarChart3, Star, FileText } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { reviewsApi } from '../../api/services/reviews';
 
@@ -69,30 +69,9 @@ const NotificationScrollableBox = styled(Box)({
 });
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
-const formatDate = (dateString) => {
-    if (!dateString) return '—';
-    try {
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-        if (diffInDays === 0) return `Today at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-        if (diffInDays === 1) return `Yesterday at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-        if (diffInDays < 7) return `${date.toLocaleDateString('en-US', { weekday: 'short' })} at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace(',', '');
-    } catch {
-        return '—';
-    }
-};
+const formatDateLabel = (dateString) => formatRelativeDate(dateString);
 
-const formatGroupDate = (dateString) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-};
+const formatGroupDateLabel = (dateString) => formatDate(dateString);
 
 const parseDashboardAddress = (fullAddress) => {
     if (!fullAddress) return { street: '', city: '', state: '', zip: '', original: '' };
@@ -129,6 +108,8 @@ const NotificationDrawer = ({ onClose }) => {
                 await dispatchKpiApi.markSeen({ user: user?.id, dispatcher_booked: notification.entityId });
             } else if (notification.type === 'review') {
                 await reviewsApi.markSeen(notification.entityId);
+            } else if (notification.type === 'invoice') {
+                await rmeApi.markSeenInvoiceProficiency(notification.entityId);
             }
         },
         onMutate: async (notification) => {
@@ -159,6 +140,10 @@ const NotificationDrawer = ({ onClose }) => {
                         notification.type === 'review'
                             ? (old.reviews || []).map(item => item.id === notification.entityId ? { ...item, is_seen: true } : item)
                             : old.reviews,
+                    invoiceProficiency:
+                        notification.type === 'invoice'
+                            ? (old.invoiceProficiency || []).map(item => item.id === notification.entityId ? { ...item, is_seen: true } : item)
+                            : old.invoiceProficiency,
                 };
             });
 
@@ -181,6 +166,7 @@ const NotificationDrawer = ({ onClose }) => {
             const allWoIds = notificationsArray.filter(n => n.type === 'work-order').map(n => n.entityId);
             const dkpiIds = notificationsArray.filter(n => n.type === 'dispatch-kpi').map(n => n.entityId);
             const reviewIds = notificationsArray.filter(n => n.type === 'review');
+            const invoiceIds = notificationsArray.filter(n => n.type === 'invoice');
 
             const promises = [];
             if (locateIds.length > 0) promises.push(locatesApi.markSeen({ ids: locateIds }));
@@ -193,6 +179,9 @@ const NotificationDrawer = ({ onClose }) => {
             }
             if (reviewIds.length > 0) {
                 promises.push(reviewsApi.markAllSeen());
+            }
+            if (invoiceIds.length > 0) {
+                promises.push(rmeApi.markAllSeenInvoiceProficiency());
             }
             await Promise.all(promises);
         },
@@ -221,6 +210,7 @@ const NotificationDrawer = ({ onClose }) => {
                                 : [{ user: user?.id }],
                     })),
                     reviews: (old.reviews || []).map(item => ({ ...item, is_seen: true })),
+                    invoiceProficiency: (old.invoiceProficiency || []).map(item => ({ ...item, is_seen: true })),
                 };
             });
 
@@ -238,7 +228,7 @@ const NotificationDrawer = ({ onClose }) => {
     /* ── Build notification list from all three sources ── */
     const latestNotifications = React.useMemo(() => {
         if (!notifications) return [];
-        const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [] } = notifications;
+        const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [], invoiceProficiency = [] } = notifications;
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
         const all = [];
@@ -259,7 +249,7 @@ const NotificationDrawer = ({ onClose }) => {
                     workOrderNumber: locate.work_order_number || 'N/A',
                     customerName: locate.customer_name || 'Unknown',
                     timestamp: createdDate,
-                    formattedTime: formatDate(createdAt),
+                    formattedTime: formatDateLabel(createdAt),
                     icon: MapPin,
                     color: NOTIFICATION_COLORS.primary,
                     rawData: locate,
@@ -326,7 +316,7 @@ const NotificationDrawer = ({ onClose }) => {
                     workOrderNumber: workOrder.wo || 'N/A',
                     customerName: workOrder.customerName || 'Unknown',
                     timestamp: createdDate,
-                    formattedTime: formatDate(createdAt),
+                    formattedTime: formatDateLabel(createdAt),
                     icon: Wrench,
                     color: NOTIFICATION_COLORS.primary,
                     rawData: workOrder,
@@ -355,7 +345,7 @@ const NotificationDrawer = ({ onClose }) => {
                     workOrderNumber: 'N/A',
                     customerName: 'System',
                     timestamp: createdDate,
-                    formattedTime: formatDate(createdAt),
+                    formattedTime: formatDateLabel(createdAt),
                     icon: BarChart3,
                     color: GREEN_COLOR,
                     rawData: dkpi,
@@ -380,12 +370,38 @@ const NotificationDrawer = ({ onClose }) => {
                     workOrderNumber: 'N/A',
                     customerName: review.author_name || 'Customer',
                     timestamp: createdDate,
-                    formattedTime: formatDate(createdAt),
+                    formattedTime: formatDateLabel(createdAt),
                     icon: Star,
                     color: ORANGE_COLOR,
                     rawData: review,
                     entityId: review.id,
                     is_seen: review.is_seen || false,
+                });
+            }
+        });
+
+        // Invoice Proficiency
+        invoiceProficiency.forEach((inv) => {
+            const createdAt = inv.createdAt || inv.completedDate;
+            if (!createdAt || inv.is_deleted) return;
+            const createdDate = new Date(createdAt);
+            if (createdDate >= oneMonthAgo) {
+                const profValue = inv.proficiency ? `${(inv.proficiency * 100).toFixed(0)}%` : '—';
+                all.push({
+                    id: `invoice-${inv.id}`,
+                    type: 'invoice',
+                    title: 'Invoice Added',
+                    description: `New invoice for ${inv.customerName || inv.workOrderNumber} by ${inv.technician || 'Unknown'} (${profValue})`,
+                    address: inv.customerName || 'N/A',
+                    workOrderNumber: inv.workOrderNumber || 'N/A',
+                    customerName: inv.customerName || 'Unknown',
+                    timestamp: createdDate,
+                    formattedTime: formatDateLabel(createdAt),
+                    icon: FileText,
+                    color: TEAL_COLOR,
+                    rawData: inv,
+                    entityId: inv.id,
+                    is_seen: inv.is_seen || false,
                 });
             }
         });
@@ -403,7 +419,7 @@ const NotificationDrawer = ({ onClose }) => {
     const groupedNotifications = React.useMemo(() => {
         const groups = {};
         latestNotifications.forEach((n) => {
-            const dateKey = formatGroupDate(n.timestamp);
+            const dateKey = formatGroupDateLabel(n.timestamp);
             if (!groups[dateKey]) groups[dateKey] = [];
             groups[dateKey].push(n);
         });
@@ -451,6 +467,8 @@ const NotificationDrawer = ({ onClose }) => {
             navigate(`${basePath}/dispatch-kpi`, { state: { highlightDispatchKpiId: notification.entityId, fromNotifications: true } });
         } else if (notification.type === 'review') {
             navigate(`${basePath}/review-tracking`, { state: { highlightReviewId: notification.entityId, fromNotifications: true } });
+        } else if (notification.type === 'invoice') {
+            navigate(`${basePath}/invoice-proficiency`, { state: { highlightInvoiceId: notification.entityId, fromNotifications: true } });
         }
     };
 
@@ -527,7 +545,7 @@ const NotificationDrawer = ({ onClose }) => {
                         <Bell size={48} color={alpha(NOTIFICATION_COLORS.gray, 0.3)} />
                         <Typography variant="body1" sx={{ mt: 2, color: NOTIFICATION_COLORS.textSecondary, fontWeight: 600 }}>No notifications</Typography>
                         <Typography variant="caption" sx={{ color: NOTIFICATION_COLORS.textTertiary, mt: 1, display: 'block', maxWidth: '80%' }}>
-                            No locates, RMEs, work orders, or reviews found in the last 30 days.
+                            No locates, RMEs, work orders, reviews, or invoices found in the last 30 days.
                         </Typography>
                     </Box>
                 ) : (
@@ -586,7 +604,8 @@ const NotificationDrawer = ({ onClose }) => {
                                                                             notification.type === 'RME' ? 'RME' :
                                                                                 notification.type === 'dispatch-kpi' ? 'KPI' :
                                                                                     notification.type === 'review' ? 'Review' :
-                                                                                        'WO'
+                                                                                        notification.type === 'invoice' ? 'Inv' :
+                                                                                            'WO'
                                                                     }
                                                                     size="small"
                                                                     sx={{ height: '20px', fontSize: '0.65rem', fontWeight: 600, backgroundColor: alpha(notification.color, 0.1), color: notification.color, border: `1px solid ${alpha(notification.color, 0.2)}` }}
@@ -603,7 +622,9 @@ const NotificationDrawer = ({ onClose }) => {
                                                                     ? `WO: ${notification.rmeNumber}`
                                                                     : notification.type === 'dispatch-kpi'
                                                                         ? `KPI`
-                                                                        : `WO: ${notification.workOrderNumber}`}
+                                                                        : notification.type === 'invoice'
+                                                                            ? `INV: ${notification.workOrderNumber}`
+                                                                            : `WO: ${notification.workOrderNumber}`}
                                                             <Box sx={{ mx: 0.5 }}>•</Box>
                                                             {notification.formattedTime}
                                                         </Typography>

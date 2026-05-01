@@ -226,7 +226,7 @@ const CategoryTable = ({ title, rows, color = P.BLUE }) => {
                             paginatedRows.map((row, i) => (
                                 <TableRow key={i} hover sx={{ '&:last-child td': { borderBottom: 'none' } }}>
                                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                                        <Chip label={row.priority} size="small" sx={{ fontSize: '0.65rem', fontWeight: 600, height: 20, bgcolor: alpha(color, 0.1), color, border: `1px solid ${alpha(color, 0.2)}` }} />
+                                        <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.TEXT }}>{row.priority}</Typography>
                                     </TableCell>
                                     <TableCell sx={{ fontSize: '0.75rem', color: P.TEXT, py: 0.75 }}>{row.task}</TableCell>
                                     <TableCell sx={{ fontSize: '0.75rem', fontWeight: 600, color: P.TEXT, py: 0.75 }}>{row.invCount ?? 0}</TableCell>
@@ -363,7 +363,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                         )}
                         <Box>
                             <Typography sx={{ fontSize: '0.62rem', color: P.MUTED, textTransform: 'uppercase', fontWeight: 600 }}>Priority</Typography>
-                            <Chip label={wo.priority} size="small" sx={{ fontSize: '0.62rem', fontWeight: 600, height: 20, bgcolor: alpha(P.BLUE, 0.1), color: P.BLUE }} />
+                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.TEXT }}>{wo.priority}</Typography>
                         </Box>
                         <Box>
                             <Typography sx={{ fontSize: '0.62rem', color: P.MUTED, textTransform: 'uppercase', fontWeight: 600 }}>Date</Typography>
@@ -473,11 +473,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                     </TableCell>
                 )}
                 <TableCell sx={{ py: 0.5 }}>
-                    <Chip label={wo.priority} size="small" sx={{
-                        fontSize: '0.65rem', fontWeight: 600, height: 20,
-                        bgcolor: wo.priority?.includes('[3]') ? alpha(P.PURPLE, 0.1) : wo.priority?.includes('[2]') ? alpha(P.ORANGE, 0.1) : alpha(P.BLUE, 0.1),
-                        color: wo.priority?.includes('[3]') ? P.PURPLE : wo.priority?.includes('[2]') ? P.ORANGE : P.BLUE,
-                    }} />
+                    <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.TEXT }}>{wo.priority}</Typography>
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
                     <Typography sx={{ fontSize: '0.78rem', color: P.MUTED }}>{formatDate(wo.completedDate)}</Typography>

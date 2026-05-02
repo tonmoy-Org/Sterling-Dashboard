@@ -273,6 +273,7 @@ async def main():
 @track_scraper
 def start_fieldedge_scraper():
     """Initialize and start the FieldEdge scraping process."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - FIELDEDGE INITIALIZED")
     print("=" * 50 + "\n")
@@ -284,6 +285,7 @@ def start_fieldedge_scraper():
 @track_scraper
 def start_work_orders_scraper():
     """Initialize and start the Work Orders scraping process."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - WORK ORDERS INITIALIZED")
     print("=" * 50 + "\n")
@@ -300,6 +302,7 @@ async def run_work_orders_and_rme_combined():
 @track_scraper
 def start_work_orders_and_rme_combined():
     """Initialize and start the combined Work Orders and Online RME scraping process."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - WORK ORDERS & ONLINE RME COMBINED INITIALIZED")
     print("=" * 50 + "\n")
@@ -311,6 +314,7 @@ def start_work_orders_and_rme_combined():
 @track_scraper
 def start_online_rme_scraper():
     """Initialize and start the Online RME scraping process."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - ONLINE RME INITIALIZED")
     print("=" * 50 + "\n")
@@ -322,6 +326,7 @@ def start_online_rme_scraper():
 @track_scraper
 def start_work_orders_tags_scraper():
     """Initialize and start the Work Orders Tags scraping process."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - WORK ORDERS TAGS INITIALIZED")
     print("=" * 50 + "\n")
@@ -333,6 +338,7 @@ def start_work_orders_tags_scraper():
 @track_scraper
 def start_dispatcher_booked_scraper():
     """Initialize and start the Dispatcher Booked scraping process."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - DISPATCHER BOOKED INITIALIZED")
     print("=" * 50 + "\n")
@@ -344,6 +350,7 @@ def start_dispatcher_booked_scraper():
 @track_scraper
 def start_review_tracker_scraper():
     """Initialize and start the Review Tracker scraping process."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - REVIEW TRACKER INITIALIZED")
     print("=" * 50 + "\n")
@@ -369,6 +376,7 @@ def start_yelp_review_scraper():
 @track_scraper
 def start_invoice_proficiency_scraper():
     """Initialize and start the Invoice Proficiency scraping process."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - INVOICE PROFICIENCY INITIALIZED")
     print("=" * 50 + "\n")

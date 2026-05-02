@@ -48,7 +48,7 @@ import {
   Users, BarChart2, Zap, RefreshCw, Trash2, History, RotateCcw,
   Search, Check, MoreHorizontal, AlertCircle, Eye, MousePointer2, X,
   Home, ClipboardCheck, User, Info, Construction, CheckSquare, Square,
-  ChevronRight, FileCheck, ShieldCheck, TestTube, Award
+  ChevronRight, FileCheck, ShieldCheck, TestTube, Award, Edit, Timer
 } from 'lucide-react';
 import { Add, ArrowBack, ArrowForward, ThumbUp, ExpandMore } from '@mui/icons-material';
 import { Helmet } from 'react-helmet-async';

@@ -71,7 +71,7 @@ const TimeTracking = () => {
                             </Typography>
                         </Box>
                     )}
-                    <RefreshButton onRefresh={rmeApi.startTimeTrackingScraping} />
+                    <RefreshButton onRefresh={rmeApi.startTimeTrackingCombinedScraping} />
                 </Stack>
             </Box>
         </Box>

@@ -31,7 +31,9 @@ from automation.main import (
     start_review_tracker_scraper,
     start_yelp_review_scraper,
     start_invoice_proficiency_scraper,
+    start_work_orders_time_tracking_scraper,
     start_time_tracking_scraper,
+    start_time_tracking_combined,
     start_work_orders_and_rme_combined
 )
 
@@ -264,6 +266,20 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    @action(detail=False, methods=['post'], url_path='start-work-orders-time-tracking-scraping', permission_classes=[IsAuthenticated])
+    def trigger_work_orders_time_tracking_scraping(self, request):
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
+        try:
+            thread = threading.Thread(target=start_work_orders_time_tracking_scraper)
+            thread.daemon = True
+            thread.start()
+            return Response({'status': 'success', 'message': 'Work Orders Time Tracking scraping started in background'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=False, methods=['post'], url_path='start-time-tracking-scraping', permission_classes=[IsAuthenticated])
     def trigger_time_tracking_scraping(self, request):
         status_resp = self.scraper_status(request)
@@ -275,6 +291,20 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
             thread.daemon = True
             thread.start()
             return Response({'status': 'success', 'message': 'Time Tracking scraping started in background'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='start-time-tracking-combined-scraping', permission_classes=[IsAuthenticated])
+    def trigger_time_tracking_combined_scraping(self, request):
+        status_resp = self.scraper_status(request)
+        if status_resp.data.get('is_running'):
+            return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
+            
+        try:
+            thread = threading.Thread(target=start_time_tracking_combined)
+            thread.daemon = True
+            thread.start()
+            return Response({'status': 'success', 'message': 'Combined Time Tracking scraping started in background'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     

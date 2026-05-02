@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'status',
     'reviews',
     'invoice_proficiency',
+    'time_tracking',
 ]
 
 MIDDLEWARE = [

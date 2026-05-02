@@ -85,7 +85,7 @@ class BaseScraper:
             
             # Launch browser with headless-safe arguments for Linux VPS
             self.browser = await self.playwright.chromium.launch(
-                headless=True,
+                headless=False,
                 slow_mo=50,
                 args=[
                     "--start-maximized",

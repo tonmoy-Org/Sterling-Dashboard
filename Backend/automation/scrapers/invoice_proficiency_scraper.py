@@ -122,10 +122,10 @@ def _dedup_items_by_code(raw_items: list) -> list:
         if key not in best_by_code or total_sold > best_by_code[key][1]:
             best_by_code[key] = (item, total_sold)
 
-    deduped = [v[0] for v in best_by_code.values()] + blank_code_items
+    deduped = [v[0] for v in best_by_code.values()]
     removed = len(raw_items) - len(deduped)
     if removed > 0:
-        print(f"DEBUG _dedup_items_by_code: removed {removed} duplicate item row(s).")
+        print(f"DEBUG _dedup_items_by_code: removed {removed} duplicate or blank-code item row(s).")
     return deduped
 
 
@@ -532,33 +532,10 @@ class InvoiceProficiencyScraper(BaseScraper):
                             ""
                         ).strip()
 
-                        # ── Description — full fallback chain ──────────
-                        # FIX: added Column_1 and Column_2 as earlier fallbacks.
-                        # In the invoice-items table, Description is typically
-                        # the 2nd column (index 1) when header detection fails.
-                        # We also log the raw keys once to confirm during testing.
-                        description = (
-                            item.get("Description") or
-                            item.get("Desc") or
-                            item.get("Column_1") or
-                            item.get("Column_2") or
-                            item.get("Column_4") or
-                            item.get("Column_5") or
-                            ""
-                        ).strip()
-
-                        print(
-                            f"DEBUG item extract — "
-                            f"code='{item_name}' "
-                            f"desc='{description[:60]}' "
-                            f"keys={list(item.keys())[:10]}"
-                        )
-
-                        # Discard row if BOTH item code AND description are blank
-                        if not item_name and not description:
+                        # Discard row if item code is blank
+                        if not item_name:
                             print(
-                                f"DEBUG: WO {wo_raw} — skipping row: "
-                                f"blank item_name AND blank description."
+                                f"DEBUG: WO {wo_raw} — skipping row: blank item_name."
                             )
                             continue
 
@@ -591,17 +568,18 @@ class InvoiceProficiencyScraper(BaseScraper):
                         invoice_total += total_sold
 
                         # Invoice number (keep last non-empty value)
+                        # Based on sample data: Column_10 is Invoice, Column_11 is Date
                         invoice_num = (
                             item.get("Invoice") or
                             item.get("Invoice #") or
-                            item.get("Column_11") or
+                            item.get("Column_10") or
                             invoice_num
                         )
 
                         # Dates (keep last non-empty value)
                         completed_date_str = (
                             item.get("Completed Date") or
-                            item.get("Column_10") or
+                            item.get("Column_11") or
                             completed_date_str
                         )
                         invoice_date_str = (
@@ -610,15 +588,14 @@ class InvoiceProficiencyScraper(BaseScraper):
                             invoice_date_str
                         )
 
-                        # Excavation pass check
-                        if "6SP1DRA" in item_name.upper():
+                        # Excavation pass check: 6SP1DRA--4HR (handles normal and bold chars)
+                        if "6SP1DRA" in item_name.upper() and ("4HR" in item_name.upper() or "𝟒𝐇𝐑" in item_name):
                             has_excavation_pass = True
 
                         # Append deduplicated, validated item
                         items_detail.append({
                             "item":        item_name,
                             "qty":         qty,
-                            "description": description,
                             "total_sold":  total_sold,
                         })
 

@@ -76,7 +76,6 @@ class InvoiceProficiencySerializer(serializers.ModelSerializer):
             
             result.append({
                 "itemNumber": item_num,
-                "description": i.get("description", ""),
                 "qty": qty,
                 "rate": i.get("total_sold", i.get("rate", 0)),
                 "worth": worth_total,

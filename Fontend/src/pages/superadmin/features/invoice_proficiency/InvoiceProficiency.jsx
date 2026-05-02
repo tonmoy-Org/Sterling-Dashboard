@@ -50,6 +50,46 @@ const P = {
     TEAL: '#0891b2',
 };
 
+const priorityConfig = {
+    '[1] 2-MAN (PUMPING)': { color: '#2F3B73' },
+    '[1] ASSIST (PUMPING)': { color: '#2E7D32' }, // Dark green for assist
+    '[1] P4R (PUMPING)': { color: '#2E7D32' },
+    '[1] PFHS (PUMPING)': { color: '#4FC3F7' },
+    '[1] ROUTINE (PUMPING)': { color: '#8BC34A' }, // Sage/Lime
+    '[2] 2-MAN (SERVICE)': { color: '#D87B2E' },
+    '[2] ASSIST (SERVICE)': { color: '#9C27B0' },
+    '[2] ROUTINE (SERVICE)': { color: '#F06292' },
+    '[2] TROUBLESHOOT (SERVICE)': { color: '#D32F2F' },
+    '[2] UPGRADE & REPAIRS (SERVICE)': { color: '#FBC02D' }, // Darker yellow for visibility
+    '[3] EXCAVATOR (EXCAVATION)': { color: '#795548' },
+};
+
+const getPriorityStyle = (p) => {
+    if (!p) return { color: P.MUTED, bg: '#F2F4F7' };
+    const match = Object.keys(priorityConfig).find(k => p.includes(k)) || 
+                  (p.includes('[1]') ? '[1] ROUTINE (PUMPING)' : 
+                   p.includes('[2]') ? '[2] ROUTINE (SERVICE)' : 
+                   p.includes('[3]') ? '[3] EXCAVATOR (EXCAVATION)' : null);
+    
+    const color = priorityConfig[match]?.color || P.MUTED;
+    return { color, bg: alpha(color, 0.08) };
+};
+
+const PriorityBadge = ({ priority }) => {
+    const { color } = getPriorityStyle(priority);
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Box sx={{ 
+                width: 10, height: 10, borderRadius: '2px', bgcolor: color, 
+                flexShrink: 0, border: `1px solid ${alpha(color, 0.4)}` 
+            }} />
+            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.TEXT, whiteSpace: 'nowrap' }}>
+                {priority}
+            </Typography>
+        </Box>
+    );
+};
+
 // ─── SHARED SCROLLBAR STYLES ──────────────────────────────────────────────────
 const thinScrollbar = (thumbColor = P.MUTED) => ({
     '&::-webkit-scrollbar': { width: '4px', height: '4px' },
@@ -103,6 +143,18 @@ const quickRanges = {
         return { from: toDateStr(d), to: toDateStr(today) };
     },
     'All Time': () => ({ from: '', to: '' }),
+};
+
+const getExcavationStatus = (wo) => {
+    const priority = wo.priority?.toUpperCase() || '';
+    const task = wo.task?.toUpperCase() || '';
+    if (!priority.includes('[3]') || !task.includes('DRAIN') || !task.includes('FIELD')) return null;
+    
+    const hasPassItem = wo.lineItems?.some(item => {
+        const num = item.itemNumber?.toUpperCase() || '';
+        return num.includes('6SP1DRA') && (num.includes('4HR') || num.includes('𝟒𝐇𝐑'));
+    });
+    return hasPassItem ? 'PASS' : 'FAIL';
 };
 
 // Proficiency color
@@ -226,7 +278,7 @@ const CategoryTable = ({ title, rows, color = P.BLUE }) => {
                             paginatedRows.map((row, i) => (
                                 <TableRow key={i} hover sx={{ '&:last-child td': { borderBottom: 'none' } }}>
                                     <TableCell sx={{ fontSize: '0.75rem', py: 0.75 }}>
-                                        <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.TEXT }}>{row.priority}</Typography>
+                                        <PriorityBadge priority={row.priority} />
                                     </TableCell>
                                     <TableCell sx={{ fontSize: '0.75rem', color: P.TEXT, py: 0.75 }}>{row.task}</TableCell>
                                     <TableCell sx={{ fontSize: '0.75rem', fontWeight: 600, color: P.TEXT, py: 0.75 }}>{row.invCount ?? 0}</TableCell>
@@ -363,7 +415,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                         )}
                         <Box>
                             <Typography sx={{ fontSize: '0.62rem', color: P.MUTED, textTransform: 'uppercase', fontWeight: 600 }}>Priority</Typography>
-                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.TEXT }}>{wo.priority}</Typography>
+                            <PriorityBadge priority={wo.priority} />
                         </Box>
                         <Box>
                             <Typography sx={{ fontSize: '0.62rem', color: P.MUTED, textTransform: 'uppercase', fontWeight: 600 }}>Date</Typography>
@@ -372,7 +424,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                         <Box>
                             <Typography sx={{ fontSize: '0.62rem', color: P.MUTED, textTransform: 'uppercase', fontWeight: 600 }}>Worked / Worth</Typography>
                             <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: P.TEXT }}>
-                                {wo.hoursWorked ? `${Math.round(wo.hoursWorked * 60 * 1000) / 1000}min` : '—'} / {wo.worthHours ? `${Math.round(wo.worthHours * 60 * 1000) / 1000}min` : '—'}
+                                {wo.hoursWorked ? `${Math.round(wo.hoursWorked * 60)}min` : '—'} / {wo.worthHours ? `${Math.round(wo.worthHours * 60)}min` : '—'}
                             </Typography>
                         </Box>
                         <Box>
@@ -383,7 +435,21 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                         </Box>
                         <Box>
                             <Typography sx={{ fontSize: '0.62rem', color: P.MUTED, textTransform: 'uppercase', fontWeight: 600 }}>Proficiency</Typography>
-                            <ProfBadge value={wo.proficiency} />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <ProfBadge value={wo.proficiency} />
+                                {getExcavationStatus(wo) && (
+                                    <Chip 
+                                        label={getExcavationStatus(wo)} 
+                                        size="small" 
+                                        sx={{ 
+                                            height: 22, fontSize: '0.65rem', fontWeight: 800,
+                                            bgcolor: getExcavationStatus(wo) === 'PASS' ? P.GREEN_SOFT : P.RED_SOFT,
+                                            color: getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED,
+                                            border: `1px solid ${alpha(getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED, 0.2)}`
+                                        }} 
+                                    />
+                                )}
+                            </Box>
                         </Box>
                     </Box>
 
@@ -407,14 +473,11 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                 <Box sx={{ maxHeight: 200, overflow: 'auto', ...thinScrollbar() }}>
                                     {wo.lineItems.map((item, i) => (
                                         <Box key={i} sx={{ py: 1, borderBottom: `1px solid ${alpha(P.BORDER, 0.5)}` }}>
-                                            <Box sx={{ display: 'flex', gap: 1, mb: 0.5 }}>
                                                 <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'monospace', color: P.BLUE }}>{item.itemNumber}</Typography>
-                                                <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.TEXT }}>{item.description}</Typography>
-                                            </Box>
                                             <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Qty: {item.qty}</Typography>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Rate: ${item.rate}</Typography>
-                                                <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Worth: {item.worth ? `${Math.round(item.worth * 60 * 1000) / 1000}min` : '—'}</Typography>
+                                                <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Worth: {item.worth ? `${Math.round(item.worth * 60)}min` : '—'}</Typography>
                                             </Box>
                                         </Box>
                                     ))}
@@ -473,16 +536,16 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                     </TableCell>
                 )}
                 <TableCell sx={{ py: 0.5 }}>
-                    <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.TEXT }}>{wo.priority}</Typography>
+                    <PriorityBadge priority={wo.priority} />
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
                     <Typography sx={{ fontSize: '0.78rem', color: P.MUTED }}>{formatDate(wo.completedDate)}</Typography>
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
-                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.TEXT }}>{wo.hoursWorked ? `${Math.round(wo.hoursWorked * 60 * 1000) / 1000}min` : '—'}</Typography>
+                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.TEXT }}>{wo.hoursWorked ? `${Math.round(wo.hoursWorked * 60)}min` : '—'}</Typography>
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
-                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.TEXT }}>{wo.worthHours ? `${Math.round(wo.worthHours * 60 * 1000) / 1000}min` : '—'}</Typography>
+                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.TEXT }}>{wo.worthHours ? `${Math.round(wo.worthHours * 60)}min` : '—'}</Typography>
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
                     <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: P.GREEN }}>
@@ -490,7 +553,23 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                     </Typography>
                 </TableCell>
                 <TableCell sx={{ py: 0.5 }}>
-                    <ProfBadge value={wo.proficiency} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <ProfBadge value={wo.proficiency} />
+                        {getExcavationStatus(wo) && (
+                            <Tooltip title={`Excavation Status: ${getExcavationStatus(wo)}`}>
+                                <Chip 
+                                    label={getExcavationStatus(wo)} 
+                                    size="small" 
+                                    sx={{ 
+                                        height: 22, fontSize: '0.65rem', fontWeight: 800,
+                                        bgcolor: getExcavationStatus(wo) === 'PASS' ? P.GREEN_SOFT : P.RED_SOFT,
+                                        color: getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED,
+                                        border: `1px solid ${alpha(getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED, 0.2)}`
+                                    }} 
+                                />
+                            </Tooltip>
+                        )}
+                    </Box>
                 </TableCell>
                 <TableCell sx={{ py: 0.5, textAlign: 'right', pr: 2 }}>
                     <IconButton
@@ -523,12 +602,26 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                             ['Task', wo.task],
                                             ['Completed', formatDate(wo.completedDate)],
                                             ['Invoice Date', formatDate(wo.invoiceDate)],
-                                            ['Worked Time', wo.hoursWorked ? `${Math.round(wo.hoursWorked * 60 * 1000) / 1000}min` : '—'],
-                                            ['Worth Time', wo.worthHours ? `${Math.round(wo.worthHours * 60 * 1000) / 1000}min` : '—'],
+                                            ['Worked Time', wo.hoursWorked ? `${Math.round(wo.hoursWorked * 60)}min` : '—'],
+                                            ['Worth Time', wo.worthHours ? `${Math.round(wo.worthHours * 60)}min` : '—'],
                                         ].map(([k, v]) => (
                                             <Box key={k}>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED, textTransform: 'uppercase', mb: 0.25 }}>{k}</Typography>
-                                                <Typography sx={{ fontSize: '0.82rem', fontWeight: 500, color: P.TEXT }}>{v || '—'}</Typography>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 500, color: P.TEXT }}>{v || '—'}</Typography>
+                                                    {k === 'Task' && getExcavationStatus(wo) && (
+                                                        <Chip 
+                                                            label={getExcavationStatus(wo)} 
+                                                            size="small" 
+                                                            sx={{ 
+                                                                height: 20, fontSize: '0.65rem', fontWeight: 800,
+                                                                bgcolor: getExcavationStatus(wo) === 'PASS' ? P.GREEN_SOFT : P.RED_SOFT,
+                                                                color: getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED,
+                                                                border: `1px solid ${alpha(getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED, 0.2)}`
+                                                            }} 
+                                                        />
+                                                    )}
+                                                </Box>
                                             </Box>
                                         ))}
                                     </Box>
@@ -546,7 +639,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                         <Table size="small">
                                             <TableHead>
                                                 <TableRow>
-                                                    {['Item #', 'Description', 'Qty', 'Rate', 'Worth'].map(h => (
+                                                    {['Item #', 'Qty', 'Rate', 'Worth'].map(h => (
                                                         <TableCell key={h} sx={{ fontSize: '0.68rem', color: P.MUTED, fontWeight: 700, py: 0.5, px: 0.5 }}>{h}</TableCell>
                                                     ))}
                                                 </TableRow>
@@ -555,16 +648,15 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                                 {wo.lineItems.map((item, i) => (
                                                     <TableRow key={i}>
                                                         <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, fontFamily: 'monospace', color: P.BLUE }}>{item.itemNumber}</TableCell>
-                                                        <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, color: P.TEXT }}>{item.description}</TableCell>
                                                         <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, color: P.TEXT }}>{item.qty}</TableCell>
                                                         <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, color: P.TEXT }}>{item.rate ? `$${item.rate}` : '—'}</TableCell>
                                                         <TableCell sx={{ fontSize: '0.72rem', py: 0.5, px: 0.5, color: P.TEXT }}>
                                                             {item.breakdown ? (
                                                                 <Typography component="span" sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.PURPLE }}>
-                                                                    {item.breakdown}
+                                                                    {item.breakdown.replace(/\.0+min/g, 'min').replace(/\.0+hr/g, 'hr').replace(/min x/g, 'hr x')}
                                                                 </Typography>
                                                             ) : (
-                                                                item.worth ? `${Math.round(item.worth * 60 * 1000) / 1000}min` : '—'
+                                                                item.worth ? `${Math.round(item.worth * 60)}min` : '—'
                                                             )}
                                                         </TableCell>
                                                     </TableRow>
@@ -788,6 +880,7 @@ export const InvoiceProficiency = () => {
         queryKey: ['invoice-proficiency'],
         queryFn: () => rmeApi.getInvoiceProficiencyData(),
     });
+    console.log('rawData',rawData)
 
     const { data: trashedData } = useQuery({
         queryKey: ['invoice-proficiency-trashed'],
@@ -946,11 +1039,16 @@ export const InvoiceProficiency = () => {
     const excavationRows = categoryRows.filter(r => r.priority?.includes('[3]'));
 
     const drainFieldStats = useMemo(() => {
-        const drainJobs = validWOs.filter(wo =>
-            wo.priority?.includes('[3]') && wo.task?.includes('DRAIN FIELD')
-        );
+        const drainJobs = validWOs.filter(wo => {
+            const p = wo.priority?.toUpperCase() || '';
+            const t = wo.task?.toUpperCase() || '';
+            return p.includes('[3]') && t.includes('DRAIN') && t.includes('FIELD');
+        });
         const pass = drainJobs.filter(wo =>
-            wo.lineItems?.some(item => item.itemNumber?.includes('6SP1DRA'))
+            wo.lineItems?.some(item => {
+                const num = item.itemNumber?.toUpperCase() || '';
+                return num.includes('6SP1DRA') && (num.includes('4HR') || num.includes('𝟒𝐇𝐑'));
+            })
         ).length;
         const fail = drainJobs.length - pass;
         return { pass, fail };
@@ -1102,12 +1200,12 @@ export const InvoiceProficiency = () => {
 
                     {/* CATEGORY TABLES */}
                     <Grid container spacing={1.5} sx={{ mb: { xs: 2, sm: 3 } }}>
-                        <Grid size={{ xs: 12, md: 6 }}>
+                        <Grid size={{ xs: 12, md: 12 }}>
                             <Paper elevation={0} sx={{ p: 1.5, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE }}>
                                 <CategoryTable title="[1] Pumping" rows={pumpingRows} color={P.BLUE} />
                             </Paper>
                         </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
+                        <Grid size={{ xs: 12, md: 12 }}>
                             <Paper elevation={0} sx={{ p: 1.5, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE }}>
                                 <CategoryTable title="[2] Service" rows={serviceRows} color={P.ORANGE} />
                             </Paper>

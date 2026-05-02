@@ -53,6 +53,10 @@ const EMPLOYEES = [
   { id: '06', name: 'Danny', role: 'Technician' },
   { id: '07', name: 'Jason', role: 'Technician' },
   { id: '08', name: 'Damien', role: 'Technician' },
+  { id: '09', name: 'Damon', role: 'Technician' },
+  { id: '10', name: 'Eric', role: 'Technician' },
+  { id: '11', name: 'Cameron', role: 'Technician' },
+  { id: '12', name: 'Andrea', role: 'Technician' },
 ];
 
 const EMPLOYEE_NAMES = EMPLOYEES.map(e => e.name);
@@ -72,7 +76,7 @@ const relativeToApproxDate = (rel) => {
 
   const now = new Date();
   const r = rel.toLowerCase();
-  
+
   const numMatch = r.match(/\d+/);
   const val = numMatch ? parseInt(numMatch[0], 10) : 1;
 
@@ -1204,7 +1208,7 @@ export default function Review() {
       list = list.filter(r => r.reviewer.toLowerCase().includes(lq) || r.text.toLowerCase().includes(lq) || r.employees.some(e => e.toLowerCase().includes(lq)));
     }
     if (empFilter !== 'all') list = list.filter(r => r.employees.includes(empFilter));
-    
+
     // Sort newest first
     list.sort((a, b) => {
       const dateA = relativeToApproxDate(a.rawDate)?.getTime() || 0;
@@ -1227,7 +1231,7 @@ export default function Review() {
       const lq = binSearch.toLowerCase();
       list = list.filter(r => r.reviewer.toLowerCase().includes(lq) || r.text.toLowerCase().includes(lq));
     }
-    
+
     // Sort newest first
     list.sort((a, b) => {
       const dateA = relativeToApproxDate(a.rawDate)?.getTime() || 0;
@@ -1475,7 +1479,7 @@ export default function Review() {
         icon={<AlertCircle size={16} />}
       >
         <Typography sx={{ fontSize: '0.85rem', color: PALETTE.TEXT }}>
-          Permanently delete {confirmPermanent.bulk ? `${confirmPermanent.ids.length} reviews` : 'this review'}? 
+          Permanently delete {confirmPermanent.bulk ? `${confirmPermanent.ids.length} reviews` : 'this review'}?
           This <strong style={{ color: PALETTE.RED }}>cannot</strong> be undone.
         </Typography>
       </CommonDialog>

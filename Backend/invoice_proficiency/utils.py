@@ -64,13 +64,21 @@ def compute_item_breakdown(item_name, qty):
         
     total_minutes = round(worth_per_unit_minutes * q, 6)
     
-    # Try to extract the raw value for the breakdown string
+    # Extract the raw value and unit for the breakdown string
     name_norm = unicodedata.normalize('NFKC', str(item_name))
-    val_match = re.search(r'(\d*\.?\d+)\s*(?:HRS?|MIN)', name_norm, re.IGNORECASE)
-    raw_val = val_match.group(1) if val_match else str(round(worth_per_unit_minutes, 6))
-    unit = "min"
+    val_match = re.search(r'(\d*\.?\d+)\s*(HRS?|MIN)', name_norm, re.IGNORECASE)
+    if val_match:
+        raw_val = float(val_match.group(1))
+        matched_unit = val_match.group(2).upper()
+        unit = "hr" if "HR" in matched_unit else "min"
+    else:
+        raw_val = round(worth_per_unit_minutes, 2)
+        unit = "min"
+        
+    def fmt(n):
+        return f"{int(n)}" if n == int(n) else f"{round(n, 2)}"
     
-    breakdown = f"{raw_val}{unit} x {int(q) if q == int(q) else q} = {total_minutes}min"
+    breakdown = f"{fmt(raw_val)}{unit} x {fmt(q)} = {fmt(total_minutes)}min"
     
     return total_minutes, breakdown
 

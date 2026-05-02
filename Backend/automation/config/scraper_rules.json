@@ -110,7 +110,7 @@
       },
       {
         "action": "click",
-        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+        "xpath": "//button[not(@disabled) and .//span[normalize-space()='Select']]"
       }
     ],
     "time_entry_scraper_scheduled_date_filter_xpath": [
@@ -132,7 +132,7 @@
       },
       {
         "action": "click",
-        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+        "xpath": "//button[not(@disabled) and .//span[normalize-space()='Select']]"
       }
     ],
     "completed_date_filter_xpath": [
@@ -332,7 +332,7 @@
       },
       {
         "action": "click",
-        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+        "xpath": "//button[not(@disabled) and .//span[normalize-space()='Select']]"
       }
     ],
     "invoice_proficiency_status_xpath": [
@@ -354,7 +354,7 @@
       },
       {
         "action": "click",
-        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+        "xpath": "//button[not(@disabled) and .//span[normalize-space()='Select']]"
       }
     ],
     "invoice_proficiency_helper_xpath": [

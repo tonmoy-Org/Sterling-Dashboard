@@ -9,12 +9,18 @@ import time
 import asyncio
 
 # Setup Django environment for standalone execution
-import django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-try:
-    django.setup()
-except RuntimeError:
-    pass # Already setup
+def setup_django():
+    import django
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+    try:
+        django.setup()
+    except RuntimeError:
+        pass # Already setup
+
+# Ensure UTF-8 encoding for console output (important for emojis in reviews)
+if sys.stdout.encoding != 'utf-8':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Use a lock file to share status accurately across multiple VPS server workers
 LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scraper.lock')
@@ -262,7 +268,6 @@ async def main():
     await run_work_orders_tags_scraper()
     await run_dispatcher_booked_scraper()
     await run_review_tracker_scraper()
-    await run_yelp_review_scraper()
     await run_invoice_proficiency_scraper()
 
 @track_scraper
@@ -351,6 +356,7 @@ def start_review_tracker_scraper():
 @track_scraper
 def start_yelp_review_scraper():
     """Initialize and start the Yelp Review scraping process."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - YELP REVIEW INITIALIZED")
     print("=" * 50 + "\n")
@@ -375,6 +381,7 @@ def start_invoice_proficiency_scraper():
 @track_scraper
 def start_scraping():
     """Initialize and start all scraping processes."""
+    setup_django()
     print("\n" + "=" * 50)
     print("STERLING DASHBOARD SCRAPER - PROCESS INITIALIZED")
     print("=" * 50 + "\n")
@@ -392,4 +399,5 @@ def start_scraping():
 
 
 if __name__ == "__main__":
+    setup_django()
     start_scraping()

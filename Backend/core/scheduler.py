@@ -1,14 +1,12 @@
 # core/scheduler.py
-
-from apscheduler.schedulers.background import BackgroundScheduler
-from automation.main import start_scraping, start_yelp_review_scraper
-from dotenv import load_dotenv
 import os
-
+from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
 
 load_dotenv()
 
 def start():
+    from automation.main import start_scraping, start_yelp_review_scraper
     scheduler = BackgroundScheduler()
     
     scheduler.add_job(start_scraping, 'interval', minutes=int(os.getenv('interval_minutes', 10)))
@@ -32,7 +30,5 @@ def start():
         id='yelp_review_scraper',
         name='Yelp Review Scraper',
     )
-    
-
     
     scheduler.start()

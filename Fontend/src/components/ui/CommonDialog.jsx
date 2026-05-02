@@ -43,6 +43,8 @@ const CommonDialog = memo(({
   disabled = false,
   confirmProps = {},
   cancelProps = {},
+  disableEnforceFocus = false,
+  disableRestoreFocus = false,
 }) => {
   const color = PALETTE[variant] || PALETTE.info;
   const headerIcon = icon || DEFAULT_ICONS[variant] || DEFAULT_ICONS.default;
@@ -53,6 +55,8 @@ const CommonDialog = memo(({
       onClose={isLoading ? null : onClose}
       maxWidth={maxWidth}
       fullWidth
+      disableEnforceFocus={disableEnforceFocus}
+      disableRestoreFocus={disableRestoreFocus}
       PaperProps={{
         sx: {
           borderRadius: '12px',

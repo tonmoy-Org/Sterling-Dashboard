@@ -260,6 +260,27 @@ async def run_invoice_proficiency_scraper():
                 pass
 
 
+async def run_time_tracking_scraper():
+    """Execute Time Tracking scraping workflow."""
+    from automation.scrapers.time_tracking_scraper import TimeTrackingScraper
+    print("\n=== Starting Time Tracking Scraper ===")
+    scraper = None
+
+    try:
+        scraper = TimeTrackingScraper()
+        await scraper.run()
+        print("Time Tracking scraping completed.")
+
+    except Exception as e:
+        print(f"Error during Time Tracking execution: {e}")
+    finally:
+        if scraper:
+            try:
+                del scraper
+            except:
+                pass
+
+
 async def main():
     """Main execution flow - runs all scrapers in sequence."""
     await fieldedge_scraper()
@@ -269,6 +290,7 @@ async def main():
     await run_dispatcher_booked_scraper()
     await run_review_tracker_scraper()
     await run_invoice_proficiency_scraper()
+    await run_time_tracking_scraper()
 
 @track_scraper
 def start_fieldedge_scraper():
@@ -382,6 +404,19 @@ def start_invoice_proficiency_scraper():
     print("=" * 50 + "\n")
     try:
         asyncio.run(run_invoice_proficiency_scraper())
+    except Exception as e:
+        print(f"\nCritical error: {e}")
+
+
+@track_scraper
+def start_time_tracking_scraper():
+    """Initialize and start the Time Tracking scraping process."""
+    setup_django()
+    print("\n" + "=" * 50)
+    print("STERLING DASHBOARD SCRAPER - TIME TRACKING INITIALIZED")
+    print("=" * 50 + "\n")
+    try:
+        asyncio.run(run_time_tracking_scraper())
     except Exception as e:
         print(f"\nCritical error: {e}")
 

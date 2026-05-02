@@ -1550,7 +1550,7 @@ const Repairs = () => {
               </Typography>
               <OutlineButton color="error" size="small" onClick={() => handleBulkSoftDeleteClick(stage.id)} startIcon={<Trash2 size={14} />}
                 sx={{ textTransform: 'none', fontSize: '0.75rem', height: '32px', px: 2, borderRadius: '6px' }}>
-                Trash Selected
+                Trash Selected ({selectedCount})
               </OutlineButton>
             </Box>
           ) : (
@@ -1623,7 +1623,7 @@ const Repairs = () => {
                           <Stack direction="row" spacing={isMobileView ? 0.25 : 0.5}>
                             <Tooltip title="View Details"><IconButton size="small" onClick={() => handleOpenDetails(item)} sx={{ color: BLUE_COLOR, '&:hover': { backgroundColor: alpha(BLUE_COLOR, 0.1) }, p: isMobileView ? 0.5 : 0.75 }}><Info size={isMobileView ? 14 : 16} /></IconButton></Tooltip>
                             <Tooltip title="Edit"><IconButton size="small" onClick={() => handleOpenEdit(item)} sx={{ color: GREEN_COLOR, '&:hover': { backgroundColor: alpha(GREEN_COLOR, 0.1) }, p: isMobileView ? 0.5 : 0.75 }}><Edit size={isMobileView ? 14 : 16} /></IconButton></Tooltip>
-                            <Tooltip title="Move to Recycle Bin"><IconButton size="small" onClick={() => handleSingleSoftDeleteClick(item.id, item.workOrderNumber, item.name)} sx={{ color: RED_COLOR, '&:hover': { backgroundColor: alpha(RED_COLOR, 0.1) }, p: isMobileView ? 0.5 : 0.75 }}><Trash2 size={isMobileView ? 14 : 16} /></IconButton></Tooltip>
+                            <Tooltip title="Move to Recycle Bin"><IconButton size="small" onClick={() => handleSingleSoftDeleteClick(item.id, item.workOrderNumber, item.name)} sx={{ color: RED_COLOR, opacity: 0.6, '&:hover': { opacity: 1, backgroundColor: alpha(RED_COLOR, 0.1) }, p: isMobileView ? 0.5 : 0.75 }}><Trash2 size={isMobileView ? 14 : 16} /></IconButton></Tooltip>
                             {stage.id !== 'completed' && <Tooltip title="Move Forward"><IconButton size="small" onClick={() => handleMoveStage(item.id, 'forward')} sx={{ color: stage.color, '&:hover': { backgroundColor: alpha(stage.color, 0.1) }, p: isMobileView ? 0.5 : 0.75 }}><ArrowForward sx={{ fontSize: isMobileView ? 14 : 16 }} /></IconButton></Tooltip>}
                             {stage.id !== 'creation' && <Tooltip title="Move Back"><IconButton size="small" onClick={() => handleMoveStage(item.id, 'backward')} sx={{ color: GRAY_COLOR, '&:hover': { backgroundColor: alpha(GRAY_COLOR, 0.1) }, p: isMobileView ? 0.5 : 0.75 }}><ArrowBack sx={{ fontSize: isMobileView ? 14 : 16 }} /></IconButton></Tooltip>}
                           </Stack>
@@ -1728,6 +1728,8 @@ const Repairs = () => {
         variant="warning"
         confirmText="Move to Recycle Bin"
         icon={<Trash2 size={18} />}
+        disableEnforceFocus
+        disableRestoreFocus
       >
         <Typography variant="body2" sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem', color: TEXT_COLOR, lineHeight: 1.6 }}>
           {deleteTarget.type === 'single' && deleteTarget.customerName
@@ -1751,6 +1753,8 @@ const Repairs = () => {
         variant="warning"
         confirmText={`Move ${deleteTarget.count} Items to Recycle Bin`}
         icon={<Trash2 size={18} />}
+        disableEnforceFocus
+        disableRestoreFocus
       >
         <Typography variant="body2" sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem', color: TEXT_COLOR, lineHeight: 1.6 }}>
           Are you sure you want to move {deleteTarget.count} selected repair(s) to the Recycle Bin?
@@ -1764,7 +1768,7 @@ const Repairs = () => {
       </CommonDialog>
 
       {/* Details dialog */}
-      <Dialog open={detailsDialogOpen} onClose={() => setDetailsDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: isMobile ? { margin: 0, maxHeight: '100%', borderRadius: 0 } : {} }}>
+      <Dialog open={detailsDialogOpen} onClose={() => setDetailsDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} disableEnforceFocus disableRestoreFocus PaperProps={{ sx: isMobile ? { margin: 0, maxHeight: '100%', borderRadius: 0 } : {} }}>
         {selectedRepair && (
           <>
             <DialogTitle sx={{ pb: 1, px: isMobile ? 2 : 3 }}>
@@ -1791,16 +1795,16 @@ const Repairs = () => {
             <DialogActions sx={{ px: isMobile ? 2 : 3, py: 2, flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 1 : 0 }}>
               <OutlineButton onClick={() => setDetailsDialogOpen(false)} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}>Close</OutlineButton>
               <OutlineButton variant="outlined" color="error" onClick={() => { setDetailsDialogOpen(false); handleSingleSoftDeleteClick(selectedRepair.id, selectedRepair.workOrderNumber, selectedRepair.name); }} startIcon={<Trash2 size={16} />} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem', ml: isMobile ? 0 : 1 }}>
-                Move to Recycle Bin
+                Trash Record
               </OutlineButton>
-              <UpdateButton variant="contained" onClick={() => { setDetailsDialogOpen(false); handleOpenEdit(selectedRepair); }} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem', ml: isMobile ? 0 : 1 }}>Edit</UpdateButton>
+              <GradientButton variant="contained" onClick={() => { setDetailsDialogOpen(false); handleOpenEdit(selectedRepair); }} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem', ml: isMobile ? 0 : 1 }}>Edit</GradientButton>
             </DialogActions>
           </>
         )}
       </Dialog>
 
       {/* Edit dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: isMobile ? { margin: 0, maxHeight: '100%', borderRadius: 0 } : {} }}>
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} disableEnforceFocus disableRestoreFocus PaperProps={{ sx: isMobile ? { margin: 0, maxHeight: '100%', borderRadius: 0 } : {} }}>
         {selectedRepair && (
           <>
             <DialogTitle sx={{ pb: 1, px: isMobile ? 2 : 3 }}>
@@ -1818,7 +1822,7 @@ const Repairs = () => {
                 <OutlineButton onClick={() => setEditDialogOpen(false)} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}>Cancel</OutlineButton>
                 {activeStep < REPAIR_STAGES.length - 1
                   ? <GradientButton variant="contained" onClick={() => setActiveStep(prev => prev + 1)} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}>Next Stage</GradientButton>
-                  : <UpdateButton variant="contained" onClick={handleSaveRepair} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}>Save Changes</UpdateButton>}
+                  : <GradientButton variant="contained" onClick={handleSaveRepair} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}>Save Changes</GradientButton>}
               </Box>
             </DialogActions>
           </>
@@ -1826,7 +1830,7 @@ const Repairs = () => {
       </Dialog>
 
       {/* New repair dialog */}
-      <Dialog open={newRepairDialogOpen} onClose={() => setNewRepairDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: isMobile ? { margin: 0, maxHeight: '100%', borderRadius: 0 } : {} }}>
+      <Dialog open={newRepairDialogOpen} onClose={() => setNewRepairDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} disableEnforceFocus disableRestoreFocus PaperProps={{ sx: isMobile ? { margin: 0, maxHeight: '100%', borderRadius: 0 } : {} }}>
         <>
           <DialogTitle sx={{ pb: 1, px: isMobile ? 2 : 3 }}>
             <Typography variant="h6" sx={{ fontSize: isMobile ? '0.9rem' : '0.95rem', fontWeight: 600, color: TEXT_COLOR }}>Create New Tank Repair Job</Typography>
@@ -1849,7 +1853,7 @@ const Repairs = () => {
               <OutlineButton onClick={() => setNewRepairDialogOpen(false)} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}>Cancel</OutlineButton>
               {activeStep < 2
                 ? <GradientButton variant="contained" onClick={() => setActiveStep(prev => prev + 1)} disabled={activeStep === 0 && (!newRepair.name || !newRepair.address)} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}>Next</GradientButton>
-                : <UpdateButton variant="contained" onClick={handleAddNewRepair} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}>Create Repair Job</UpdateButton>}
+                : <GradientButton variant="contained" onClick={handleAddNewRepair} fullWidth={isMobile} sx={{ fontSize: isMobile ? '0.8rem' : '0.85rem' }}>Create Repair Job</GradientButton>}
             </Box>
           </DialogActions>
         </>
@@ -1906,6 +1910,8 @@ const Repairs = () => {
         variant="success"
         confirmText="Restore"
         icon={<History size={16} />}
+        disableEnforceFocus
+        disableRestoreFocus
       >
         <Typography sx={{ fontSize: '0.85rem', color: TEXT_COLOR }}>
           Restore {confirmRestore.bulk ? `${confirmRestore.ids.length} repairs` : 'this repair'} back to the dashboard?
@@ -1920,6 +1926,8 @@ const Repairs = () => {
         variant="danger"
         confirmText="Delete Forever"
         icon={<AlertCircle size={16} />}
+        disableEnforceFocus
+        disableRestoreFocus
       >
         <Typography sx={{ fontSize: '0.85rem', color: TEXT_COLOR }}>
           Permanently delete {confirmPermanent.bulk ? `${confirmPermanent.ids.length} repairs` : 'this repair'}? 

@@ -10,6 +10,7 @@ import {
     Star,
     UserCog2,
     FileText,
+    Clock,
 } from 'lucide-react';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { workOrdersApi } from '../../../api/services/workOrders';
@@ -387,7 +388,13 @@ export const ManagerMenuComponent = ({ onMenuItemClick }) => {
         {
             text: 'Invoice Proficiency',
             icon: <FileText size={18} />,
-            path: '/manager-dashboard//invoice-proficiency',
+            path: '/manager-dashboard/invoice-proficiency',
+            section: 'SYSTEM',
+        },
+        {
+            text: 'Time Tracking',
+            icon: <Clock size={18} />,
+            path: '/manager-dashboard/time-tracking',
             section: 'SYSTEM',
         },
     

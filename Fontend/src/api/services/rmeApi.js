@@ -37,6 +37,7 @@ export const rmeApi = {
     startReviewTrackerScraping: () => axiosInstance.post('/work-orders-today/start-review-tracker-scraping/'),
     startYelpReviewScraping: () => axiosInstance.post('/work-orders-today/start-yelp-review-scraping/'),
     startInvoiceProficiencyScraping: () => axiosInstance.post('/work-orders-today/start-invoice-proficiency-scraping/'),
+    startTimeTrackingScraping: () => axiosInstance.post('/work-orders-today/start-time-tracking-scraping/'),
 
     // Invoice Proficiency Records
     getInvoiceProficiency: () => axiosInstance.get('/invoice-proficiency/records/'),

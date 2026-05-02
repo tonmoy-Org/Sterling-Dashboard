@@ -10,6 +10,7 @@ import {
     BarChart3,
     Star,
     FileText,
+    Clock,
 } from 'lucide-react';
 
 import { useNotifications } from '../../../hooks/useNotifications';
@@ -450,6 +451,12 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
             text: 'Invoice Proficiency',
             icon: <FileText size={18} />,
             path: '/super-admin-dashboard/invoice-proficiency',
+            section: 'SYSTEM',
+        },
+        {
+            text: 'Time Tracking',
+            icon: <Clock size={18} />,
+            path: '/super-admin-dashboard/time-tracking',
             section: 'SYSTEM',
         },
         {

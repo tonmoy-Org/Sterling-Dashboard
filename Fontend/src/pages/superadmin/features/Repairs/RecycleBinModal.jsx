@@ -100,6 +100,8 @@ const RecycleBinModal = ({
             <Modal
                 open={open}
                 onClose={onClose}
+                disableEnforceFocus
+                disableRestoreFocus
                 aria-labelledby="recycle-bin-modal"
                 sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >

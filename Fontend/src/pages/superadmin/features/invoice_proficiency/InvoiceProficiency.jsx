@@ -572,13 +572,15 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                     </Box>
                 </TableCell>
                 <TableCell sx={{ py: 0.5, textAlign: 'right', pr: 2 }}>
-                    <IconButton
-                        size="small"
-                        onClick={(e) => { e.stopPropagation(); onDelete(wo.id); }}
-                        sx={{ color: P.RED, opacity: 0.6, '&:hover': { opacity: 1, bgcolor: alpha(P.RED, 0.08) } }}
-                    >
-                        <Trash2 size={13} />
-                    </IconButton>
+                    <Tooltip title="Move to Recycle Bin">
+                        <IconButton
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); onDelete(wo.id); }}
+                            sx={{ color: P.RED, opacity: 0.6, '&:hover': { opacity: 1, bgcolor: alpha(P.RED, 0.08) } }}
+                        >
+                            <Trash2 size={15} />
+                        </IconButton>
+                    </Tooltip>
                 </TableCell>
             </TableRow>
 
@@ -1122,7 +1124,7 @@ export const InvoiceProficiency = () => {
                         </Box>
                     )}
                     <RefreshButton onRefresh={rmeApi.startInvoiceProficiencyScraping} />
-                    <OutlineButton startIcon={<History size={15} />} onClick={() => setTrashOpen(true)}
+                    <OutlineButton startIcon={<History size={16} />} onClick={() => setTrashOpen(true)}
                         sx={{ height: '34px', px: 1.75, color: P.PURPLE, borderColor: alpha(P.PURPLE, 0.35), borderRadius: '6px', '&:hover': { borderColor: P.PURPLE, bgcolor: alpha(P.PURPLE, 0.05) } }}>
                         Recycle Bin ({trashedRecords.length})
                     </OutlineButton>
@@ -1234,23 +1236,15 @@ export const InvoiceProficiency = () => {
 
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 {selected.size > 0 ? (
-                                    <Button
-                                        variant="contained"
-                                        color="error"
-                                        size="small"
+                                    <OutlineButton 
+                                        color="error" 
+                                        size="small" 
+                                        onClick={handleBulkDeleteClick} 
                                         startIcon={<Trash2 size={14} />}
-                                        onClick={handleBulkDeleteClick}
-                                        sx={{
-                                            height: 32,
-                                            fontSize: '0.78rem',
-                                            textTransform: 'none',
-                                            borderRadius: '6px',
-                                            boxShadow: 'none',
-                                            '&:hover': { boxShadow: 'none', bgcolor: P.RED }
-                                        }}
+                                        sx={{ height: '32px', px: 2, borderRadius: '6px' }}
                                     >
-                                        Delete Selected ({selected.size})
-                                    </Button>
+                                        Trash Selected ({selected.size})
+                                    </OutlineButton>
                                 ) : (
                                     <TableSearchBar value={search} onChange={setSearch} color={P.BLUE} placeholder="Search records…" />
                                 )}

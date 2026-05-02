@@ -63,6 +63,7 @@ import Repairs from '../pages/superadmin/features/Repairs/Repairs';
 import CustomerCenter from '../pages/superadmin/features/customer-center/CustomerCenter';
 import DispatchKpi from '../pages/superadmin/features/dispatch_kpi/DispatchKpi';
 import { InvoiceProficiency } from '../pages/superadmin/features/invoice_proficiency/InvoiceProficiency';
+import TimeTracking from '../pages/superadmin/features/time-tracking/TimeTracking';
 
 export const AppRoutes = () => {
   const { user } = useAuth();
@@ -151,6 +152,7 @@ export const AppRoutes = () => {
           <Route path="customer-center" element={<CustomerCenter />} />
           <Route path="dispatch-kpi" element={<DispatchKpi />} />
           <Route path="invoice-proficiency" element={<InvoiceProficiency />} />
+          <Route path="time-tracking" element={<TimeTracking />} />
         </Route>
 
         {/* Manager */}
@@ -190,6 +192,7 @@ export const AppRoutes = () => {
           <Route path="health-department-report-tracking/tos" element={<TOSReports />} />
           <Route path="customer-center" element={<CustomerCenter />} />
           <Route path="invoice-proficiency" element={<InvoiceProficiency />} />
+          <Route path="time-tracking" element={<TimeTracking />} />
 
           <Route path="notifications" element={<Notifications />} />
         </Route>

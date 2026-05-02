@@ -5,7 +5,7 @@ class TimeTracking(models.Model):
     """
     Model for tracking Technician Time, Travel, and Billing Proficiency.
     """
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='time_tracking_records')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='time_tracking_records', null=True, blank=True)
     date = models.DateField()
     
     # TRAVEL SECTION
@@ -36,13 +36,17 @@ class TimeTracking(models.Model):
     
     billing_proficiency = models.FloatField(default=0.0, help_text="Billing Proficiency (%)")
     
+    # WORK ORDER INFO
+    wo_number = models.CharField(max_length=100, null=True, blank=True)
+    full_address = models.TextField(null=True, blank=True)
+    technician_name = models.CharField(max_length=255, null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'time_tracking'
-        ordering = ['-date', 'user']
-        unique_together = ('user', 'date')
+        ordering = ['-date', 'technician_name']
 
     def __str__(self):
         return f"{self.user.name} - {self.date}"

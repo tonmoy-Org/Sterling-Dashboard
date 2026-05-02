@@ -160,12 +160,9 @@ async def run_online_rme_scraper():
         record_count = len(work_orders_to_process)
         print(f"RME records to process: {record_count}")
 
-        if work_orders_to_process:
-            # Single pass: authenticate, search, scrape forms, update DB — all in one
-            await scraper.workorder_address_check_and_get_form(work_orders_to_process)
-            print("RME data processing completed.")
-        else:
-            print("No RME records found to update.")
+        # Always run the scraper logic to ensure logging and cleanup occur, even if zero records
+        await scraper.workorder_address_check_and_get_form(work_orders_to_process)
+        print("RME data processing completed.")
 
     except Exception as e:
         print(f"Error during Online RME execution: {e}")
@@ -317,8 +314,8 @@ async def main():
     await run_dispatcher_booked_scraper()
     await run_review_tracker_scraper()
     await run_invoice_proficiency_scraper()
-    await work_orders_time_tracking_scraper()
-    await run_time_tracking_scraper()
+    # await work_orders_time_tracking_scraper()
+    # await run_time_tracking_scraper()
 
 @track_scraper
 def start_fieldedge_scraper():

@@ -98,7 +98,7 @@
       },
       {
         "action": "wait",
-        "timeout": 1000
+        "timeout": 500
       },
       {
         "action": "click",
@@ -106,7 +106,29 @@
       },
       {
         "action": "wait",
-        "timeout": 1500
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//button[contains(@class,'confirm') and not(@disabled) and .//span[normalize-space()='Select']]"
+      }
+    ],
+    "time_entry_scraper_scheduled_date_filter_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[@class='filter-name' and normalize-space(text())='Scheduled Date']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//li[@id='vs2__option-3']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
       },
       {
         "action": "click",
@@ -120,7 +142,7 @@
       },
       {
         "action": "wait",
-        "timeout": 1000
+        "timeout": 500
       },
       {
         "action": "click",
@@ -128,7 +150,7 @@
       },
       {
         "action": "wait",
-        "timeout": 1500
+        "timeout": 500
       },
       {
         "action": "click",

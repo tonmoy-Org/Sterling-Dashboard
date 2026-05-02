@@ -4,10 +4,37 @@ Scrapes work orders and extracts completion time from the Timesheet section.
 """
 
 import copy
-from typing import List, Dict, Optional
 import asyncio
-from automation.scrapers.base_scraper import BaseScraper
+import sys
+import os
+import django
+from typing import List, Dict, Optional
+from datetime import datetime
 
+# Setup Django environment
+def setup_django():
+    # Get the project root directory
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+    
+    # Set the settings module
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
+    
+    # Initialize Django
+    try:
+        django.setup()
+    except Exception as e:
+        print(f"Django setup warning (possibly already setup): {e}")
+
+setup_django()
+
+from time_tracking.models import TimeTracking
+from accounts.models import User
+from django.utils import timezone
+from asgiref.sync import sync_to_async
+
+from automation.scrapers.base_scraper import BaseScraper
 
 class WorkOrdersTimeTrackingScraper(BaseScraper):
     """
@@ -90,56 +117,73 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
 
     async def scrape_timesheet_data(self, page):
         """
-        Navigate to Timesheet section and extract completion time.
-
-        Args:
-            page: Playwright page object
-
-        Returns:
-            str: Completion time (e.g., "12:49 PM") or None
+        Extract Timesheet completion time from the Timesheet Entries table.
         """
         try:
-            # Click the Timesheet card
-            timesheet_card = page.locator('//div[contains(@class, "card")]//div[normalize-space(text())="Timesheet"]')
-            await timesheet_card.wait_for(state="visible", timeout=30000)
-            await timesheet_card.click()
+            # Verified selector from findings
+            selector = '[data-automation-id="workOrderTabsEnum-Timesheet-container"]'
+            
+            # Wait for it to be attached
+            timesheet_card = page.locator(selector).first
+            await timesheet_card.wait_for(state="attached", timeout=30000)
+            
+            # Scroll it into view
+            await timesheet_card.scroll_into_view_if_needed()
+            await page.wait_for_timeout(1000)
+
+            # Try to click normally, fallback to JS click
+            try:
+                await timesheet_card.click(timeout=5000)
+            except:
+                await page.evaluate(f'document.querySelector("{selector}").click()')
+            
             print("✅ Clicked Timesheet card.")
 
-            # Wait for Timesheet Entries table
-            await page.wait_for_selector('//div[normalize-space(text())="Timesheet Entries"]', timeout=30000)
+            # Wait for the Timesheet Entries table body to appear
+            try:
+                await page.wait_for_selector('[data-automation-id="table-body"]', timeout=30000)
+            except:
+                # Fallback: wait for any table that looks like the timesheet entries
+                await page.wait_for_selector('table.custom-table', timeout=10000)
             
-            # Extract End Time from the "Working" row
-            # We look for the first row where the status (td[2]) is "Working"
-            completed_time = await page.evaluate(
+            # Extract Working and Traveling data
+            scraped_details = await page.evaluate(
                 r"""() => {
                 try {
-                    const rows = Array.from(document.querySelectorAll('table tr')).slice(1); // Skip header
+                    const tbody = document.querySelector('[data-automation-id="table-body"]');
+                    if (!tbody) return null;
+
+                    const results = {
+                        working: null,
+                        traveling: null
+                    };
+
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
                     for (let row of rows) {
                         const cells = row.querySelectorAll('td');
-                        if (cells.length >= 5) {
+                        if (cells.length >= 6) {
                             const status = cells[1].innerText.trim();
                             const date = cells[2].innerText.trim();
+                            const startTime = cells[3].innerText.trim();
                             const endTime = cells[4].innerText.trim();
+                            const duration = cells[5].innerText.trim();
                             
-                            if (status === 'Working' && endTime) {
-                                return `${date} ${endTime}`;
+                            const entry = { date, startTime, endTime, duration };
+                            
+                            if (status === 'Working' && !results.working) {
+                                results.working = entry;
+                            } else if (status === 'Traveling' && !results.traveling) {
+                                results.traveling = entry;
                             }
                         }
                     }
-                    // Fallback to first row end time if 'Working' status not found but entries exist
-                    if (rows.length > 0) {
-                        const cells = rows[0].querySelectorAll('td');
-                        if (cells.length >= 5) {
-                            return `${cells[2].innerText.trim()} ${cells[4].innerText.trim()}`;
-                        }
-                    }
-                    return null;
+                    return results;
                 } catch (err) {
                     return null;
                 }
             }"""
             )
-            return completed_time
+            return scraped_details
 
         except Exception as e:
             print(f"⚠️ Error extracting timesheet data: {e}")
@@ -157,31 +201,49 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
         """
         try:
             # Wait for address elements
-            await page.wait_for_selector(
-                '[data-automation-id="address1"]', state="attached", timeout=60000
-            )
+            await page.wait_for_selector('label.addressLabel.map-viewer', state="attached", timeout=60000)
             
-            # Extract address
+            # Extract address - verified selectors
             address_data = await page.evaluate(
                 r"""() => {
                 try {
-                    const address1 = document.querySelector('[data-automation-id="address1"]').innerText.trim();
-                    const address2 = document.querySelector('[data-automation-id="address2"]').innerText.trim();
-                    return `${address1}, ${address2}`;
+                    const labels = Array.from(document.querySelectorAll('label.addressLabel.map-viewer'));
+                    if (labels.length >= 2) {
+                        const addr1 = labels[0].innerText.trim();
+                        const addr2 = labels[1].innerText.trim();
+                        return `${addr1}, ${addr2}`;
+                    } else if (labels.length === 1) {
+                        return labels[0].innerText.trim();
+                    }
+                    
+                    // Fallback to automation IDs
+                    const a1 = document.querySelector('[data-automation-id="address1"]');
+                    const a2 = document.querySelector('[data-automation-id="address2"]');
+                    if (a1) {
+                        return a2 ? `${a1.innerText.trim()}, ${a2.innerText.trim()}` : a1.innerText.trim();
+                    }
+                    return null;
                 } catch (err) {
                     return null;
                 }
             }"""
             )
 
-            # Extract Timesheet completion time
-            completed_time = await self.scrape_timesheet_data(page)
+            # Extract Timesheet data (Working and Traveling)
+            timesheet_data = await self.scrape_timesheet_data(page)
 
-            print(f"✅ Address: {address_data} | Completed Time: {completed_time}")
+            # Map the primary completed time for backward compatibility (Working end time)
+            primary_completed_time = None
+            if timesheet_data and timesheet_data.get('working'):
+                w = timesheet_data['working']
+                primary_completed_time = f"{w['date']} {w['endTime']}"
+
+            print(f"✅ Address: {address_data} | Timesheet: {timesheet_data}")
 
             return {
                 "full_address": address_data,
-                "completed_elapsed_time": completed_time
+                "timesheet_data": timesheet_data,
+                "completed_elapsed_time": primary_completed_time
             }
 
         except Exception as e:
@@ -224,6 +286,7 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
 
                 if details:
                     work_order["full_address"] = details["full_address"]
+                    work_order["timesheet_data"] = details.get("timesheet_data")
                     work_order["completed_elapsed_time"] = details["completed_elapsed_time"]
                     result.append(work_order)
                 else:
@@ -241,6 +304,95 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
 
         return result
 
+    def save_to_db(self, final_data):
+        """
+        Save the scraped data to the TimeTracking model.
+        """
+        if not final_data:
+            return
+
+        import re
+        print(f"Saving {len(final_data)} records to database...")
+
+        def parse_duration(dur_str):
+            if not dur_str: return 0
+            # Matches "1hrs 16" or "0hrs 14" or "16"
+            match = re.search(r'(\d+)\s*hrs\s*(\d+)', dur_str)
+            if match:
+                return int(match.group(1)) * 60 + int(match.group(2))
+            match = re.search(r'(\d+)', dur_str)
+            return int(match.group(1)) if match else 0
+
+        def parse_time(time_str):
+            if not time_str: return None
+            try:
+                return datetime.strptime(time_str, "%I:%M %p").time()
+            except:
+                return None
+
+        for data in final_data:
+            try:
+                wo_number = data.get("wo_number")
+                full_address = data.get("full_address")
+                tech_name_raw = data.get("technician")
+                ts_data = data.get("timesheet_data")
+                
+                if not ts_data:
+                    continue
+
+                # Parse technician
+                tech_name = tech_name_raw
+                if " - " in tech_name_raw:
+                    tech_name = tech_name_raw.split(" - ")[1].strip()
+
+                # Find user
+                user = User.objects.filter(name__icontains=tech_name).first()
+
+                # Prepare values
+                defaults = {
+                    "user": user,
+                    "technician_name": tech_name_raw,
+                    "full_address": full_address,
+                    "updated_at": timezone.now()
+                }
+
+                # Date (from either row)
+                date_str = None
+                if ts_data.get('working'):
+                    date_str = ts_data['working']['date']
+                elif ts_data.get('traveling'):
+                    date_str = ts_data['traveling']['date']
+
+                if date_str:
+                    defaults["date"] = datetime.strptime(date_str, "%m/%d/%Y").date()
+
+                # Working time
+                if ts_data.get('working'):
+                    w = ts_data['working']
+                    defaults["actual_worked_start"] = parse_time(w['startTime'])
+                    defaults["actual_worked_end"] = parse_time(w['endTime'])
+                    defaults["actual_worked_duration"] = parse_duration(w['duration'])
+                    # For backward compatibility with proficiency calculations
+                    defaults["marked_worked_end"] = defaults["actual_worked_end"]
+
+                # Traveling time
+                if ts_data.get('traveling'):
+                    t = ts_data['traveling']
+                    defaults["actual_travel_start"] = parse_time(t['startTime'])
+                    defaults["actual_travel_end"] = parse_time(t['endTime'])
+                    defaults["actual_travel_duration"] = parse_duration(t['duration'])
+
+                # Update or create record
+                record, created = TimeTracking.objects.update_or_create(
+                    wo_number=wo_number,
+                    defaults=defaults
+                )
+                
+                print(f"{'Created' if created else 'Updated'} record for WO {wo_number} ({tech_name})")
+
+            except Exception as e:
+                print(f"Error saving record for WO {data.get('wo_number')}: {e}")
+
     async def run(self):
         """Execute the workflow."""
         import time as _time
@@ -252,13 +404,12 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
             await self.initialize()
 
             # Navigate
-            dashboard_url = self.rules.get("dashboard_url")
-            await self._goto_with_fallback(dashboard_url)
-            if "Login" in self.page.url:
-                await self.login_fieldedge()
-
             work_order_url = self.rules.get("work_order_url", "")
             await self._goto_with_fallback(work_order_url)
+
+            if "Login" in self.page.url:
+                await self.login_fieldedge()
+                await self._goto_with_fallback(work_order_url)
 
             # Wait for table
             wait_xpath = self.rules.get("wait_xpath")
@@ -278,7 +429,19 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
             final_data = await self.fetch_details_for_work_orders(work_orders)
             _records_processed = len(final_data)
             
-            print(f"\n✅ Finished processing {len(final_data)} records.")
+            # ✅ Console Log the data
+            print("\n" + "=" * 80)
+            print(f"SCRAPED DATA FOR {len(final_data)} WORK ORDERS")
+            print("=" * 80)
+            for entry in final_data:
+                print(f"WO: {entry.get('wo_number'):<10} | Tech: {entry.get('technician'):<15} | Time: {entry.get('completed_elapsed_time'):<20} | Address: {entry.get('full_address')}")
+            print("=" * 80 + "\n")
+            
+            # Save to database
+            if final_data:
+                await sync_to_async(self.save_to_db)(final_data)
+            
+            print(f"\n✅ Finished processing and saving {len(final_data)} records.")
             return final_data
 
         except Exception as e:

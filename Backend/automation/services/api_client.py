@@ -48,9 +48,12 @@ class APIClient:
         print("Attempting API login...")
         
         try:
+            email = (os.getenv('API_EMAIL') or 'admin@gmail.com').strip()
+            password = (os.getenv('API_PASSWORD') or 'admin').strip()
+            
             credentials = {
-                "email": os.getenv('API_EMAIL', 'admin@gmail.com'),
-                "password": os.getenv('API_PASSWORD', 'admin'),
+                "email": email,
+                "password": password,
                 "device": {
                     "deviceId": self.faker.uuid4(),
                     "browser": "Chrome",

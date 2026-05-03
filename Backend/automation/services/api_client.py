@@ -48,8 +48,8 @@ class APIClient:
         print("Attempting API login...")
         
         try:
-            email = (os.getenv('API_EMAIL') or 'admin@gmail.com').strip()
-            password = (os.getenv('API_PASSWORD') or 'admin').strip()
+            email = (os.getenv('API_EMAIL') or 'admin@gmail.com').strip().strip("'\"")
+            password = (os.getenv('API_PASSWORD') or 'admin').strip().strip("'\"")
             
             credentials = {
                 "email": email,
@@ -272,7 +272,7 @@ class APIClient:
         
         # Ensure authentication
         if not self._ensure_authenticated():
-            return None
+            return [] if method == "GET" else None
         
         print(f"Sending {method} request to: {url}")
         
@@ -307,10 +307,10 @@ class APIClient:
         
         except requests.Timeout:
             print(f"{method} request timed out.")
-            return None
+            return [] if method == "GET" else None
         except requests.RequestException as e:
             print(f"Connection error during {method}: {e}")
-            return None
+            return [] if method == "GET" else None
     
     
     def work_order_today_edit(self, form_data, septic_components_form_data, work_order_today_id):

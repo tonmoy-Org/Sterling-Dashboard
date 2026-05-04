@@ -453,12 +453,12 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
             path: '/super-admin-dashboard/invoice-proficiency',
             section: 'SYSTEM',
         },
-        // {
-        //     text: 'Time Tracking',
-        //     icon: <Clock size={18} />,
-        //     path: '/super-admin-dashboard/time-tracking',
-        //     section: 'SYSTEM',
-        // },
+        {
+            text: 'Time Tracking',
+            icon: <Clock size={18} />,
+            path: '/super-admin-dashboard/time-tracking',
+            section: 'SYSTEM',
+        },
         {
             text: 'Dispatch KPI',
             icon: <BarChart3 size={18} />,

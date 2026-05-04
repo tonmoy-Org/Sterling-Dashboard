@@ -49,4 +49,5 @@ class TimeTracking(models.Model):
         ordering = ['-date', 'technician_name']
 
     def __str__(self):
-        return f"{self.user.name} - {self.date}"
+        name = self.user.name if self.user else self.technician_name or "Unknown Tech"
+        return f"WO {self.wo_number} - {name} - {self.date}"

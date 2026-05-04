@@ -41,6 +41,8 @@ class BaseScraper:
         self.fieldedge_password = os.getenv("DASH_PASSWORD")
         self.rme_username = os.getenv("RME_username")
         self.rme_password = os.getenv("RME_password")
+        self.fleetmatics_email = os.getenv("FLEETMATICS_EMAIL")
+        self.fleetmatics_password = os.getenv("FLEETMATICS_PASSWORD")
         
         # Load scraping rules
         self.rules = self._load_rules()
@@ -85,7 +87,7 @@ class BaseScraper:
             
             # Launch browser with headless-safe arguments for Linux VPS
             self.browser = await self.playwright.chromium.launch(
-                headless=True,
+                headless=False,
                 slow_mo=50,
                 args=[
                     "--start-maximized",
@@ -196,6 +198,37 @@ class BaseScraper:
             
         except Exception as e:
             print(f"Online RME login failed: {e}")
+            raise
+
+    async def login_fleetmatics(self):
+        """Authenticate to Fleetmatics Reveal system."""
+        try:
+            url = self.rules.get('fleetmatics_url')
+            email_xpath = self.rules.get('fleetmatics_email_xpath')
+            email_button_xpath = self.rules.get('fleetmatics_email_button_xpath')
+            password_xpath = self.rules.get('fleetmatics_password_xpath')
+            password_button_xpath = self.rules.get('fleetmatics_password_button_xpath')
+
+            await self.page.goto(url, wait_until="networkidle")
+
+            # Step 1: Email
+            await self.page.fill(email_xpath, self.fleetmatics_email)
+            await self.page.click(email_button_xpath)
+            
+            # Wait for password field
+            await self.page.wait_for_selector(password_xpath, timeout=10000)
+
+            # Step 2: Password
+            await self.page.fill(password_xpath, self.fleetmatics_password)
+            
+            # Wait for navigation after clicking login
+            async with self.page.expect_navigation(wait_until='networkidle', timeout=30000):
+                await self.page.click(password_button_xpath)
+            
+            print("Fleetmatics login successful.")
+            
+        except Exception as e:
+            print(f"Fleetmatics login failed: {e}")
             raise
     
     async def perform_actions_by_xpaths(self, name:str='', action_list:list=None, value:str=None, raise_on_error:bool=False):

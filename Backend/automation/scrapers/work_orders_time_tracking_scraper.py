@@ -197,7 +197,7 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
             page: Playwright page object
 
         Returns:
-            dict: { full_address, completed_elapsed_time }
+            dict: { full_address, timesheet_data, completed_elapsed_time }
         """
         try:
             # Wait for address elements
@@ -238,8 +238,6 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                 w = timesheet_data['working']
                 primary_completed_time = f"{w['date']} {w['endTime']}"
 
-            print(f"✅ Address: {address_data} | Timesheet: {timesheet_data}")
-
             return {
                 "full_address": address_data,
                 "timesheet_data": timesheet_data,
@@ -250,30 +248,149 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
             print(f"Error extracting details: {e}")
             return None
 
+    def save_record(self, data):
+        """
+        Save a single scraped record to the database.
+        """
+        import re
+        try:
+            wo_number = data.get("wo_number")
+            full_address = data.get("full_address")
+            tech_name_raw = data.get("technician")
+            ts_data = data.get("timesheet_data")
+            
+            if not ts_data:
+                print(f"⚠️ No timesheet data for WO {wo_number}, skipping save.")
+                return False
+
+            def parse_duration(dur_str):
+                if not dur_str: return 0
+                match = re.search(r'(\d+)\s*hrs\s*(\d+)', dur_str)
+                if match:
+                    return int(match.group(1)) * 60 + int(match.group(2))
+                match = re.search(r'(\d+)', dur_str)
+                return int(match.group(1)) if match else 0
+
+            def parse_time(time_str):
+                if not time_str: return None
+                try:
+                    return datetime.strptime(time_str, "%I:%M %p").time()
+                except:
+                    return None
+
+            # Parse technician
+            tech_name = tech_name_raw
+            if tech_name_raw and " - " in tech_name_raw:
+                parts = tech_name_raw.split(" - ")
+                if len(parts) > 1:
+                    tech_name = parts[1].strip()
+
+            # Find user
+            user = User.objects.filter(name__icontains=tech_name).first() if tech_name else None
+
+            # Date (from either row)
+            date_obj = None
+            date_str = None
+            if ts_data.get('working'):
+                date_str = ts_data['working']['date']
+            elif ts_data.get('traveling'):
+                date_str = ts_data['traveling']['date']
+
+            if date_str:
+                try:
+                    date_obj = datetime.strptime(date_str, "%m/%d/%Y").date()
+                except:
+                    pass
+            
+            if not date_obj:
+                print(f"⚠️ No date found for WO {wo_number}, skipping save.")
+                return False
+
+            # Prepare values
+            defaults = {
+                "user": user,
+                "date": date_obj,
+                "technician_name": tech_name_raw,
+                "full_address": full_address,
+                "updated_at": timezone.now()
+            }
+
+            # Working time
+            if ts_data.get('working'):
+                w = ts_data['working']
+                defaults["actual_worked_start"] = parse_time(w['startTime'])
+                defaults["actual_worked_end"] = parse_time(w['endTime'])
+                defaults["actual_worked_duration"] = parse_duration(w['duration'])
+                defaults["marked_worked_end"] = defaults["actual_worked_end"]
+
+            # Traveling time
+            if ts_data.get('traveling'):
+                t = ts_data['traveling']
+                defaults["actual_travel_start"] = parse_time(t['startTime'])
+                defaults["actual_travel_end"] = parse_time(t['endTime'])
+                defaults["actual_travel_duration"] = parse_duration(t['duration'])
+
+            # Update or create record
+            # We use WO number AND technician name to allow multiple techs per WO
+            record, created = TimeTracking.objects.update_or_create(
+                wo_number=wo_number,
+                technician_name=tech_name_raw,
+                date=date_obj,
+                defaults=defaults
+            )
+            
+            print(f"✅ {'Created' if created else 'Updated'} database record for WO {wo_number} ({tech_name})")
+            return True
+
+        except Exception as e:
+            print(f"❌ Error saving record for WO {data.get('wo_number')}: {e}")
+            return False
+
     async def fetch_details_for_work_orders(self, work_orders):
         """
-        Process each work order to get details.
+        Process each work order to get details and save them immediately.
         """
         result = []
         base_xpath_config = self.rules.get("open_work_order_xpath", [])
+        
+        # Use a list for processed work orders to avoid infinite loops
+        processed_wo = set()
+        to_process = copy.deepcopy(work_orders)
+        retries = {}
 
-        while work_orders:
-            work_order = work_orders.pop(0)
+        while to_process:
+            work_order = to_process.pop(0)
             wo_number = work_order.get("wo_number", "").strip()
-            retry_count = work_order.get("try_later", 0)
-
-            if not wo_number or retry_count >= 2:
+            
+            if not wo_number:
                 continue
+                
+            # Skip if we already succeeded for this WO (in this run)
+            if wo_number in processed_wo:
+                continue
+
+            retry_count = retries.get(wo_number, 0)
+            if retry_count >= 2:
+                print(f"Giving up on WO {wo_number} after {retry_count} retries.")
+                continue
+
+            print(f"Processing WO {wo_number} (Retry {retry_count})...")
 
             try:
                 xpath_config = copy.deepcopy(base_xpath_config)
-                wo_xpath = xpath_config[0]["xpath"]
-                xpath_config[0]["xpath"] = wo_xpath.replace("{work_order_number}", wo_number)
+                for action in xpath_config:
+                    if "xpath" in action:
+                        action["xpath"] = action["xpath"].replace("{work_order_number}", wo_number)
 
-                async with self.page.context.expect_page() as new_page_info:
-                    await self.perform_actions_by_xpaths(action_list=xpath_config)
+                new_page = None
+                try:
+                    async with self.page.context.expect_page(timeout=60000) as new_page_info:
+                        await self.perform_actions_by_xpaths(action_list=xpath_config)
+                    new_page = await new_page_info.value
+                except Exception as e:
+                    print(f"Timeout/Error opening detail page for {wo_number}: {e}")
+                    raise e
 
-                new_page = await new_page_info.value
                 await new_page.wait_for_load_state()
                 
                 # Check login
@@ -288,118 +405,37 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                     work_order["full_address"] = details["full_address"]
                     work_order["timesheet_data"] = details.get("timesheet_data")
                     work_order["completed_elapsed_time"] = details["completed_elapsed_time"]
+                    
+                    print(f"✅ Scraped details for WO {wo_number} | Tech: {work_order.get('technician')}")
+                    
+                    # Save immediately
+                    await sync_to_async(self.save_record)(work_order)
+                    
+                    processed_wo.add(wo_number)
                     result.append(work_order)
                 else:
-                    raise Exception("Failed to scrape details")
+                    raise Exception("Failed to scrape details from page")
 
             except Exception as e:
-                print(f"Failed to scrape {wo_number}: {e}")
-                work_order["try_later"] = retry_count + 1
-                work_orders.append(work_order)
+                print(f"Failed to process {wo_number}: {e}")
+                retries[wo_number] = retry_count + 1
+                to_process.append(work_order) # Put back to retry
             finally:
-                try:
-                    await new_page.close()
-                except:
-                    pass
+                if new_page:
+                    try:
+                        await new_page.close()
+                    except:
+                        pass
+                # Small delay between WOs
+                await asyncio.sleep(2)
 
         return result
-
-    def save_to_db(self, final_data):
-        """
-        Save the scraped data to the TimeTracking model.
-        """
-        if not final_data:
-            return
-
-        import re
-        print(f"Saving {len(final_data)} records to database...")
-
-        def parse_duration(dur_str):
-            if not dur_str: return 0
-            # Matches "1hrs 16" or "0hrs 14" or "16"
-            match = re.search(r'(\d+)\s*hrs\s*(\d+)', dur_str)
-            if match:
-                return int(match.group(1)) * 60 + int(match.group(2))
-            match = re.search(r'(\d+)', dur_str)
-            return int(match.group(1)) if match else 0
-
-        def parse_time(time_str):
-            if not time_str: return None
-            try:
-                return datetime.strptime(time_str, "%I:%M %p").time()
-            except:
-                return None
-
-        for data in final_data:
-            try:
-                wo_number = data.get("wo_number")
-                full_address = data.get("full_address")
-                tech_name_raw = data.get("technician")
-                ts_data = data.get("timesheet_data")
-                
-                if not ts_data:
-                    continue
-
-                # Parse technician
-                tech_name = tech_name_raw
-                if " - " in tech_name_raw:
-                    tech_name = tech_name_raw.split(" - ")[1].strip()
-
-                # Find user
-                user = User.objects.filter(name__icontains=tech_name).first()
-
-                # Prepare values
-                defaults = {
-                    "user": user,
-                    "technician_name": tech_name_raw,
-                    "full_address": full_address,
-                    "updated_at": timezone.now()
-                }
-
-                # Date (from either row)
-                date_str = None
-                if ts_data.get('working'):
-                    date_str = ts_data['working']['date']
-                elif ts_data.get('traveling'):
-                    date_str = ts_data['traveling']['date']
-
-                if date_str:
-                    defaults["date"] = datetime.strptime(date_str, "%m/%d/%Y").date()
-
-                # Working time
-                if ts_data.get('working'):
-                    w = ts_data['working']
-                    defaults["actual_worked_start"] = parse_time(w['startTime'])
-                    defaults["actual_worked_end"] = parse_time(w['endTime'])
-                    defaults["actual_worked_duration"] = parse_duration(w['duration'])
-                    # For backward compatibility with proficiency calculations
-                    defaults["marked_worked_end"] = defaults["actual_worked_end"]
-
-                # Traveling time
-                if ts_data.get('traveling'):
-                    t = ts_data['traveling']
-                    defaults["actual_travel_start"] = parse_time(t['startTime'])
-                    defaults["actual_travel_end"] = parse_time(t['endTime'])
-                    defaults["actual_travel_duration"] = parse_duration(t['duration'])
-
-                # Update or create record
-                record, created = TimeTracking.objects.update_or_create(
-                    wo_number=wo_number,
-                    defaults=defaults
-                )
-                
-                print(f"{'Created' if created else 'Updated'} record for WO {wo_number} ({tech_name})")
-
-            except Exception as e:
-                print(f"Error saving record for WO {data.get('wo_number')}: {e}")
 
     async def run(self):
         """Execute the workflow."""
         import time as _time
         _start_time = _time.time()
-        _error_occurred = None
-        _records_processed = 0
-
+        
         try:
             await self.initialize()
 
@@ -416,41 +452,32 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
             await self.page.wait_for_selector(wait_xpath, state="visible", timeout=60000)
 
             # Filter
+            print("Applying filters...")
             await self.perform_actions_by_xpaths(name="status_xpath")
             await self.perform_actions_by_xpaths(name="time_entry_scraper_scheduled_date_filter_xpath")
             await self.perform_actions_by_xpaths(name="submit_filter")
             await self.page.wait_for_timeout(5000)
 
-            # Scrape
+            # Scrape main table
             scraped = await self.scrape_work_orders_table()
             work_orders = scraped.get("rows", [])
             
-            # Fetch details
+            if not work_orders:
+                print("No work orders found in table after filtering.")
+                return []
+
+            # Fetch details and save as we go
             final_data = await self.fetch_details_for_work_orders(work_orders)
-            _records_processed = len(final_data)
             
-            # ✅ Console Log the data
-            print("\n" + "=" * 80)
-            print(f"SCRAPED DATA FOR {len(final_data)} WORK ORDERS")
-            print("=" * 80)
-            for entry in final_data:
-                print(f"WO: {entry.get('wo_number'):<10} | Tech: {entry.get('technician'):<15} | Time: {entry.get('completed_elapsed_time'):<20} | Address: {entry.get('full_address')}")
-            print("=" * 80 + "\n")
-            
-            # Save to database
-            if final_data:
-                await sync_to_async(self.save_to_db)(final_data)
-            
-            print(f"\n✅ Finished processing and saving {len(final_data)} records.")
+            print(f"\n✅ Finished processing {len(final_data)} work orders.")
+            print(f"Execution time: {round(_time.time() - _start_time, 1)}s")
             return final_data
 
         except Exception as e:
             print(f"Scraping error: {e}")
-            _error_occurred = str(e)
             return None
         finally:
             await self.cleanup()
-            print(f"Execution time: {round(_time.time() - _start_time, 1)}s")
 
 
 if __name__ == "__main__":

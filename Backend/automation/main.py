@@ -301,7 +301,7 @@ async def run_time_tracking_scraper():
 
 async def run_time_tracking_combined():
     """Execute both Work Orders and Time Tracking scrapers in sequence."""
-    await work_orders_time_tracking_scraper()
+    # await work_orders_time_tracking_scraper()
     await run_time_tracking_scraper()
 
 
@@ -315,7 +315,7 @@ async def main():
     await run_review_tracker_scraper()
     await run_invoice_proficiency_scraper()
     # await work_orders_time_tracking_scraper()
-    # await run_time_tracking_scraper()
+    await run_time_tracking_scraper()
 
 @track_scraper
 def start_fieldedge_scraper():

@@ -18,6 +18,11 @@
     "username_xpath": "input[name='UserName']",
     "password_xpath": "input[name='Password']",
     "login_button_xpath": "input[type='submit'][value='Sign in to your account']",
+    "fleetmatics_url": "https://reveal.fleetmatics.com/",
+    "fleetmatics_email_xpath": "#username",
+    "fleetmatics_email_button_xpath": "button[name='action'][value='default']",
+    "fleetmatics_password_xpath": "#password",
+    "fleetmatics_password_button_xpath": "button[name='action'][value='default']",
     "_comment_status": "Task status info",
     "status_name": "Assigned",
     "is_apply_task": false,
@@ -124,7 +129,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[@id='vs2__option-3']"
+        "xpath": "//li[@id='vs2__option-7']"
       },
       {
         "action": "wait",

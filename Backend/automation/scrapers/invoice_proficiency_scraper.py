@@ -682,7 +682,7 @@ class InvoiceProficiencyScraper(BaseScraper):
                     # ── Persist ────────────────────────────────────────
                     try:
                         _, created = InvoiceProficiency.objects.update_or_create(
-                            work_order_number=wo_raw,
+                            work_order_number=wo_key,
                             defaults={
                                 "technician_name":      tech_name,
                                 "work_order_date":      parsed_wo_date,
@@ -706,7 +706,7 @@ class InvoiceProficiencyScraper(BaseScraper):
                         )
                         processed_count += 1
                         print(
-                            f"✅ WO {wo_raw} — "
+                            f"✅ WO {wo_key} — "
                             f"{'Created' if created else 'Updated'} | "
                             f"{len(items_detail)} item(s) | "
                             f"${invoice_total:.2f} | "

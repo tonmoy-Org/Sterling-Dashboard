@@ -4,7 +4,7 @@ import TabNavigation from '../../components/StatusStarling/TabNavigation';
 import ServicesTable from '../../components/StatusStarling/ServicesTable';
 import ServiceStatusTable from '../../components/StatusStarling/ServiceStatusTable';
 import IncidentHistoryTable from '../../components/StatusStarling/IncidentHistoryTable';
-import { useServiceStatus } from '../../hooks/useStatusData';
+import { useServiceStatus, useIncidentLogs } from '../../hooks/useStatusData';
 
 export default function Home() {
     // Defaulting to HISTORY tab just to show the requested response immediately
@@ -12,16 +12,32 @@ export default function Home() {
     const [activeTab, setActiveTab] = useState('LIVE UPDATES');
 
     // Fetch live service status for the hero banner — refresh every 60s
-    // We also pass the result down to the HISTORY tab
-    const { services, loading: statusLoading, lastFetched } = useServiceStatus(60_000);
+    const { services, loading: statusLoading, lastFetched: servicesLastFetched } = useServiceStatus(60_000);
+    
+    // Fetch active incidents to influence the overall status
+    const { incidents, loading: incidentsLoading, lastFetched: incidentsLastFetched } = useIncidentLogs({ status: 'active' }, 60_000);
 
-    // Derive overall status: if any service is down → "DEGRADED", else "OPERATIONAL"
+    // Derive overall status: 
+    // 1. If any active incident exists -> DEGRADED
+    // 2. If any CORE service (Database, API) is down -> DEGRADED
+    // 3. Otherwise -> OPERATIONAL
     const overallStatus = (() => {
-        if (statusLoading || services.length === 0) return null;
-        const anyDown = services.some(s => !s.is_operational);
-        return anyDown ? 'DEGRADED' : 'OPERATIONAL';
+        if (statusLoading || incidentsLoading) return null;
+        
+        const hasActiveIncidents = incidents.some(i => i.status === 'active');
+        
+        // Check for CORE service failures
+        const coreServices = ['Database', 'API Endpoint'];
+        const hasCoreFailure = services.some(s => 
+            coreServices.includes(s.service_name) && !s.is_operational
+        );
+
+        if (hasActiveIncidents || hasCoreFailure) return 'DEGRADED';
+        
+        return 'OPERATIONAL';
     })();
 
+    const lastFetched = servicesLastFetched || incidentsLastFetched;
     const updatedLabel = lastFetched
         ? `Updated ${relativeTime(lastFetched)}`
         : 'Fetching status…';

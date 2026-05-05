@@ -8,8 +8,10 @@ import asyncio
 import sys
 import os
 import django
-from typing import List, Dict, Optional
 from datetime import datetime
+import time as _time
+import traceback
+import json
 
 # Setup Django environment
 def setup_django():
@@ -120,8 +122,8 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
         Extract Timesheet completion time from the Timesheet Entries table.
         """
         try:
-            # Verified selector from findings
-            selector = '[data-automation-id="workOrderTabsEnum-Timesheet-container"]'
+            # Verified selector from config
+            selector = self.rules.get("timesheet_tab_selector", '[data-automation-id="workOrderTabsEnum-Timesheet-container"]')
             
             # Wait for it to be attached
             timesheet_card = page.locator(selector).first
@@ -140,17 +142,18 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
             print("✅ Clicked Timesheet card.")
 
             # Wait for the Timesheet Entries table body to appear
+            table_body_selector = self.rules.get("timesheet_table_body_selector", '[data-automation-id="table-body"]')
             try:
-                await page.wait_for_selector('[data-automation-id="table-body"]', timeout=30000)
+                await page.wait_for_selector(table_body_selector, timeout=30000)
             except:
                 # Fallback: wait for any table that looks like the timesheet entries
                 await page.wait_for_selector('table.custom-table', timeout=10000)
             
             # Extract Working and Traveling data
             scraped_details = await page.evaluate(
-                r"""() => {
+                r"""(sel) => {
                 try {
-                    const tbody = document.querySelector('[data-automation-id="table-body"]');
+                    const tbody = document.querySelector(sel);
                     if (!tbody) return null;
 
                     const results = {
@@ -181,7 +184,7 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                 } catch (err) {
                     return null;
                 }
-            }"""
+            }""", table_body_selector
             )
             return scraped_details
 
@@ -228,6 +231,25 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                 }
             }"""
             )
+            
+            # Extract coordinates from map link
+            coords = await page.evaluate(
+                r"""() => {
+                try {
+                    const mapLink = document.querySelector('a[href*="maps.google.com/maps?ll="]');
+                    if (mapLink) {
+                        const href = mapLink.getAttribute('href');
+                        const match = href.match(/ll=([-.\d]+),([-.\d]+)/);
+                        if (match) {
+                            return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
+                        }
+                    }
+                    return null;
+                } catch (err) {
+                    return null;
+                }
+            }"""
+            )
 
             # Extract Timesheet data (Working and Traveling)
             timesheet_data = await self.scrape_timesheet_data(page)
@@ -241,7 +263,8 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
             return {
                 "full_address": address_data,
                 "timesheet_data": timesheet_data,
-                "completed_elapsed_time": primary_completed_time
+                "completed_elapsed_time": primary_completed_time,
+                "coords": coords
             }
 
         except Exception as e:
@@ -312,6 +335,8 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                 "date": date_obj,
                 "technician_name": tech_name_raw,
                 "full_address": full_address,
+                "latitude": data.get("coords", {}).get("lat") if data.get("coords") else None,
+                "longitude": data.get("coords", {}).get("lon") if data.get("coords") else None,
                 "updated_at": timezone.now()
             }
 
@@ -321,14 +346,6 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                 defaults["actual_worked_start"] = parse_time(w['startTime'])
                 defaults["actual_worked_end"] = parse_time(w['endTime'])
                 defaults["actual_worked_duration"] = parse_duration(w['duration'])
-                defaults["marked_worked_end"] = defaults["actual_worked_end"]
-
-            # Traveling time
-            if ts_data.get('traveling'):
-                t = ts_data['traveling']
-                defaults["actual_travel_start"] = parse_time(t['startTime'])
-                defaults["actual_travel_end"] = parse_time(t['endTime'])
-                defaults["actual_travel_duration"] = parse_duration(t['duration'])
 
             # Update or create record
             # We use WO number AND technician name to allow multiple techs per WO
@@ -432,23 +449,32 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
         return result
 
     async def run(self):
-        """Execute the workflow."""
-        import time as _time
+        """
+        Execute the complete work orders time tracking scraping workflow.
+        """
         _start_time = _time.time()
+        _error_occurred = None
+        _records_processed = 0
+        
+        print("\n=== Starting Work Orders Time Tracking Scraper ===")
         
         try:
             await self.initialize()
 
-            # Navigate
-            work_order_url = self.rules.get("work_order_url", "")
-            await self._goto_with_fallback(work_order_url)
-
+            
+            # 2. Login to FieldEdge
+            dashboard_url = self.rules.get("dashboard_url")
+            await self._goto_with_fallback(dashboard_url)
+            
             if "Login" in self.page.url:
                 await self.login_fieldedge()
-                await self._goto_with_fallback(work_order_url)
-
+            
+            # 3. Navigate to Work Orders list
+            wo_list_url = self.rules.get("work_order_url")
+            await self._goto_with_fallback(wo_list_url)
+            
             # Wait for table
-            wait_xpath = self.rules.get("wait_xpath")
+            wait_xpath = self.rules.get("time_entry_scraper_wait_xpath", "//tbody[contains(@class, 'fixed-body')]")
             await self.page.wait_for_selector(wait_xpath, state="visible", timeout=60000)
 
             # Filter
@@ -468,16 +494,57 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
 
             # Fetch details and save as we go
             final_data = await self.fetch_details_for_work_orders(work_orders)
+            _records_processed = len(final_data) if final_data else 0
             
-            print(f"\n✅ Finished processing {len(final_data)} work orders.")
-            print(f"Execution time: {round(_time.time() - _start_time, 1)}s")
+            print(f"\n✅ Finished processing {_records_processed} work orders.")
             return final_data
 
         except Exception as e:
             print(f"Scraping error: {e}")
+            _error_occurred = f"{str(e)}\n{traceback.format_exc()}"
             return None
         finally:
             await self.cleanup()
+            
+            _elapsed = _time.time() - _start_time
+            try:
+                from status.models import ScraperExecutionLog, Incident
+
+                def _log_execution():
+                    ScraperExecutionLog.objects.create(
+                        scraper_name="work-orders-time-tracking",
+                        status="error" if _error_occurred else "success",
+                        error_message=_error_occurred,
+                        records_processed=_records_processed,
+                        execution_time_seconds=round(_elapsed, 2),
+                    )
+                    if _error_occurred:
+                        incident, created = Incident.objects.get_or_create(
+                            service_name="work-orders-time-tracking",
+                            status="active",
+                            defaults={
+                                "title": "Work Orders Time Tracking Scraper Error",
+                                "description": _error_occurred,
+                            },
+                        )
+                        if not created:
+                            incident.description = _error_occurred
+                            incident.save()
+                    else:
+                        # Resolve existing active incidents if successful
+                        for incident in Incident.objects.filter(
+                            service_name="work-orders-time-tracking",
+                            status="active"
+                        ):
+                            incident.status = "resolved"
+                            incident.resolved_at = timezone.now()
+                            incident.resolution_description = "Automation resolved automatically."
+                            incident.save()
+
+                await sync_to_async(_log_execution)()
+                print(f"📝 Logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s, {_records_processed} records)")
+            except Exception as log_err:
+                print(f"Failed to log execution: {log_err}")
 
 
 if __name__ == "__main__":

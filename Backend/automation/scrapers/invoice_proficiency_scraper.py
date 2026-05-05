@@ -425,11 +425,12 @@ class InvoiceProficiencyScraper(BaseScraper):
                             row.get("Assignment Completed") or
                             row.get("Completed") or
                             row.get("Is Completed") or
+                            row.get("Column_15") or
                             row.get("Column_11") or
                             row.get("Column_12") or ""
                         ).strip()
 
-                        if invoice and completed == "Yes":
+                        if invoice and (completed == "Yes" or completed == "Complete"):
                             filtered.append(row)
 
                     print(f"📋 {len(filtered)} / {len(scraped_rows)} rows passed filter.")
@@ -492,6 +493,15 @@ class InvoiceProficiencyScraper(BaseScraper):
                         )
                         continue
 
+                    # ── Status Check (Skip Canceled) ────────────────
+                    status = (
+                        wo_row.get("Column_15")
+                    ).strip()
+
+                    if "Canceled" in status or "Cancelled" in status:
+                        print(f"DEBUG: Skipping WO {wo_raw} — Status is {status}")
+                        continue
+
                     wo_key    = _normalise_wo(wo_raw)
                     tech_name = (
                         wo_row.get("Technician") or
@@ -499,7 +509,7 @@ class InvoiceProficiencyScraper(BaseScraper):
                         wo_row.get("Column_0") or
                         "Unknown"
                     )
-                    wo_summary      = wo_row.get("Summary") or wo_row.get("Notes") or ""
+                    wo_summary      = wo_row.get("Summary") or wo_row.get("Notes") or wo_row.get("Column_14") or ""
                     worked_time_raw = wo_row.get("Worked Time") or wo_row.get("Column_8") or "0"
                     worked_hours    = parse_worked_time(worked_time_raw)
 
@@ -551,16 +561,21 @@ class InvoiceProficiencyScraper(BaseScraper):
                         except Exception:
                             qty = 1.0
 
-                        # ── Total sold ─────────────────────────────────
+                        # ── Total sold (Rate) ──────────────────────────
                         total_sold_raw = str(
                             item.get("Total Sold") or
                             item.get("Column_9") or
                             "0"
-                        )
+                        ).strip()
+                        
+                        is_dash_rate = total_sold_raw == "-"
                         try:
-                            total_sold = float(
-                                re.sub(r'[^0-9.]', '', total_sold_raw)
-                            ) if total_sold_raw else 0.0
+                            if is_dash_rate:
+                                total_sold = 0.0
+                            else:
+                                total_sold = float(
+                                    re.sub(r'[^0-9.]', '', total_sold_raw)
+                                ) if total_sold_raw else 0.0
                         except Exception:
                             total_sold = 0.0
 
@@ -597,6 +612,7 @@ class InvoiceProficiencyScraper(BaseScraper):
                             "item":        item_name,
                             "qty":         qty,
                             "total_sold":  total_sold,
+                            "raw_rate":    total_sold_raw if is_dash_rate else None
                         })
 
                     # Skip WO if nothing valid remains after all filtering
@@ -657,10 +673,11 @@ class InvoiceProficiencyScraper(BaseScraper):
                     ):
                         excavation_status = "Pass" if has_excavation_pass else "Fail"
 
-                    final_summary = (
-                        f"Excavation: {excavation_status}"
-                        if excavation_status else wo_summary
-                    )
+                    # Combine scraped summary with excavation status
+                    final_summary = wo_summary
+                    if excavation_status:
+                        excav_prefix = f"[Excavation: {excavation_status}]"
+                        final_summary = f"{exc_prefix} {wo_summary}".strip()
 
                     # ── Persist ────────────────────────────────────────
                     try:
@@ -682,7 +699,7 @@ class InvoiceProficiencyScraper(BaseScraper):
                                 "priority":             priority,
                                 "task_name":            task,
                                 "items_detail":         items_detail,
-                                "work_order_summary":   final_summary,
+                                "wo_summary":           final_summary,
                                 "is_error":             is_error,
                                 "error_type":           error_type,
                             },

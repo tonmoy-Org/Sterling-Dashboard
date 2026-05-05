@@ -8,21 +8,7 @@ class TimeTracking(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='time_tracking_records', null=True, blank=True)
     date = models.DateField()
     
-    # TRAVEL SECTION
-    marked_travel_start = models.TimeField(null=True, blank=True)
-    marked_travel_end = models.TimeField(null=True, blank=True)
-    marked_travel_duration = models.IntegerField(default=0, help_text="Duration in minutes (Variant)")
-    
-    actual_travel_start = models.TimeField(null=True, blank=True)
-    actual_travel_end = models.TimeField(null=True, blank=True)
-    actual_travel_duration = models.IntegerField(default=0, help_text="Duration in minutes (Standard)")
-    
-    travel_coding_proficiency = models.FloatField(default=0.0, help_text="Travel Coding Proficiency (%)")
-    
     # WORKING TIME SECTION
-    marked_worked_start = models.TimeField(null=True, blank=True)
-    marked_worked_end = models.TimeField(null=True, blank=True)
-    marked_worked_duration = models.IntegerField(default=0, help_text="Duration in minutes (Variant)")
     
     actual_worked_start = models.TimeField(null=True, blank=True)
     actual_worked_end = models.TimeField(null=True, blank=True)
@@ -40,6 +26,16 @@ class TimeTracking(models.Model):
     wo_number = models.CharField(max_length=100, null=True, blank=True)
     full_address = models.TextField(null=True, blank=True)
     technician_name = models.CharField(max_length=255, null=True, blank=True)
+    
+    # FLEETMATICS DATA
+    fleetmatics_arrival_time = models.TimeField(null=True, blank=True)
+    fleetmatics_departure_time = models.TimeField(null=True, blank=True)
+    fleetmatics_stop_duration = models.IntegerField(default=0, help_text="Stop Duration in minutes")
+    fleetmatics_idle_duration = models.IntegerField(default=0, help_text="Idle Duration in minutes")
+    
+    # COORDINATES (For Area Matching)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

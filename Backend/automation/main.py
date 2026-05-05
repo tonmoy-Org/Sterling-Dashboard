@@ -175,7 +175,7 @@ async def run_online_rme_scraper():
 
 async def run_dispatcher_booked_scraper():
     """Execute Dispatcher Booked scraping workflow."""
-    from automation.scrapers.dispatcher_booked import DispatcherBookedScraper
+    from automation.scrapers.dispatcher_booked_scraper import DispatcherBookedScraper
     print("\n=== Starting Dispatcher Booked Scraper ===")
     scraper = None
 
@@ -279,19 +279,19 @@ async def work_orders_time_tracking_scraper():
                 pass
 
 
-async def run_time_tracking_scraper():
-    """Execute Time Tracking scraping workflow."""
-    from automation.scrapers.time_tracking_scraper import TimeTrackingScraper
-    print("\n=== Starting Time Tracking Scraper ===")
+async def run_fleetmatics_time_tracking_scraper():
+    """Execute Fleetmatics Time Tracking scraping workflow."""
+    from automation.scrapers.fleetmatics_time_tracking_scraper import TimeTrackingScraper
+    print("\n=== Starting Fleetmatics Time Tracking Scraper ===")
     scraper = None
 
     try:
         scraper = TimeTrackingScraper()
         await scraper.run()
-        print("Time Tracking scraping completed.")
+        print("Fleetmatics Time Tracking scraping completed.")
 
     except Exception as e:
-        print(f"Error during Time Tracking execution: {e}")
+        print(f"Error during Fleetmatics Time Tracking execution: {e}")
     finally:
         if scraper:
             try:
@@ -301,8 +301,8 @@ async def run_time_tracking_scraper():
 
 async def run_time_tracking_combined():
     """Execute both Work Orders and Time Tracking scrapers in sequence."""
-    # await work_orders_time_tracking_scraper()
-    await run_time_tracking_scraper()
+    await work_orders_time_tracking_scraper()
+    await run_fleetmatics_time_tracking_scraper()
 
 
 async def main():
@@ -314,8 +314,8 @@ async def main():
     await run_dispatcher_booked_scraper()
     await run_review_tracker_scraper()
     await run_invoice_proficiency_scraper()
-    # await work_orders_time_tracking_scraper()
-    await run_time_tracking_scraper()
+    await work_orders_time_tracking_scraper()
+    await run_fleetmatics_time_tracking_scraper()
 
 @track_scraper
 def start_fieldedge_scraper():
@@ -448,14 +448,14 @@ def start_work_orders_time_tracking_scraper():
 
 
 @track_scraper
-def start_time_tracking_scraper():
-    """Initialize and start the Time Tracking scraping process."""
+def start_fleetmatics_time_tracking_scraper():
+    """Initialize and start the Fleetmatics Time Tracking scraping process."""
     setup_django()
     print("\n" + "=" * 50)
-    print("STERLING DASHBOARD SCRAPER - TIME TRACKING INITIALIZED")
+    print("STERLING DASHBOARD SCRAPER - FLEETMATICS TIME TRACKING INITIALIZED")
     print("=" * 50 + "\n")
     try:
-        asyncio.run(run_time_tracking_scraper())
+        asyncio.run(run_fleetmatics_time_tracking_scraper())
     except Exception as e:
         print(f"\nCritical error: {e}")
 

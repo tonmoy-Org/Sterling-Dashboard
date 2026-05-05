@@ -129,7 +129,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[@id='vs2__option-7']"
+        "xpath": "//li[@id='vs2__option-3']"
       },
       {
         "action": "wait",
@@ -351,7 +351,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[contains(.,'Today')]"
+        "xpath": "//li[contains(.,'Yesterday')]"
       },
       {
         "action": "wait",
@@ -427,6 +427,22 @@
       },
       {
         "action": "click",
+        "xpath": "//input[@id='Noteslabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//input[@id='AssignmentStatuslabel']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
         "xpath": "//button[contains(@class,'confirm_hsagT') and .//span[normalize-space(text())='Save']]"
       }
     ],
@@ -489,6 +505,11 @@
       "booked": "https://login.fieldedge.com/#/List/10/1e2052e1-b5b0-4338-bf6f-4834a04a0218",
       "all_leads": "https://login.fieldedge.com/#/List/10/c8c3b7f3-26ed-4053-b1c6-fea3b8a331bb"
     },
-    "booked_count_get_xpath": "//div[contains(@class, 'group-amount group-selected')]"
+    "booked_count_get_xpath": "//div[contains(@class, 'group-amount group-selected')]",
+    "time_entry_scraper_wait_xpath": "//tbody[contains(@class, 'fixed-body')]",
+    "time_entry_tab_headers_xpath": "//div[@class='tab-header-text']",
+    "time_entry_container_xpath": "//div[@class='tab-header-container']",
+    "timesheet_tab_selector": "[data-automation-id=\"workOrderTabsEnum-Timesheet-container\"]",
+    "timesheet_table_body_selector": "[data-automation-id=\"table-body\"]"
   }
 ]

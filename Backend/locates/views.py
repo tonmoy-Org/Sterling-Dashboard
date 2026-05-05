@@ -32,7 +32,7 @@ from automation.main import (
     start_yelp_review_scraper,
     start_invoice_proficiency_scraper,
     start_work_orders_time_tracking_scraper,
-    start_time_tracking_scraper,
+    start_fleetmatics_time_tracking_scraper,
     start_time_tracking_combined,
     start_work_orders_and_rme_combined
 )
@@ -287,7 +287,7 @@ class WorkOrderTodayViewSet(viewsets.ModelViewSet):
             return Response({'status': 'error', 'message': 'Scraper is already running'}, status=status.HTTP_409_CONFLICT)
             
         try:
-            thread = threading.Thread(target=start_time_tracking_scraper)
+            thread = threading.Thread(target=start_fleetmatics_time_tracking_scraper)
             thread.daemon = True
             thread.start()
             return Response({'status': 'success', 'message': 'Time Tracking scraping started in background'}, status=status.HTTP_200_OK)

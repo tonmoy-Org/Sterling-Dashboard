@@ -37,7 +37,7 @@ class InvoiceProficiency(models.Model):
     # 'worth' is NOT stored here — it is calculated live by calculate_worth_time()
     items_detail = models.JSONField(default=list, blank=True, help_text="Raw item data from scraper (no pre-calculated worth)")
     
-    work_order_summary = models.TextField(blank=True, null=True)
+    wo_summary = models.TextField(blank=True, null=True)
     
     # Error tracking (Date mismatch, missing invoice, etc.)
     is_error = models.BooleanField(default=False)

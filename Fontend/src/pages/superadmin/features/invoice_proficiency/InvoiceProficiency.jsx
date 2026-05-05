@@ -467,7 +467,13 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                 </Alert>
                             )}
                             <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: P.MUTED, mb: 1 }}>Task</Typography>
-                            <Typography sx={{ fontSize: '0.75rem', color: P.TEXT, mb: 1 }}>{wo.task}</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: P.TEXT, mb: 1.5 }}>{wo.task}</Typography>
+                            
+                            <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: P.AMBER, mb: 1 }}>Work Order Summary</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: P.TEXT, mb: 1.5, whiteSpace: 'pre-wrap' }}>
+                                {wo.summary || 'No summary provided.'}
+                            </Typography>
+
                             <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: P.MUTED, mb: 1 }}>Line Items</Typography>
                             {wo.lineItems?.length > 0 ? (
                                 <Box sx={{ maxHeight: 200, overflow: 'auto', ...thinScrollbar() }}>
@@ -476,7 +482,9 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                                 <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'monospace', color: P.BLUE }}>{item.itemNumber}</Typography>
                                             <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Qty: {item.qty}</Typography>
-                                                <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Rate: ${item.rate}</Typography>
+                                                <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>
+                                                    Rate: {typeof item.rate === 'number' ? `$${item.rate.toFixed(2)}` : item.rate}
+                                                </Typography>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Worth: {item.worth ? `${Math.round(item.worth * 60)}min` : '—'}</Typography>
                                             </Box>
                                         </Box>
@@ -595,12 +603,12 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                 </Alert>
                             )}
                             <Grid container spacing={3}>
-                                <Grid size={{ xs: 12 }}>
+                                <Grid size={{ xs: 12, md: 7 }}>
                                     <SectionLabel>Work Order Details</SectionLabel>
-                                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.5 }}>
                                         {[
-                                            ['Customer', wo.customerName],
                                             ['Work Order #', wo.workOrderNumber],
+                                            ['Customer', wo.customerName],
                                             ['Task', wo.task],
                                             ['Completed', formatDate(wo.completedDate)],
                                             ['Invoice Date', formatDate(wo.invoiceDate)],
@@ -608,7 +616,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                             ['Worth Time', wo.worthHours ? `${Math.round(wo.worthHours * 60)}min` : '—'],
                                         ].map(([k, v]) => (
                                             <Box key={k}>
-                                                <Typography sx={{ fontSize: '0.68rem', color: P.MUTED, textTransform: 'uppercase', mb: 0.25 }}>{k}</Typography>
+                                                <Typography sx={{ fontSize: '0.68rem', color: P.MUTED, textTransform: 'uppercase', mb: 0.5, fontWeight: 600, letterSpacing: '0.02em' }}>{k}</Typography>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                     <Typography sx={{ fontSize: '0.82rem', fontWeight: 500, color: P.TEXT }}>{v || '—'}</Typography>
                                                     {k === 'Task' && getExcavationStatus(wo) && (
@@ -627,13 +635,35 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                             </Box>
                                         ))}
                                     </Box>
-                                    {wo.summary && (
-                                        <Box sx={{ mt: 1.5 }}>
-                                            <Typography sx={{ fontSize: '0.68rem', color: P.MUTED, textTransform: 'uppercase', mb: 0.5 }}>Summary</Typography>
-                                            <Typography sx={{ fontSize: '0.78rem', color: P.TEXT, lineHeight: 1.4 }}>{wo.summary}</Typography>
-                                        </Box>
-                                    )}
                                 </Grid>
+
+                                <Grid size={{ xs: 12, md: 5 }}>
+                                    <SectionLabel color={P.AMBER}>Work Order Summary</SectionLabel>
+                                    <Paper elevation={0} sx={{ 
+                                        p: 2, 
+                                        bgcolor: alpha(P.AMBER, 0.03), 
+                                        border: `1px dashed ${alpha(P.AMBER, 0.3)}`,
+                                        borderRadius: '8px',
+                                        height: 'calc(100% - 30px)',
+                                        minHeight: '120px',
+                                        overflow: 'auto',
+                                        ...thinScrollbar(P.AMBER)
+                                    }}>
+                                        {wo.summary ? (
+                                            <Typography sx={{ fontSize: '0.82rem', color: P.TEXT, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                                                {wo.summary}
+                                            </Typography>
+                                        ) : (
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', py: 2, opacity: 0.5 }}>
+                                                <FileText size={24} color={P.MUTED} />
+                                                <Typography sx={{ fontSize: '0.75rem', color: P.MUTED, mt: 1, fontStyle: 'italic' }}>
+                                                    No summary provided.
+                                                </Typography>
+                                            </Box>
+                                        )}
+                                    </Paper>
+                                </Grid>
+
                                 <Divider sx={{ my: 1, width: '100%', borderColor: alpha(P.BORDER, 0.5) }} />
                                 <Grid size={{ xs: 12 }}>
                                     <SectionLabel color={P.GREEN}>Invoice Line Items</SectionLabel>

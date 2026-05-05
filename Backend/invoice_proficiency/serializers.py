@@ -13,7 +13,7 @@ class InvoiceProficiencySerializer(serializers.ModelSerializer):
     task = serializers.CharField(source='task_name')
     workOrderNumber = serializers.CharField(source='work_order_number')
     customerName = serializers.CharField(source='customer_name')
-    summary = serializers.CharField(source='work_order_summary')
+    summary = serializers.CharField(source='wo_summary')
     hoursWorked = serializers.FloatField(source='worked_time_hours')
     
     # Calculate worth dynamic for existing data
@@ -68,16 +68,23 @@ class InvoiceProficiencySerializer(serializers.ModelSerializer):
         for i in items:
             item_num = i.get("item", "")
             qty = float(i.get("qty") or 1)
-            worth_per_unit = calculate_worth_time(item_num)
+            rate = i.get("total_sold", i.get("rate", 0))
+            
+            # If rate is "-" or 0, worth is 0
+            if rate == "-" or rate == 0 or rate == 0.0:
+                worth_per_unit = 0.0
+            else:
+                worth_per_unit = calculate_worth_time(item_num)
+
             worth_total = round(worth_per_unit * qty, 4)
             
             # Get the exact math breakdown string and worth in minutes
-            worth_min, breakdown = compute_item_breakdown(item_num, qty)
+            worth_min, breakdown = compute_item_breakdown(item_num, qty, rate)
             
             result.append({
                 "itemNumber": item_num,
                 "qty": qty,
-                "rate": i.get("total_sold", i.get("rate", 0)),
+                "rate": i.get("raw_rate") or i.get("total_sold", i.get("rate", 0)),
                 "worth": worth_total,
                 "worthMin": worth_min,
                 "breakdown": breakdown,
@@ -89,8 +96,11 @@ class InvoiceProficiencySerializer(serializers.ModelSerializer):
         items = obj.items_detail or []
         count = 0
         for i in items:
-            if calculate_worth_time(i.get("item", "")) > 0:
-                count += 1
+            item_num = i.get("item", "")
+            rate = i.get("total_sold", i.get("rate", 0))
+            if rate != "-" and rate != 0 and rate != 0.0:
+                if calculate_worth_time(item_num) > 0:
+                    count += 1
         return count
 
     def get_ignoredItems(self, obj):

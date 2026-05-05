@@ -22,14 +22,9 @@ import CommonDialog from '../../../../components/ui/CommonDialog';
 import { useAuth } from '../../../../auth/AuthProvider';
 import { useGlobalSnackbar } from '../../../../context/GlobalSnackbarContext';
 import { useLocation } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
-const formatDateShort = (dateString) => {
-  if (!dateString) return '—';
-  const date = new Date(dateString);
-  if (isNaN(date)) return dateString;
-  return format(date, "MM/dd/yy hh:mm a");
-};
+
 
 const PALETTE = {
   TEXT: '#0F1115',
@@ -86,6 +81,19 @@ const relativeToApproxDate = (rel) => {
   if (r.includes('month')) return new Date(now.getFullYear(), now.getMonth() - val, now.getDate());
   if (r.includes('year')) return new Date(now.getFullYear() - val, now.getMonth(), now.getDate());
   return null;
+};
+
+const formatDateShort = (dateString) => {
+  if (!dateString) return '—';
+  let date = new Date(dateString);
+
+  if (isNaN(date.getTime())) {
+    const approx = relativeToApproxDate(dateString);
+    if (!approx) return dateString;
+    date = approx;
+  }
+
+  return format(date, "MM/dd/yy hh:mm a");
 };
 
 const inPeriod = (dateStr, period) => {
@@ -913,7 +921,7 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
                     )}
                     <Box sx={{ mt: 0.5 }}>
                       <Stars value={r.rating} size={12} />
-                      <Typography variant="caption" sx={{ fontSize: '0.7rem', color: PALETTE.GRAY, mt: 0.5 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.7rem', color: PALETTE.GRAY, mt: 0.5, display: 'block' }}>
                         {r.date}
                       </Typography>
                     </Box>

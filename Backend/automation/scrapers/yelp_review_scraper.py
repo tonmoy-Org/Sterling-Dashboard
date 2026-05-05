@@ -37,12 +37,23 @@ class YelpReviewScraper:
             print("=== Starting Yelp Review Scraper ===")
             
             while True:
-                results = self.client.search({
-                    "engine": "yelp_reviews",
-                    "place_id": self.place_id,
-                    "sortby": "date_desc",
-                    "start": start
-                })
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        results = self.client.search({
+                            "engine": "yelp_reviews",
+                            "place_id": self.place_id,
+                            "sortby": "date_desc",
+                            "start": start
+                        })
+                        break # Success
+                    except Exception as e:
+                        if "429" in str(e) and attempt < max_retries - 1:
+                            wait_time = (attempt + 1) * 30
+                            print(f"⚠️ Rate limited (429). Retrying in {wait_time}s... (Attempt {attempt + 1}/{max_retries})")
+                            _time.sleep(wait_time)
+                            continue
+                        raise e # Final attempt or non-429 error
 
                 reviews = results.get("reviews", [])
                 if not reviews:

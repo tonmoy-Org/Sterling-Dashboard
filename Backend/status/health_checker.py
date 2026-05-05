@@ -76,21 +76,37 @@ def run_health_checks():
     except Exception as e:
         check_service("API Endpoint", False, f"Could not connect to API: {e}")
 
-    # 3. Check Scraper Freshness for all scrapers
+    # 3. Check Scraper Freshness
+    IMPORTANT_SCRAPERS = [
+        'fieldedge-scraper',
+        'work-orders-scraper',
+        'online-rme-scraper',
+        'yelp-review-scraper',
+        'review-tracker-scraper',
+        'dispatcher-booked-scraper',
+        'work-orders-tags-scraper',
+        'invoice-proficiency-scraper',
+        'work-orders-time-tracking-scraper',
+        'fleetmatics-time-tracking-scraper'
+    ]
+
     try:
-        scraper_names = ScraperExecutionLog.objects.values_list('scraper_name', flat=True).distinct()
-        for scraper_name in scraper_names:
+        # Get all scrapers that have logs
+        logged_scrapers = set(ScraperExecutionLog.objects.values_list('scraper_name', flat=True).distinct())
+        
+        # Combine with important ones to ensure they are always tracked
+        scrapers_to_check = logged_scrapers.union(set(IMPORTANT_SCRAPERS))
+
+        for scraper_name in scrapers_to_check:
             last_run = ScraperExecutionLog.objects.filter(scraper_name=scraper_name).order_by('-executed_at').first()
             
-            # Format service name for display (e.g., 'dispatcher-booked-scraper' -> 'Dispatcher Booked Scraper')
             display_name = scraper_name.replace('-', ' ').title()
             
             if last_run:
-                # If last run was error, or if it ran more than 24 hours ago, it's downtime
                 hours_since = (timezone.now() - last_run.executed_at).total_seconds() / 3600
                 
                 if last_run.status == 'error':
-                    check_service(display_name, False, f"Scraper execution failed: {last_run.error_message}")
+                    check_service(display_name, False, f"Scraper execution failed: {last_run.error_message[:200]}")
                 elif hours_since > 24:
                     check_service(display_name, False, f"Scraper has not run successfully in {round(hours_since)} hours.")
                 else:

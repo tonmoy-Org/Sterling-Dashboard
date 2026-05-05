@@ -1,15 +1,24 @@
 import re
 import unicodedata
 
-def calculate_worth_time(item_name):
+def calculate_worth_time(item_name, rate=None):
     """
     Extract the time value (in decimal hours) from an item code string.
     Rules:
       - HR suffix (e.g. --1HR, .5HR) -> hours.
       - MIN suffix (e.g. --30MIN, .025MIN) -> converted to hours (1/60).
       - 0/0H suffix -> 0.0.
+      - If rate is passed and is 0 or "-", returns 0.0.
     """
     if not item_name:
+        return 0.0
+
+    # If rate is provided and is 0 or "-", worth is 0
+    if rate == "-" or rate == 0 or rate == 0.0:
+        return 0.0
+
+    # If item_name itself is "-" (sometimes happens in descriptions), it's 0
+    if str(item_name).strip() == "-":
         return 0.0
 
     # Normalize stylized characters and strip
@@ -46,7 +55,7 @@ def calculate_worth_time(item_name):
 
     return 0.0
 
-def compute_item_breakdown(item_name, qty):
+def compute_item_breakdown(item_name, qty, rate=None):
     """
     Returns (worth_minutes, breakdown_string)
     Example: (6.825, "0.025min x 273 = 6.825min")
@@ -54,6 +63,10 @@ def compute_item_breakdown(item_name, qty):
     if not item_name:
         return 0.0, ""
     
+    # If rate is "-" or 0, worth is always 0
+    if rate == "-" or rate == 0 or rate == 0.0:
+        return 0.0, "0min (Rate is $0/-)"
+
     worth_per_unit_hours = calculate_worth_time(item_name)
     worth_per_unit_minutes = worth_per_unit_hours * 60.0
     
@@ -89,6 +102,12 @@ def compute_total_worth_hours(items_detail):
     total = 0.0
     for item in (items_detail or []):
         item_name = item.get("item", "")
+        rate = item.get("total_sold", item.get("rate"))
+        
+        # Rule: if rate is "-" or 0, worth is 0
+        if rate == "-" or rate == 0 or rate == 0.0:
+            continue
+
         try:
             qty = float(item.get("qty") or 1)
         except (TypeError, ValueError):

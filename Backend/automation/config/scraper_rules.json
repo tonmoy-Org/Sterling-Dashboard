@@ -129,7 +129,7 @@
       },
       {
         "action": "click",
-        "xpath": "//li[@id='vs2__option-2']"
+        "xpath": "//li[@id='vs2__option-3']"
       },
       {
         "action": "wait",

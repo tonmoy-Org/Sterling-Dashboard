@@ -32,7 +32,6 @@ def setup_django():
 setup_django()
 
 from time_tracking.models import TimeTracking
-from accounts.models import User
 from django.utils import timezone
 from asgiref.sync import sync_to_async
 
@@ -300,8 +299,6 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                 if len(parts) > 1:
                     tech_name = parts[1].strip()
 
-            # Find user
-            user = User.objects.filter(name__icontains=tech_name).first() if tech_name else None
 
             # Date (from first available row)
             date_obj = None
@@ -321,7 +318,6 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
 
             # Prepare values
             defaults = {
-                "user": user,
                 "date": date_obj,
                 "technician_name": tech_name_raw,
                 "full_address": full_address,

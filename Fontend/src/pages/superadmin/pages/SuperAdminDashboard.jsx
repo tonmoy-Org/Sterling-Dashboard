@@ -11,6 +11,7 @@ import h5 from '../../../assets/homepage/h5.jpeg';
 import h6 from '../../../assets/homepage/h6.jpeg';
 import h7 from '../../../assets/homepage/h7.jpeg';
 import h8 from '../../../assets/homepage/h8.jpeg';
+import h9 from '../../../assets/homepage/h9.jpeg';
 import { useNotifications } from '../../../hooks/useNotifications';
 
 const getOneMonthAgo = () => {
@@ -34,7 +35,7 @@ const dashboardCards = [
   { label: 'Customer Center', route: '/super-admin-dashboard/customer-center', handwritten: true, image: h1, notificationPath: '/super-admin-dashboard/customer-center' },
   { label: 'Dispatch KPI', route: '/super-admin-dashboard/dispatch-kpi', handwritten: true, image: h7, notificationPath: '/super-admin-dashboard/dispatch-kpi' },
   { label: 'Review Tracking', route: '/super-admin-dashboard/review-tracking', handwritten: true, image: h8, notificationPath: '/super-admin-dashboard/review-tracking' },
-  { label: 'Time Tracking', route: '/super-admin-dashboard/time-tracking', handwritten: true, image: h3, notificationPath: '/super-admin-dashboard/time-tracking' },
+  { label: 'Time Tracking', route: '/super-admin-dashboard/time-tracking', handwritten: true, image: h9, notificationPath: '/super-admin-dashboard/time-tracking' },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
 ];
 

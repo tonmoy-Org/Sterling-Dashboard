@@ -17,6 +17,8 @@ load_dotenv()
 
 # Configuration paths
 RULES_FILE_PATH = os.getenv("RULES_FILE_PATH", "config/scraper_rules.json")
+HEADLESS_MODE = os.getenv("HEADLESS", "True").lower() == "true"
+
 
 
 class BaseScraper:
@@ -87,7 +89,7 @@ class BaseScraper:
             
             # Launch browser with headless-safe arguments for Linux VPS
             self.browser = await self.playwright.chromium.launch(
-                headless=True,
+                headless=HEADLESS_MODE,
                 slow_mo=50,
                 args=[
                     "--start-maximized",

@@ -156,11 +156,7 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                     const tbody = document.querySelector(sel);
                     if (!tbody) return null;
 
-                    const results = {
-                        working: null,
-                        traveling: null
-                    };
-
+                    const all_entries = [];
                     const rows = Array.from(tbody.querySelectorAll('tr'));
                     for (let row of rows) {
                         const cells = row.querySelectorAll('td');
@@ -171,16 +167,10 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                             const endTime = cells[4].innerText.trim();
                             const duration = cells[5].innerText.trim();
                             
-                            const entry = { date, startTime, endTime, duration };
-                            
-                            if (status === 'Working' && !results.working) {
-                                results.working = entry;
-                            } else if (status === 'Traveling' && !results.traveling) {
-                                results.traveling = entry;
-                            }
+                            all_entries.push({ status, date, startTime, endTime, duration });
                         }
                     }
-                    return results;
+                    return all_entries;
                 } catch (err) {
                     return null;
                 }
@@ -254,11 +244,13 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
             # Extract Timesheet data (Working and Traveling)
             timesheet_data = await self.scrape_timesheet_data(page)
 
-            # Map the primary completed time for backward compatibility (Working end time)
+            # Map the primary completed time for backward compatibility (First Working end time)
             primary_completed_time = None
-            if timesheet_data and timesheet_data.get('working'):
-                w = timesheet_data['working']
-                primary_completed_time = f"{w['date']} {w['endTime']}"
+            if timesheet_data and isinstance(timesheet_data, list):
+                working_entries = [e for e in timesheet_data if e.get('status') == 'Working']
+                if working_entries:
+                    w = working_entries[0]
+                    primary_completed_time = f"{w['date']} {w['endTime']}"
 
             return {
                 "full_address": address_data,
@@ -311,13 +303,11 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
             # Find user
             user = User.objects.filter(name__icontains=tech_name).first() if tech_name else None
 
-            # Date (from either row)
+            # Date (from first available row)
             date_obj = None
             date_str = None
-            if ts_data.get('working'):
-                date_str = ts_data['working']['date']
-            elif ts_data.get('traveling'):
-                date_str = ts_data['traveling']['date']
+            if ts_data and isinstance(ts_data, list) and len(ts_data) > 0:
+                date_str = ts_data[0].get('date')
 
             if date_str:
                 try:
@@ -335,23 +325,16 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                 "date": date_obj,
                 "technician_name": tech_name_raw,
                 "full_address": full_address,
-                "latitude": data.get("coords", {}).get("lat") if data.get("coords") else None,
-                "longitude": data.get("coords", {}).get("lon") if data.get("coords") else None,
                 "updated_at": timezone.now()
             }
 
-            # Working time
-            if ts_data.get('working'):
-                w = ts_data['working']
-                defaults["actual_worked_start"] = parse_time(w['startTime'])
-                defaults["actual_worked_end"] = parse_time(w['endTime'])
-                defaults["actual_worked_duration"] = parse_duration(w['duration'])
+            # Save entire timesheet array
+            defaults["fieldedge_data"] = ts_data
 
             # Update or create record
-            # We use WO number AND technician name to allow multiple techs per WO
+            # Use WO number and date as the unique key to prevent duplicates
             record, created = TimeTracking.objects.update_or_create(
                 wo_number=wo_number,
-                technician_name=tech_name_raw,
                 date=date_obj,
                 defaults=defaults
             )

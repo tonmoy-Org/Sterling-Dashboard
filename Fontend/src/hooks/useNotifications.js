@@ -6,6 +6,7 @@ import { rmeApi } from '../api/services/rmeApi';
 import { workOrdersApi } from '../api/services/workOrders';
 import { dispatchKpiApi } from '../api/services/dispatchKpi';
 import { reviewsApi } from '../api/services/reviews';
+import { timeTrackingApi } from '../api/services/timeTrackingApi';
 import { useEffect, useCallback } from 'react';
 
 const NOTIFICATIONS_CACHE_KEY = 'notifications-cache';
@@ -28,6 +29,7 @@ const EMPTY_RESPONSE = {
     dispatchKpi: [],
     reviews: [],
     invoiceProficiency: [],
+    timeTracking: [],
     latestNotifications: [],
     locatesCount: 0,
     workOrdersCount: 0,
@@ -35,6 +37,7 @@ const EMPTY_RESPONSE = {
     dispatchKpiCount: 0,
     reviewsCount: 0,
     invoiceProficiencyCount: 0,
+    timeTrackingCount: 0,
     totalActualCount: 0,
     unseenLocateIds: [],
     unseenRmeIds: [],
@@ -42,6 +45,7 @@ const EMPTY_RESPONSE = {
     unseenDispatchKpiIds: [],
     unseenReviewIds: [],
     unseenInvoiceIds: [],
+    unseenTimeTrackingIds: [],
     unseenIds: [],
     count: 0,
 };
@@ -177,13 +181,29 @@ const processInvoiceProficiency = (invoiceProficiencyData) => {
     };
 };
 
-const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData, invoiceProficiencyData) => {
+const processTimeTracking = (timeTrackingData) => {
+    const unseenTimeTracking = timeTrackingData.filter(tt => !tt.is_seen && !tt.is_deleted);
+
+    return {
+        count: unseenTimeTracking.length,
+        ids: unseenTimeTracking.map(tt => `time-tracking-${tt.id}`),
+        notifications: unseenTimeTracking.map(tt => ({
+            id: `time-tracking-${tt.id}`,
+            type: 'time-tracking',
+            timestamp: formatDate(tt.date || tt.created_at),
+            data: tt,
+        })),
+    };
+};
+
+const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData, invoiceProficiencyData, timeTrackingData) => {
     const locatesResult = processLocates(locatesData);
     const workOrdersResult = processWorkOrders(workOrdersData);
     const allWorkOrdersResult = processAllWorkOrders(allWorkOrdersData);
     const dispatchKpiResult = processDispatchKpi(dispatchKpiData);
     const reviewsResult = processReviews(reviewsData);
     const invoiceProficiencyResult = processInvoiceProficiency(invoiceProficiencyData);
+    const timeTrackingResult = processTimeTracking(timeTrackingData);
 
     const latestNotifications = [
         ...locatesResult.notifications,
@@ -192,9 +212,12 @@ const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchK
         ...dispatchKpiResult.notifications,
         ...reviewsResult.notifications,
         ...invoiceProficiencyResult.notifications,
+        ...timeTrackingResult.notifications,
     ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
 
-    const totalCount = locatesResult.count + workOrdersResult.count + allWorkOrdersResult.count + dispatchKpiResult.count + reviewsResult.count + invoiceProficiencyResult.count;
+    const totalCount = locatesResult.count + workOrdersResult.count + allWorkOrdersResult.count + 
+                       dispatchKpiResult.count + reviewsResult.count + invoiceProficiencyResult.count + 
+                       timeTrackingResult.count;
 
     return {
         locates: locatesData,
@@ -203,6 +226,7 @@ const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchK
         dispatchKpi: dispatchKpiData,
         reviews: reviewsData,
         invoiceProficiency: invoiceProficiencyData,
+        timeTracking: timeTrackingData,
         latestNotifications,
         locatesCount: locatesResult.count,
         workOrdersCount: workOrdersResult.count,
@@ -210,6 +234,7 @@ const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchK
         dispatchKpiCount: dispatchKpiResult.count,
         reviewsCount: reviewsResult.count,
         invoiceProficiencyCount: invoiceProficiencyResult.count,
+        timeTrackingCount: timeTrackingResult.count,
         totalActualCount: totalCount,
         unseenLocateIds: locatesResult.ids,
         unseenRmeIds: workOrdersResult.ids,
@@ -217,13 +242,15 @@ const buildResponse = (locatesData, workOrdersData, allWorkOrdersData, dispatchK
         unseenDispatchKpiIds: dispatchKpiResult.ids,
         unseenReviewIds: reviewsResult.ids,
         unseenInvoiceIds: invoiceProficiencyResult.ids,
+        unseenTimeTrackingIds: timeTrackingResult.ids,
         unseenIds: [
             ...locatesResult.ids, 
             ...workOrdersResult.ids, 
             ...allWorkOrdersResult.ids, 
             ...dispatchKpiResult.ids,
             ...reviewsResult.ids,
-            ...invoiceProficiencyResult.ids
+            ...invoiceProficiencyResult.ids,
+            ...timeTrackingResult.ids
         ],
         count: totalCount,
         lastUpdated: Date.now(),
@@ -286,13 +313,14 @@ export const useNotifications = () => {
             if (localCache) return localCache;
 
             try {
-                const [locatesResult, workOrdersResult, allWorkOrdersResult, dispatchKpiResult, reviewsResult, invoiceProficiencyResult] = await Promise.allSettled([
+                const [locatesResult, workOrdersResult, allWorkOrdersResult, dispatchKpiResult, reviewsResult, invoiceProficiencyResult, timeTrackingResult] = await Promise.allSettled([
                     locatesApi.getAll(),
                     rmeApi.getAll(),
                     workOrdersApi.getAll(),
                     dispatchKpiApi.getAll(),
                     reviewsApi.getAll(),
                     rmeApi.getInvoiceProficiency(),
+                    timeTrackingApi.getTimeTracking({ is_deleted: false }),
                 ]);
 
                 const locatesData = locatesResult.status === 'fulfilled'
@@ -331,7 +359,13 @@ export const useNotifications = () => {
                         : (invoiceProficiencyResult.value.data?.data || []))
                     : [];
 
-                const response = buildResponse(locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData, invoiceProficiencyData);
+                const timeTrackingData = timeTrackingResult.status === 'fulfilled'
+                    ? (Array.isArray(timeTrackingResult.value.data)
+                        ? timeTrackingResult.value.data
+                        : (timeTrackingResult.value.data?.results || timeTrackingResult.value.data?.data || []))
+                    : [];
+
+                const response = buildResponse(locatesData, workOrdersData, allWorkOrdersData, dispatchKpiData, reviewsData, invoiceProficiencyData, timeTrackingData);
                 setLocalCache(response);
                 return response;
             } catch (err) {
@@ -399,5 +433,8 @@ export const useNotifications = () => {
         dispatchKpi: data?.dispatchKpi || [],
         reviews: data?.reviews || [],
         invoiceProficiency: data?.invoiceProficiency || [],
+        timeTracking: data?.timeTracking || [],
+        timeTrackingCount: data?.timeTrackingCount || 0,
+        unseenTimeTrackingIds: data?.unseenTimeTrackingIds || [],
     };
 };

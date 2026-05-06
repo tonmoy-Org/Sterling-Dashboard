@@ -34,7 +34,7 @@ const dashboardCards = [
   { label: 'Customer Center', route: '/super-admin-dashboard/customer-center', handwritten: true, image: h1, notificationPath: '/super-admin-dashboard/customer-center' },
   { label: 'Dispatch KPI', route: '/super-admin-dashboard/dispatch-kpi', handwritten: true, image: h7, notificationPath: '/super-admin-dashboard/dispatch-kpi' },
   { label: 'Review Tracking', route: '/super-admin-dashboard/review-tracking', handwritten: true, image: h8, notificationPath: '/super-admin-dashboard/review-tracking' },
-  { label: '', route: null, handwritten: false, image: null, notificationPath: null },
+  { label: 'Time Tracking', route: '/super-admin-dashboard/time-tracking', handwritten: true, image: h3, notificationPath: '/super-admin-dashboard/time-tracking' },
   { label: '', route: null, handwritten: false, image: null, notificationPath: null },
 ];
 
@@ -115,6 +115,12 @@ export const SuperAdminDashboard = () => {
       '/super-admin-dashboard/invoice-proficiency': (notifications.invoiceProficiency || []).filter(inv => {
         const dateValue = inv.createdAt || inv.completedDate;
         return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
+      }).length,
+
+      // Time Tracking count
+      '/super-admin-dashboard/time-tracking': (notifications.timeTracking || []).filter(tt => {
+        const dateValue = tt.date || tt.created_at;
+        return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !tt.is_seen;
       }).length,
     };
   }, [notifications]);

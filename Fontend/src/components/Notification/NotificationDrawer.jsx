@@ -24,6 +24,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { Bell, X, Clock, MapPin, Wrench, ArrowRight, Check, BarChart3, Star, FileText } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { reviewsApi } from '../../api/services/reviews';
+import { timeTrackingApi } from '../../api/services/timeTrackingApi';
 
 const GREEN_COLOR = '#10b981';
 const BLUE_COLOR = '#1976d2';
@@ -110,6 +111,8 @@ const NotificationDrawer = ({ onClose }) => {
                 await reviewsApi.markSeen(notification.entityId);
             } else if (notification.type === 'invoice') {
                 await rmeApi.markSeenInvoiceProficiency(notification.entityId);
+            } else if (notification.type === 'time-tracking') {
+                await timeTrackingApi.markAsSeen(notification.entityId);
             }
         },
         onMutate: async (notification) => {
@@ -144,6 +147,10 @@ const NotificationDrawer = ({ onClose }) => {
                         notification.type === 'invoice'
                             ? (old.invoiceProficiency || []).map(item => item.id === notification.entityId ? { ...item, is_seen: true } : item)
                             : old.invoiceProficiency,
+                    timeTracking:
+                        notification.type === 'time-tracking'
+                            ? (old.timeTracking || []).map(item => item.id === notification.entityId ? { ...item, is_seen: true } : item)
+                            : old.timeTracking,
                 };
             });
 
@@ -167,6 +174,7 @@ const NotificationDrawer = ({ onClose }) => {
             const dkpiIds = notificationsArray.filter(n => n.type === 'dispatch-kpi').map(n => n.entityId);
             const reviewIds = notificationsArray.filter(n => n.type === 'review');
             const invoiceIds = notificationsArray.filter(n => n.type === 'invoice');
+            const timeTrackingIds = notificationsArray.filter(n => n.type === 'time-tracking').map(n => n.entityId);
 
             const promises = [];
             if (locateIds.length > 0) promises.push(locatesApi.markSeen({ ids: locateIds }));
@@ -182,6 +190,9 @@ const NotificationDrawer = ({ onClose }) => {
             }
             if (invoiceIds.length > 0) {
                 promises.push(rmeApi.markAllSeenInvoiceProficiency());
+            }
+            if (timeTrackingIds.length > 0) {
+                promises.push(timeTrackingApi.bulkMarkAsSeen(timeTrackingIds));
             }
             await Promise.all(promises);
         },
@@ -211,6 +222,7 @@ const NotificationDrawer = ({ onClose }) => {
                     })),
                     reviews: (old.reviews || []).map(item => ({ ...item, is_seen: true })),
                     invoiceProficiency: (old.invoiceProficiency || []).map(item => ({ ...item, is_seen: true })),
+                    timeTracking: (old.timeTracking || []).map(item => ({ ...item, is_seen: true })),
                 };
             });
 
@@ -228,7 +240,7 @@ const NotificationDrawer = ({ onClose }) => {
     /* ── Build notification list from all three sources ── */
     const latestNotifications = React.useMemo(() => {
         if (!notifications) return [];
-        const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [], invoiceProficiency = [] } = notifications;
+        const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [], invoiceProficiency = [], timeTracking = [] } = notifications;
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
         const all = [];
@@ -406,6 +418,31 @@ const NotificationDrawer = ({ onClose }) => {
             }
         });
 
+        // Time Tracking
+        timeTracking.forEach((tt) => {
+            const createdAt = tt.date || tt.created_at;
+            if (!createdAt || tt.is_deleted) return;
+            const createdDate = new Date(createdAt);
+            if (createdDate >= oneMonthAgo) {
+                all.push({
+                    id: `time-tracking-${tt.id}`,
+                    type: 'time-tracking',
+                    title: 'Time Tracking Entry',
+                    description: `New time entry for ${tt.technician_name || 'Technician'} - WO: ${tt.wo_number || 'N/A'}`,
+                    address: tt.full_address || 'N/A',
+                    workOrderNumber: tt.wo_number || 'N/A',
+                    customerName: tt.technician_name || 'Unknown',
+                    timestamp: createdDate,
+                    formattedTime: formatDateLabel(createdAt),
+                    icon: Clock,
+                    color: BLUE_COLOR,
+                    rawData: tt,
+                    entityId: tt.id,
+                    is_seen: tt.is_seen || false,
+                });
+            }
+        });
+
         // Sort newest first, return top 10
         return all.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
     }, [notifications]);
@@ -469,6 +506,8 @@ const NotificationDrawer = ({ onClose }) => {
             navigate(`${basePath}/review-tracking`, { state: { highlightReviewId: notification.entityId, fromNotifications: true } });
         } else if (notification.type === 'invoice') {
             navigate(`${basePath}/invoice-proficiency`, { state: { highlightInvoiceId: notification.entityId, fromNotifications: true } });
+        } else if (notification.type === 'time-tracking') {
+            navigate(`${basePath}/time-tracking`, { state: { highlightTimeId: notification.entityId, fromNotifications: true } });
         }
     };
 
@@ -605,7 +644,8 @@ const NotificationDrawer = ({ onClose }) => {
                                                                                 notification.type === 'dispatch-kpi' ? 'KPI' :
                                                                                     notification.type === 'review' ? 'Review' :
                                                                                         notification.type === 'invoice' ? 'Inv' :
-                                                                                            'WO'
+                                                                                            notification.type === 'time-tracking' ? 'Time' :
+                                                                                                'WO'
                                                                     }
                                                                     size="small"
                                                                     sx={{ height: '20px', fontSize: '0.65rem', fontWeight: 600, backgroundColor: alpha(notification.color, 0.1), color: notification.color, border: `1px solid ${alpha(notification.color, 0.2)}` }}

@@ -283,7 +283,7 @@ const RecycleBinModal = memo(({
           maxWidth: 1400,
           maxHeight: '90vh',
           bgcolor: 'white',
-          borderRadius: '12px',
+          borderRadius: '5px',
           boxShadow: '0 25px 60px rgba(0,0,0,0.15)',
           overflow: 'hidden',
           display: 'flex',

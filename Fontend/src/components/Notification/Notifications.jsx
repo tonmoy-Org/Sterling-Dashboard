@@ -38,6 +38,7 @@ import { rmeApi } from '../../api/services/rmeApi';
 import { workOrdersApi } from '../../api/services/workOrders';
 import { dispatchKpiApi } from '../../api/services/dispatchKpi';
 import { reviewsApi } from '../../api/services/reviews';
+import { timeTrackingApi } from '../../api/services/timeTrackingApi';
 import { useNavigate } from 'react-router-dom';
 import { useGlobalSnackbar } from '../../context/GlobalSnackbarContext';
 import DashboardLoader from '../Loader/DashboardLoader';
@@ -112,7 +113,7 @@ export default function Notifications() {
   const notifications = useMemo(() => {
     if (!combinedData) return [];
 
-    const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [], invoiceProficiency = [] } = combinedData;
+    const { locates = [], workOrders = [], allWorkOrders = [], dispatchKpi = [], reviews = [], invoiceProficiency = [], timeTracking = [] } = combinedData;
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
@@ -329,6 +330,36 @@ export default function Notifications() {
       }
     });
 
+    // Process Time Tracking
+    timeTracking.forEach((tt) => {
+      const createdAt = tt.date || tt.created_at;
+      if (!createdAt || tt.is_deleted) return;
+
+      try {
+        const createdDate = new Date(createdAt);
+        if (createdDate >= oneMonthAgo) {
+          allNotifications.push({
+            id: `time-tracking-${tt.id}`,
+            type: 'time-tracking',
+            title: 'Time Tracking Entry',
+            description: `New time entry for ${tt.technician_name || 'Technician'} - WO: ${tt.wo_number || 'N/A'}`,
+            address: tt.full_address || 'N/A',
+            workOrderNumber: tt.wo_number || 'N/A',
+            customerName: tt.technician_name || 'Unknown',
+            timestamp: createdDate,
+            formattedTime: formatDateLabel(createdAt),
+            icon: Clock,
+            color: BLUE_COLOR,
+            rawData: tt,
+            is_seen: tt.is_seen || false,
+            entityId: tt.id,
+          });
+        }
+      } catch (e) {
+        console.error('Error parsing time tracking date:', e);
+      }
+    });
+
     return allNotifications.sort((a, b) => b.timestamp - a.timestamp);
   }, [combinedData]);
 
@@ -365,6 +396,8 @@ export default function Notifications() {
             message = `New ${notification.rating}-star review from ${notification.customerName}`;
           } else if (notification.type === 'invoice') {
             message = `New invoice: ${notification.workOrderNumber}`;
+          } else if (notification.type === 'time-tracking') {
+            message = `New time tracking entry: ${notification.customerName}`;
           }
 
           showSnackbar(message, 'info');
@@ -398,6 +431,7 @@ export default function Notifications() {
     const dkpiCount = notifications.filter(n => n.type === 'dispatch-kpi').length;
     const reviewCount = notifications.filter(n => n.type === 'review').length;
     const invoiceCount = notifications.filter(n => n.type === 'invoice').length;
+    const timeTrackingCount = notifications.filter(n => n.type === 'time-tracking').length;
     const unseenCount = notifications.filter(n => !n.is_seen).length;
     const seenCount = notifications.filter(n => n.is_seen).length;
 
@@ -408,6 +442,8 @@ export default function Notifications() {
       woCount,
       dkpiCount,
       reviewCount,
+      invoiceCount,
+      timeTrackingCount,
       unseenCount,
       seenCount
     };
@@ -441,6 +477,8 @@ export default function Notifications() {
         await rmeApi.markInvoiceProficiencySeen({
           ids: [notification.entityId],
         });
+      } else if (notification.type === 'time-tracking') {
+        await timeTrackingApi.markAsSeen(notification.entityId);
       }
     },
     onMutate: async (notification) => {
@@ -496,6 +534,12 @@ export default function Notifications() {
                 item.id === notification.entityId ? { ...item, is_seen: true } : item
               )
               : old.invoiceProficiency,
+          timeTracking:
+            notification.type === 'time-tracking'
+              ? (old.timeTracking || []).map((item) =>
+                item.id === notification.entityId ? { ...item, is_seen: true } : item
+              )
+              : old.timeTracking,
         };
       });
 
@@ -544,6 +588,10 @@ export default function Notifications() {
         .filter((n) => n.type === 'invoice' && !n.is_seen)
         .map((n) => n.entityId);
 
+      const timeTrackingIds = notifications
+        .filter((n) => n.type === 'time-tracking' && !n.is_seen)
+        .map((n) => n.entityId);
+
       const promises = [];
 
       if (locateIds.length > 0) {
@@ -578,6 +626,10 @@ export default function Notifications() {
         promises.push(rmeApi.markInvoiceProficiencySeen({ ids: invoiceIds }));
       }
 
+      if (timeTrackingIds.length > 0) {
+        promises.push(timeTrackingApi.bulkMarkAsSeen(timeTrackingIds));
+      }
+
       await Promise.all(promises);
     },
     onMutate: async () => {
@@ -608,6 +660,7 @@ export default function Notifications() {
           })),
           reviews: (old.reviews || []).map((item) => ({ ...item, is_seen: true })),
           invoiceProficiency: (old.invoiceProficiency || []).map((item) => ({ ...item, is_seen: true })),
+          timeTracking: (old.timeTracking || []).map((item) => ({ ...item, is_seen: true })),
         };
       });
 
@@ -636,7 +689,8 @@ export default function Notifications() {
           ).length;
           const unseenReviews = reviews.filter((i) => !i.is_seen).length;
           const unseenInvoices = (invoiceProficiency || []).filter((i) => !i.is_seen).length;
-          return unseenLocates + unseenWO + unseenAllWO + unseenDkpi + unseenReviews + unseenInvoices;
+          const unseenTimeTracking = (timeTracking || []).filter((i) => !i.is_seen).length;
+          return unseenLocates + unseenWO + unseenAllWO + unseenDkpi + unseenReviews + unseenInvoices + unseenTimeTracking;
         })()
         : counts.unseenCount;
 
@@ -716,6 +770,14 @@ export default function Notifications() {
       navigate(`${dashboardBasePath}/invoice-proficiency`, {
         state: {
           highlightInvoiceId: notification.entityId,
+          fromNotifications: true,
+          scrollToTop: true,
+        },
+      });
+    } else if (notification.type === 'time-tracking') {
+      navigate(`${dashboardBasePath}/time-tracking`, {
+        state: {
+          highlightTimeId: notification.entityId,
           fromNotifications: true,
           scrollToTop: true,
         },

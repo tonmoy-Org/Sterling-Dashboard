@@ -18,6 +18,7 @@ import { workOrdersApi } from '../../../api/services/workOrders';
 import { dispatchKpiApi } from '../../../api/services/dispatchKpi';
 import { rmeApi } from '../../../api/services/rmeApi';
 import { reviewsApi } from '../../../api/services/reviews';
+import { timeTrackingApi } from '../../../api/services/timeTrackingApi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../auth/AuthProvider';
@@ -29,6 +30,7 @@ const NOTIFICATION_PATHS = [
     '/super-admin-dashboard/invoice-proficiency',
     '/super-admin-dashboard/dispatch-kpi',
     '/super-admin-dashboard/review-tracking',
+    '/super-admin-dashboard/time-tracking',
 ];
 
 const MARK_SEEN_TIMEOUT = 5000;
@@ -140,6 +142,14 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                 })
                 .map(inv => inv.id);
         }
+        else if (path === '/super-admin-dashboard/time-tracking') {
+            ids = (notifications.timeTracking || [])
+                .filter(tt => {
+                    const dateValue = tt.date || tt.created_at;
+                    return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !tt.is_seen;
+                })
+                .map(tt => tt.id);
+        }
 
         if (ids.length === 0) return;
 
@@ -228,6 +238,19 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                         ),
                     };
                 });
+            } else if (path === '/super-admin-dashboard/time-tracking') {
+                await timeTrackingApi.bulkMarkAsSeen(ids);
+
+                clearLocalCache?.();
+                queryClient.setQueryData(['notifications', user?.role], (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        timeTracking: (old.timeTracking || []).map(tt =>
+                            ids.includes(tt.id) ? { ...tt, is_seen: true } : tt
+                        ),
+                    };
+                });
             } else {
                 await workOrdersApi.post(endpoint, { ids });
             }
@@ -301,6 +324,11 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                     hasUnseen = (notifications.invoiceProficiency || []).some(inv => {
                         const dateValue = inv.createdAt || inv.completedDate;
                         return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
+                    });
+                } else if (path === '/super-admin-dashboard/time-tracking') {
+                    hasUnseen = (notifications.timeTracking || []).some(tt => {
+                        const dateValue = tt.date || tt.created_at;
+                        return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !tt.is_seen;
                     });
                 }
 
@@ -392,6 +420,13 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
                 : (notifications.invoiceProficiency || []).filter(inv => {
                     const dateValue = inv.createdAt || inv.completedDate;
                     return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !inv.is_seen;
+                }).length,
+            
+            ['/super-admin-dashboard/time-tracking']: optimisticallyCleared.has('/super-admin-dashboard/time-tracking')
+                ? 0
+                : (notifications.timeTracking || []).filter(tt => {
+                    const dateValue = tt.date || tt.created_at;
+                    return isValidDate(dateValue) && new Date(dateValue) >= oneMonthAgo && !tt.is_seen;
                 }).length,
         };
     }, [notifications, optimisticallyCleared]);

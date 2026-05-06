@@ -4,7 +4,7 @@ export const rmeApi = {
     getAll: () => axiosInstance.get('/work-orders-today/'),
     getOne: (id) => axiosInstance.get(`/work-order-edit/${id}/`),
     update: (id, data) => axiosInstance.patch(`/work-orders-today/${id}/`, data),
-    updateEdit: (id, data) => axiosInstance.patch(`/work-order-edit/${id}/`, data),
+    updateEdit: (id, data) => axiosInstance.patch(`/work-order-edit/${id}/`),
     delete: (id) => axiosInstance.delete(`/work-orders-today/${id}/`),
     lockReport: (id, data) => axiosInstance.patch(`/work-orders-today/${id}/`, data),
     waitToLock: (id, data) => axiosInstance.patch(`/work-orders-today/${id}/`, data),
@@ -37,8 +37,6 @@ export const rmeApi = {
     startReviewTrackerScraping: () => axiosInstance.post('/work-orders-today/start-review-tracker-scraping/'),
     startYelpReviewScraping: () => axiosInstance.post('/work-orders-today/start-yelp-review-scraping/'),
     startInvoiceProficiencyScraping: () => axiosInstance.post('/work-orders-today/start-invoice-proficiency-scraping/'),
-    startTimeTrackingScraping: () => axiosInstance.post('/work-orders-today/start-time-tracking-scraping/'),
-    startTimeTrackingCombinedScraping: () => axiosInstance.post('/work-orders-today/start-time-tracking-combined-scraping/'),
 
     // Invoice Proficiency Records
     getInvoiceProficiency: () => axiosInstance.get('/invoice-proficiency/records/'),

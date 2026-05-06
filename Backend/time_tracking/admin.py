@@ -3,6 +3,6 @@ from .models import TimeTracking
 
 @admin.register(TimeTracking)
 class TimeTrackingAdmin(admin.ModelAdmin):
-    list_display = ('user', 'date', 'time_tracking_proficiency', 'billing_proficiency')
-    list_filter = ('date', 'user')
-    search_fields = ('user__name', 'user__email')
+    list_display = ('technician_name', 'date', 'wo_number', 'is_deleted')
+    list_filter = ('date', 'is_deleted')
+    search_fields = ('technician_name', 'wo_number', 'full_address')

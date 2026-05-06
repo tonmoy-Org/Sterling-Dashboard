@@ -13,7 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Clock, MapPin, Briefcase, ChevronRight, Calendar,
     DollarSign, Truck, History, Trash2, RotateCcw, X, AlertCircle, Search,
-    ChevronDown, ChevronUp, FileText, Eye, CheckCircle
+    ChevronDown, ChevronUp, FileText, Eye
 } from 'lucide-react';
 import RefreshButton from '../../../../components/ui/RefreshButton';
 import CommonDialog from '../../../../components/ui/CommonDialog';
@@ -73,7 +73,7 @@ const TableSearchBar = memo(({ value, onChange, color, placeholder = 'Search…'
 TableSearchBar.displayName = 'TableSearchBar';
 
 // ─── Section Wrapper (matching CustomerCenter) ────────────────────────────
-const Section = memo(({ title, color, count, filteredCount, selectedCount, onDelete, onBulkMarkAsSeen, items, children, tableSearch, onTableSearch, tableSearchPlaceholder }) => (
+const Section = memo(({ title, color, count, filteredCount, selectedCount, onDelete, items, children, tableSearch, onTableSearch, tableSearchPlaceholder }) => (
     <Paper elevation={0} sx={{ mb: 4, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${alpha(color, 0.15)}`, bgcolor: 'white' }}>
         <Box sx={{ p: 1.5, bgcolor: 'white', borderBottom: `1px solid ${alpha(color, 0.1)}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -90,30 +90,14 @@ const Section = memo(({ title, color, count, filteredCount, selectedCount, onDel
                         Trash Selected ({selectedCount})
                     </OutlineButton>
                 ) : (
-                    <>
-                        <Button 
-                            size="small" 
-                            startIcon={<CheckCircle size={14} />}
-                            onClick={() => {
-                                const unseenIds = items.filter(i => !i.is_seen).map(i => i.id);
-                                if (unseenIds.length > 0) onBulkMarkAsSeen(unseenIds);
-                            }}
-                            disabled={!items.some(i => !i.is_seen)}
-                            sx={{ 
-                                height: '32px', textTransform: 'none', fontSize: '0.78rem', fontWeight: 500, 
-                                color: PALETTE.GRAY, '&:hover': { color: PALETTE.BLUE, bgcolor: alpha(PALETTE.BLUE, 0.05) } 
-                            }}
-                        >
-                            Mark all as seen
-                        </Button>
-                        <TableSearchBar value={tableSearch} onChange={onTableSearch} color={color} placeholder={tableSearchPlaceholder} />
-                    </>
+                    <TableSearchBar value={tableSearch} onChange={onTableSearch} color={color} placeholder={tableSearchPlaceholder} />
                 )}
             </Stack>
         </Box>
         {children}
     </Paper>
 ));
+
 Section.displayName = 'Section';
 
 // ─── Table Head (matching CustomerCenter) ──────────────────────────────────
@@ -892,14 +876,6 @@ const TimeTracking = () => {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['time-tracking'] })
     });
 
-    const bulkMarkAsSeenMutation = useMutation({
-        mutationFn: (ids) => timeTrackingApi.bulkMarkAsSeen(ids),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['time-tracking'] });
-            showSnackbar('All records marked as seen', 'success');
-        }
-    });
-
     const handleRowToggle = (id) => {
         const entry = timeEntries.find(e => e.id === id);
         if (entry && !entry.is_seen) {
@@ -1068,7 +1044,6 @@ const TimeTracking = () => {
                 filteredCount={filteredEntries.length} 
                 selectedCount={selected.size}
                 onDelete={handleBulkSoftDelete} 
-                onBulkMarkAsSeen={(ids) => bulkMarkAsSeenMutation.mutate(ids)}
                 items={filteredEntries}
                 tableSearch={search} 
                 onTableSearch={setSearch} 

@@ -103,7 +103,8 @@ export const useRmeData = () => {
                 movedToHoldingDateFormatted: formatDateTimeWithTZ(item.moved_to_holding_date),
                 rawData: item,
                 currentUser: currentUser,
-                task: item.task_name || '-',
+                priority: item.priority_name || '-',
+                woDetailsLink: item.wo_details_link || 'https://login.fieldedge.com/#/List/0',
             };
 
             if (item.is_deleted) {

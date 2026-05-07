@@ -14,7 +14,8 @@ import {
     Link
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
+import PriorityBadge from '../../../../../../components/ui/PriorityBadge';
 import {
     GRAY_COLOR,
     TEXT_COLOR,
@@ -137,6 +138,7 @@ const FinalizedTable = ({
                         <TableCell sx={{ minWidth: 180 }}>
                             Customer Info
                         </TableCell>
+                        <TableCell sx={{ minWidth: 150 }}>Priority</TableCell>
                         <TableCell sx={{ minWidth: 150 }}>
                             Date
                         </TableCell>
@@ -148,7 +150,7 @@ const FinalizedTable = ({
                 <TableBody>
                     {sortedItems.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                            <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                                 <Box sx={{
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -222,7 +224,7 @@ const FinalizedTable = ({
                                     </TableCell>
                                     <TableCell sx={{ py: 1.5 }}>
                                         <Link
-                                            href="https://login.fieldedge.com/#/List/0"
+                                            href={item.woDetailsLink}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             underline="hover"
@@ -238,10 +240,11 @@ const FinalizedTable = ({
                                             <Typography
                                                 variant="body2"
                                                 sx={{
-                                                    fontWeight: 500,
+                                                    fontWeight: 600,
                                                     fontSize: '0.85rem',
                                                     wordBreak: 'break-word',
                                                     overflowWrap: 'break-word',
+                                                    color: TEXT_COLOR
                                                 }}
                                             >
                                                 {item.customer} - {item.street}
@@ -258,6 +261,9 @@ const FinalizedTable = ({
                                         >
                                             {item.city}, {item.state} {item.zip}
                                         </Typography>
+                                    </TableCell>
+                                    <TableCell sx={{ py: 1.5 }}>
+                                        <PriorityBadge priority={item.priority} />
                                     </TableCell>
                                     <TableCell sx={{ py: 1.5 }}>
                                         <Typography variant="body2" sx={{

@@ -14,7 +14,8 @@ import {
     Tooltip
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Timer, FileSpreadsheet } from 'lucide-react';
+import { Timer, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import PriorityBadge from '../../../../../../components/ui/PriorityBadge';
 import reportIcon from '../../../../../../assets/icons/report.gif';
 import Link from '@mui/material/Link';
 
@@ -84,7 +85,7 @@ const ReportNeededTable = ({
                             {isMobile ? 'Date/Time' : 'W.O Date & Elapsed Time'}
                         </TableCell>
                         <TableCell sx={{ minWidth: 150 }}>
-                            Task
+                            Priority
                         </TableCell>
                         <TableCell sx={{ minWidth: 120 }}>
                             Technician
@@ -182,16 +183,7 @@ const ReportNeededTable = ({
                                         </Box>
                                     </TableCell>
                                     <TableCell sx={{ py: 1.5 }}>
-                                        <Typography
-                                            variant="body2"
-                                            sx={{
-                                                color: '#0F1115',
-                                                fontSize: '0.85rem',
-                                                fontWeight: 400,
-                                            }}
-                                        >
-                                            {item.task}
-                                        </Typography>
+                                            <PriorityBadge priority={item.priority} />
                                     </TableCell>
                                     <TableCell sx={{ py: 1.5 }}>
                                         <Typography
@@ -207,7 +199,7 @@ const ReportNeededTable = ({
                                     </TableCell>
                                     <TableCell sx={{ py: 1.5 }}>
                                         <Link
-                                            href="https://login.fieldedge.com/#/List/0"
+                                            href={item.woDetailsLink}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             underline="hover"
@@ -223,10 +215,11 @@ const ReportNeededTable = ({
                                             <Typography
                                                 variant="body2"
                                                 sx={{
-                                                    fontWeight: 500,
+                                                    fontWeight: 600,
                                                     fontSize: '0.85rem',
                                                     wordBreak: 'break-word',
                                                     overflowWrap: 'break-word',
+                                                    color: '#0F1115'
                                                 }}
                                             >
                                                 {item.customer} - {item.street}

@@ -16,7 +16,8 @@ import {
     Link
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Clock, AlertOctagon } from 'lucide-react';
+import { Clock, AlertOctagon, AlertTriangle } from 'lucide-react';
+import PriorityBadge from '../../../../../../components/ui/PriorityBadge';
 import reportIcon from '../../../../../../assets/icons/report.gif';
 import penIcon from '../../../../../../assets/icons/Edit.gif';
 import lockedIcon from '../../../../../../assets/icons/locked.gif';
@@ -95,6 +96,7 @@ const HoldingTable = ({
                         <TableCell sx={{ minWidth: 150 }}>
                             {isMobile ? 'Date/Time' : 'W.O Date & Elapsed Time'}
                         </TableCell>
+                        <TableCell sx={{ minWidth: 150 }}>Priority</TableCell>
                         <TableCell sx={{ minWidth: 120 }}>
                             Technician
                         </TableCell>
@@ -121,7 +123,7 @@ const HoldingTable = ({
                 <TableBody>
                     {items.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                            <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                                 <Box sx={{
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -204,6 +206,9 @@ const HoldingTable = ({
                                         </Box>
                                     </TableCell>
                                     <TableCell sx={{ py: 1.5 }}>
+                                        <PriorityBadge priority={item.priority} />
+                                    </TableCell>
+                                    <TableCell sx={{ py: 1.5 }}>
                                         <Typography
                                             variant="body2"
                                             sx={{
@@ -217,7 +222,7 @@ const HoldingTable = ({
                                     </TableCell>
                                     <TableCell sx={{ py: 1.5 }}>
                                         <Link
-                                            href="https://login.fieldedge.com/#/List/0"
+                                            href={item.woDetailsLink}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             underline="hover"
@@ -233,10 +238,11 @@ const HoldingTable = ({
                                             <Typography
                                                 variant="body2"
                                                 sx={{
-                                                    fontWeight: 500,
+                                                    fontWeight: 600,
                                                     fontSize: '0.85rem',
                                                     wordBreak: 'break-word',
                                                     overflowWrap: 'break-word',
+                                                    color: TEXT_COLOR
                                                 }}
                                             >
                                                 {item.customer} - {item.street}

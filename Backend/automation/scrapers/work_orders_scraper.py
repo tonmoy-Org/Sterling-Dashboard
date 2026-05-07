@@ -60,12 +60,12 @@ class WorkOrdersScraper(BaseScraper):
                                     purchase_order: getText(2),
                                     invoice: getText(3),
                                     quote: getText(4),
-                                    task_name: getText(5),
+                                    priority_name: getText(cells.length - 1),
                                     status: getText(6),
                                     appointment_date: getText(7),
                                     scheduled_date: getText(8),
                                     technician: getText(9),
-                                    completed_date: getText(10)
+                                    completed_date: getText(cells.length - 2)
                                 };
                                 
                                 dataList.push(workOrder);
@@ -185,7 +185,7 @@ class WorkOrdersScraper(BaseScraper):
             page: Playwright page object for the work order detail
 
         Returns:
-            dict: { full_address, completed_elapsed_time } or None if extraction fails
+            dict: { full_address, completed_elapsed_time, wo_details_link } or None if extraction fails
         """
         try:
             await page.wait_for_selector(
@@ -224,7 +224,8 @@ class WorkOrdersScraper(BaseScraper):
 
             return {
                 "full_address": full_address,
-                "completed_elapsed_time": completed_elapsed_time
+                "completed_elapsed_time": completed_elapsed_time,
+                "wo_details_link": page.url
             }
 
         except Exception as e:
@@ -292,7 +293,8 @@ class WorkOrdersScraper(BaseScraper):
                     if scraped and scraped.get("full_address"):
                         work_order["full_address"] = scraped["full_address"]
                         work_order["completed_elapsed_time"] = scraped.get("completed_elapsed_time")
-                        print(f"{wo_number}: {scraped['full_address']} | completed_elapsed_time: {scraped.get('completed_elapsed_time')}")
+                        work_order["wo_details_link"] = scraped.get("wo_details_link")
+                        print(f"{wo_number}: {scraped['full_address']} | completed_elapsed_time: {scraped.get('completed_elapsed_time')} | Link: {work_order['wo_details_link']}")
                         result.append(work_order)
                     else:
                         raise Exception("Address not found")
@@ -315,17 +317,17 @@ class WorkOrdersScraper(BaseScraper):
 
         return result
 
-    async def add_completed_date_column(self):
+    async def add_required_columns(self):
         """
-        Click the Add Column (+) button, select Completed Date checkbox,
+        Click the Add Column (+) button, select Completed Date and Priority checkboxes,
         and click Save. Runs once before filters are applied.
         """
         try:
-            print("Adding 'Completed Date' column...")
+            print("Adding 'Completed Date' and 'Priority' columns...")
             await self.perform_actions_by_xpaths(name="add_column_xpath")
-            print("✅ 'Completed Date' column added successfully.")
+            print("✅ Columns added successfully.")
         except Exception as e:
-            print(f"⚠️ Add Column step failed (column may already be present): {e}")
+            print(f"⚠️ Add Column step failed (columns may already be present): {e}")
 
     async def run(self):
         """
@@ -367,8 +369,8 @@ class WorkOrdersScraper(BaseScraper):
                 _error_occurred = f"Error waiting for table: {e}"
                 return None
 
-            # Step 1: Add Completed Date column via Add Column modal
-            await self.add_completed_date_column()
+            # Step 1: Add required columns via Add Column modal
+            await self.add_required_columns()
 
             # Wait for table to reflect new column
             await self.page.wait_for_timeout(3000)

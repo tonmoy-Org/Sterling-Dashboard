@@ -48,6 +48,10 @@
         "xpath": "//input[@id='CompletedDatelabel']"
       },
       {
+        "action": "click",
+        "xpath": "//input[@id='Prioritylabel']"
+      },
+      {
         "action": "wait",
         "timeout": 500
       },

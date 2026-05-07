@@ -25,6 +25,7 @@ class WorkOrderToday(models.Model):
     # Links - URLField validates the format, but CharField is safer if the input isn't a strict URL
     last_report_link = models.URLField(max_length=500, null=True, blank=True, help_text="Link to the last report")
     unlocked_report_link = models.URLField(max_length=500, null=True, blank=True, help_text="Link to the unlocked report")
+    wo_details_link = models.URLField(max_length=1000, null=True, blank=True, help_text="Direct link to the work order details")
 
     # Status Flags
     tech_report_submitted = models.BooleanField(null=True, blank=True, default=False, help_text="Has the technician report been submitted?")
@@ -45,7 +46,7 @@ class WorkOrderToday(models.Model):
     deleted_date = models.DateTimeField(null=True, blank=True, help_text="Date of deletion")
     is_deleted = models.BooleanField(null=True, blank=True, default=False, help_text="Soft delete flag")
     
-    task_name = models.CharField(max_length=100, null=True, blank=True, help_text="Current task of the work order")
+    priority_name = models.CharField(max_length=100, null=True, blank=True, help_text="Priority of the work order")
 
     # Completion Information
     rme_completed = models.BooleanField(null=True, blank=True, default=False, help_text="Is RME completed?")

@@ -18,7 +18,8 @@ import {
     Link,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Timer, FileSpreadsheet, Save } from 'lucide-react';
+import { Timer, FileSpreadsheet, Save, AlertTriangle } from 'lucide-react';
+import PriorityBadge from '../../../../../../components/ui/PriorityBadge';
 import StyledSelect from '../../../../../../components/ui/StyledSelect';
 
 import reportIcon from '../../../../../../assets/icons/report.gif';
@@ -99,6 +100,7 @@ const ReportSubmittedTable = ({
                             <TableCell sx={{ minWidth: 150 }}>
                                 {isMobile ? 'Date/Time' : 'W.O Date & Elapsed Time'}
                             </TableCell>
+                            <TableCell sx={{ minWidth: 150 }}>Priority</TableCell>
                             <TableCell sx={{ minWidth: 120 }}>Technician</TableCell>
                             <TableCell sx={{ minWidth: 180 }}>Customer Info</TableCell>
                             <TableCell align="center" sx={{ minWidth: 120 }}>
@@ -119,7 +121,7 @@ const ReportSubmittedTable = ({
                     <TableBody>
                         {items.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                                <TableCell colSpan={11} align="center" sx={{ py: 6 }}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                                         <FileSpreadsheet size={32} color={alpha(TEXT_COLOR, 0.2)} />
                                         <Typography variant="body2" sx={{ color: TEXT_COLOR, opacity: 0.6, fontSize: '0.85rem', fontWeight: 500 }}>
@@ -164,19 +166,22 @@ const ReportSubmittedTable = ({
                                                 </Box>
                                             </TableCell>
                                             <TableCell sx={{ py: 1.5 }}>
+                                                <PriorityBadge priority={item.priority} />
+                                            </TableCell>
+                                            <TableCell sx={{ py: 1.5 }}>
                                                 <Typography variant="body2" sx={{ color: TEXT_COLOR, fontSize: '0.85rem', fontWeight: 400 }}>
                                                     {item.technician}
                                                 </Typography>
                                             </TableCell>
                                             <TableCell sx={{ py: 1.5 }}>
                                                 <Link
-                                                    href="https://login.fieldedge.com/#/List/0"
+                                                    href={item.woDetailsLink}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     underline="hover"
                                                     sx={{ color: 'inherit', display: 'block', transition: 'color 0.2s ease-in-out', '&:hover': { color: '#1976d2' } }}
                                                 >
-                                                    <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.85rem', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                                                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem', wordBreak: 'break-word', overflowWrap: 'break-word', color: TEXT_COLOR }}>
                                                         {item.customer} - {item.street}
                                                     </Typography>
                                                 </Link>

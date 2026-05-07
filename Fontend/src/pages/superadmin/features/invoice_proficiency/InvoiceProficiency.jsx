@@ -24,7 +24,7 @@ import { useGlobalSnackbar } from '../../../../context/GlobalSnackbarContext';
 import { useAuth } from '../../../../auth/AuthProvider';
 import DashboardLoader from '../../../../components/Loader/DashboardLoader';
 import PriorityBadge from '../../../../components/ui/PriorityBadge';
-
+import { priorityConfig } from '../../../../utils/priorityStyles';
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const P = {
     BG: '#F7F8FA',
@@ -876,7 +876,7 @@ export const InvoiceProficiency = () => {
         queryKey: ['invoice-proficiency'],
         queryFn: () => rmeApi.getInvoiceProficiencyData(),
     });
-    console.log('rawData', rawData)
+    // console.log('rawData', rawData)
 
     const { data: trashedData } = useQuery({
         queryKey: ['invoice-proficiency-trashed'],

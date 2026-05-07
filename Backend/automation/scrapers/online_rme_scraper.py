@@ -154,32 +154,47 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
     async def ensure_authenticated(self):
         """Ensure user is authenticated to Online RME."""
         try:
-            search_url = self.rules.get("contractor_search_property")
-            await self.page.goto(search_url, wait_until="domcontentloaded")
+            login_url = self.rules.get("online_RME_url")
+            search_field_xpath = self.rules.get("wait_rme_body")
 
-            # Check for login indicator element
-            login_indicator = self.page.locator('//span[@id="lblMultiMatch"]')
-
-            is_logged_in = False
+            # 1. Check if we are already logged in and on the search page
             try:
-                if await login_indicator.is_visible(timeout=5000):
-                    content = await login_indicator.inner_text()
-                    if "You are currently logged in for Sterling Septic & Plumbing" in content:
-                        is_logged_in = True
+                # We check for the search field to confirm we're on the right page
+                if await self.page.locator(search_field_xpath).is_visible(timeout=3000):
+                    login_indicator = self.page.locator('//span[@id="lblMultiMatch"]')
+                    if await login_indicator.is_visible(timeout=2000):
+                        content = await login_indicator.inner_text()
+                        if "You are currently logged in for Sterling Septic & Plumbing" in content:
+                            print("Already authenticated on search page.")
+                            return
             except:
                 pass
 
-            if not is_logged_in:
-                print("Not logged in. Redirecting to login page...")
-                login_url = self.rules.get("online_RME_url")
-                await self.page.goto(login_url, wait_until="domcontentloaded")
+            # 2. Go to login page (user says this redirects to search page naturally)
+            print(f"Navigating to login page: {login_url}")
+            await self.page.goto(login_url, wait_until="domcontentloaded")
+            
+            # 3. If we are on the login page, perform login
+            if "login.aspx" in self.page.url:
+                print("Not logged in. Performing login...")
                 await self.login_online_rme()
-
-                # Return to search page after login
-                if self.page.url != search_url:
-                    await self.page.goto(search_url, wait_until="networkidle")
+                
+                # 4. Wait for natural redirect to search page
+                print("Waiting for automatic redirect to search page...")
+                try:
+                    await self.page.wait_for_selector(search_field_xpath, state="visible", timeout=15000)
+                    print("Successfully landed on search page via redirect.")
+                except:
+                    print(f"Redirection landed on: {self.page.url}")
             else:
-                print("Already authenticated to Online RME.")
+                # Session was already active and we were redirected away from login
+                print(f"Session active, redirected to: {self.page.url}")
+                try:
+                    # Ensure we land on the search page if the redirect was to a different landing page
+                    await self.page.wait_for_selector(search_field_xpath, state="visible", timeout=5000)
+                    print("Confirmed on search page.")
+                except:
+                    pass
 
         except Exception as e:
             print(f"Error during authentication check: {e}")

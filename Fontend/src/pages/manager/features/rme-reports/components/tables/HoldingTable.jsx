@@ -93,10 +93,10 @@ const HoldingTable = ({
                                 }}
                             />
                         </TableCell>
-                        <TableCell sx={{ minWidth: 150 }}>
-                            {isMobile ? 'Date/Time' : 'W.O Date & Elapsed Time'}
+                        <TableCell sx={{ minWidth: 180 }}>
+                            {isMobile ? 'Date/Time' : 'Elapsed Time'}
                         </TableCell>
-                        <TableCell sx={{ minWidth: 150 }}>Priority</TableCell>
+                        <TableCell sx={{ minWidth: 100 }}>Priority</TableCell>
                         <TableCell sx={{ minWidth: 120 }}>
                             Technician
                         </TableCell>
@@ -104,13 +104,13 @@ const HoldingTable = ({
                             Customer Info
                         </TableCell>
                         <TableCell align="center" sx={{ minWidth: 120 }}>
-                            {isMobile ? 'Prior Report' : 'Prior Locked Report'}
+                            {isMobile ? 'Prior Report' : 'Locked Report'}
                         </TableCell>
                         <TableCell align="center" sx={{ minWidth: 80 }}>
                             Edit
                         </TableCell>
                         <TableCell sx={{ minWidth: 200 }}>
-                            {isMobile ? 'Reason & Notes' : 'Reason in Holding & Notes'}
+                            {isMobile ? 'Reason & Notes' : 'Reason & Notes'}
                         </TableCell>
                         <TableCell align="center" sx={{ minWidth: 80 }}>
                             {isMobile ? 'Lock' : 'LOCKED'}

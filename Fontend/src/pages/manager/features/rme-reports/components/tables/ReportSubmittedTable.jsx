@@ -97,8 +97,8 @@ const ReportSubmittedTable = ({
                                     sx={{ color: color, '&.Mui-checked': { color: color }, padding: '4px' }}
                                 />
                             </TableCell>
-                            <TableCell sx={{ minWidth: 150 }}>
-                                {isMobile ? 'Date/Time' : 'W.O Date & Elapsed Time'}
+                            <TableCell sx={{ minWidth: 170 }}>
+                                {isMobile ? 'Date/Time' : 'Elapsed Time'}
                             </TableCell>
                             <TableCell sx={{ minWidth: 150 }}>Priority</TableCell>
                             <TableCell sx={{ minWidth: 120 }}>Technician</TableCell>

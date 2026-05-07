@@ -82,7 +82,7 @@ const ReportNeededTable = ({
                             />
                         </TableCell>
                         <TableCell sx={{ minWidth: 150 }}>
-                            {isMobile ? 'Date/Time' : 'W.O Date & Elapsed Time'}
+                            {isMobile ? 'Date/Time' : 'Elapsed Time'}
                         </TableCell>
                         <TableCell sx={{ minWidth: 150 }}>
                             Priority

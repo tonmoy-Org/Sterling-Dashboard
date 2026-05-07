@@ -51,27 +51,41 @@ const P = {
 };
 
 const priorityConfig = {
-    '[1] 2-MAN (PUMPING)': { color: '#2F3B73' },
-    '[1] ASSIST (PUMPING)': { color: '#2E7D32' }, // Dark green for assist
-    '[1] P4R (PUMPING)': { color: '#2E7D32' },
-    '[1] PFHS (PUMPING)': { color: '#4FC3F7' },
-    '[1] ROUTINE (PUMPING)': { color: '#8BC34A' }, // Sage/Lime
-    '[2] 2-MAN (SERVICE)': { color: '#D87B2E' },
-    '[2] ASSIST (SERVICE)': { color: '#9C27B0' },
-    '[2] ROUTINE (SERVICE)': { color: '#F06292' },
-    '[2] TROUBLESHOOT (SERVICE)': { color: '#D32F2F' },
-    '[2] UPGRADE & REPAIRS (SERVICE)': { color: '#FBC02D' }, // Darker yellow for visibility
-    '[3] EXCAVATOR (EXCAVATION)': { color: '#795548' },
+    '[1] 2-MAN (PUMPING)': { color: '#2E3192' },
+    '[1] ASSIST (PUMPING)': { color: '#D8E4BC' },
+    '[1] P4R (PUMPING)': { color: '#116C13' },
+    '[1] PFHS (PUMPING)': { color: '#29A8D8' },
+    '[1] ROUTINE (PUMPING)': { color: '#B4FE73' },
+    '[2] 2-MAN (SERVICE)': { color: '#D97A1E' },
+    '[2] ASSIST (SERVICE)': { color: '#BF5AE0' },
+    '[2] ROUTINE (SERVICE)': { color: '#E7A3D3' },
+    '[2] TROUBLESHOOT (SERVICE)': { color: '#C1121F' },
+    '[2] UPGRADE & REPAIRS (SERVICE)': { color: '#F5E663' },
+    '[3] EXCAVATOR (EXCAVATION)': { color: '#80604d' },
 };
 
 const getPriorityStyle = (p) => {
     if (!p) return { color: P.MUTED, bg: '#F2F4F7' };
-    const match = Object.keys(priorityConfig).find(k => p.includes(k)) || 
-                  (p.includes('[1]') ? '[1] ROUTINE (PUMPING)' : 
-                   p.includes('[2]') ? '[2] ROUTINE (SERVICE)' : 
-                   p.includes('[3]') ? '[3] EXCAVATOR (EXCAVATION)' : null);
-    
-    const color = priorityConfig[match]?.color || P.MUTED;
+
+    // Super-robust matching: ignore spaces, brackets, and parentheses
+    const clean = (s) => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const cleanP = clean(p);
+
+    // Try to find a specific match first
+    const match = Object.keys(priorityConfig).find(k => {
+        const cleanK = clean(k);
+        return cleanP.includes(cleanK) || cleanK.includes(cleanP);
+    });
+
+    // Fallback based on type [1], [2], [3] if no specific match
+    let finalMatch = match;
+    if (!finalMatch) {
+        if (cleanP.includes('1')) finalMatch = '[1] ROUTINE (PUMPING)';
+        else if (cleanP.includes('2')) finalMatch = '[2] ROUTINE (SERVICE)';
+        else if (cleanP.includes('3')) finalMatch = '[3] EXCAVATOR (EXCAVATION)';
+    }
+
+    const color = priorityConfig[finalMatch]?.color || P.MUTED;
     return { color, bg: alpha(color, 0.08) };
 };
 
@@ -79,9 +93,9 @@ const PriorityBadge = ({ priority }) => {
     const { color } = getPriorityStyle(priority);
     return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Box sx={{ 
-                width: 10, height: 10, borderRadius: '2px', bgcolor: color, 
-                flexShrink: 0, border: `1px solid ${alpha(color, 0.4)}` 
+            <Box sx={{
+                width: 10, height: 10, borderRadius: '2px', bgcolor: color,
+                flexShrink: 0, border: `1px solid ${alpha(color, 0.4)}`
             }} />
             <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: P.TEXT, whiteSpace: 'nowrap' }}>
                 {priority}
@@ -149,7 +163,7 @@ const getExcavationStatus = (wo) => {
     const priority = wo.priority?.toUpperCase() || '';
     const task = wo.task?.toUpperCase() || '';
     if (!priority.includes('[3]') || !task.includes('DRAIN') || !task.includes('FIELD')) return null;
-    
+
     const hasPassItem = wo.lineItems?.some(item => {
         const num = item.itemNumber?.toUpperCase() || '';
         return num.includes('6SP1DRA') && (num.includes('4HR') || num.includes('𝟒𝐇𝐑'));
@@ -438,15 +452,15 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <ProfBadge value={wo.proficiency} />
                                 {getExcavationStatus(wo) && (
-                                    <Chip 
-                                        label={getExcavationStatus(wo)} 
-                                        size="small" 
-                                        sx={{ 
+                                    <Chip
+                                        label={getExcavationStatus(wo)}
+                                        size="small"
+                                        sx={{
                                             height: 22, fontSize: '0.65rem', fontWeight: 800,
                                             bgcolor: getExcavationStatus(wo) === 'PASS' ? P.GREEN_SOFT : P.RED_SOFT,
                                             color: getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED,
                                             border: `1px solid ${alpha(getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED, 0.2)}`
-                                        }} 
+                                        }}
                                     />
                                 )}
                             </Box>
@@ -468,7 +482,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                             )}
                             <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: P.MUTED, mb: 1 }}>Task</Typography>
                             <Typography sx={{ fontSize: '0.75rem', color: P.TEXT, mb: 1.5 }}>{wo.task}</Typography>
-                            
+
                             <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: P.AMBER, mb: 1 }}>Work Order Summary</Typography>
                             <Typography sx={{ fontSize: '0.75rem', color: P.TEXT, mb: 1.5, whiteSpace: 'pre-wrap' }}>
                                 {wo.summary || 'No summary provided.'}
@@ -479,7 +493,7 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                 <Box sx={{ maxHeight: 200, overflow: 'auto', ...thinScrollbar() }}>
                                     {wo.lineItems.map((item, i) => (
                                         <Box key={i} sx={{ py: 1, borderBottom: `1px solid ${alpha(P.BORDER, 0.5)}` }}>
-                                                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'monospace', color: P.BLUE }}>{item.itemNumber}</Typography>
+                                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'monospace', color: P.BLUE }}>{item.itemNumber}</Typography>
                                             <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>Qty: {item.qty}</Typography>
                                                 <Typography sx={{ fontSize: '0.68rem', color: P.MUTED }}>
@@ -565,15 +579,15 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                         <ProfBadge value={wo.proficiency} />
                         {getExcavationStatus(wo) && (
                             <Tooltip title={`Excavation Status: ${getExcavationStatus(wo)}`}>
-                                <Chip 
-                                    label={getExcavationStatus(wo)} 
-                                    size="small" 
-                                    sx={{ 
+                                <Chip
+                                    label={getExcavationStatus(wo)}
+                                    size="small"
+                                    sx={{
                                         height: 22, fontSize: '0.65rem', fontWeight: 800,
                                         bgcolor: getExcavationStatus(wo) === 'PASS' ? P.GREEN_SOFT : P.RED_SOFT,
                                         color: getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED,
                                         border: `1px solid ${alpha(getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED, 0.2)}`
-                                    }} 
+                                    }}
                                 />
                             </Tooltip>
                         )}
@@ -620,15 +634,15 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                     <Typography sx={{ fontSize: '0.82rem', fontWeight: 500, color: P.TEXT }}>{v || '—'}</Typography>
                                                     {k === 'Task' && getExcavationStatus(wo) && (
-                                                        <Chip 
-                                                            label={getExcavationStatus(wo)} 
-                                                            size="small" 
-                                                            sx={{ 
+                                                        <Chip
+                                                            label={getExcavationStatus(wo)}
+                                                            size="small"
+                                                            sx={{
                                                                 height: 20, fontSize: '0.65rem', fontWeight: 800,
                                                                 bgcolor: getExcavationStatus(wo) === 'PASS' ? P.GREEN_SOFT : P.RED_SOFT,
                                                                 color: getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED,
                                                                 border: `1px solid ${alpha(getExcavationStatus(wo) === 'PASS' ? P.GREEN : P.RED, 0.2)}`
-                                                            }} 
+                                                            }}
                                                         />
                                                     )}
                                                 </Box>
@@ -639,9 +653,9 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
 
                                 <Grid size={{ xs: 12, md: 5 }}>
                                     <SectionLabel color={P.AMBER}>Work Order Summary</SectionLabel>
-                                    <Paper elevation={0} sx={{ 
-                                        p: 2, 
-                                        bgcolor: alpha(P.AMBER, 0.03), 
+                                    <Paper elevation={0} sx={{
+                                        p: 2,
+                                        bgcolor: alpha(P.AMBER, 0.03),
                                         border: `1px dashed ${alpha(P.AMBER, 0.3)}`,
                                         borderRadius: '8px',
                                         height: 'calc(100% - 30px)',
@@ -803,8 +817,8 @@ const RecycleBinModal = ({ open, onClose, items, onRestore, onPermanentDelete, o
                                         <Box
                                             sx={{
                                                 display: 'flex',
-                                                flexDirection: 'column', 
-                                                alignItems: 'center',        
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
                                                 justifyContent: 'center',
                                             }}
                                         >
@@ -894,6 +908,7 @@ export const InvoiceProficiency = () => {
     const [quickRange, setQuickRange] = useState('Last Week');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    const [selectedJobType, setSelectedJobType] = useState('All');
     const [search, setSearch] = useState('');
     const [selected, setSelected] = useState(new Set());
     const [trashOpen, setTrashOpen] = useState(false);
@@ -912,7 +927,7 @@ export const InvoiceProficiency = () => {
         queryKey: ['invoice-proficiency'],
         queryFn: () => rmeApi.getInvoiceProficiencyData(),
     });
-    console.log('rawData',rawData)
+    console.log('rawData', rawData)
 
     const { data: trashedData } = useQuery({
         queryKey: ['invoice-proficiency-trashed'],
@@ -988,6 +1003,15 @@ export const InvoiceProficiency = () => {
         if (technicians.length && !selectedTech) setSelectedTech('All Technicians');
     }, [technicians]);
 
+    // Job type config – pulls colors from priorityConfig to stay in sync
+    const JOB_TYPES = [
+        { label: 'All', value: 'All', color: P.BLUE, prefix: null },
+        { label: '[1] Pumping', value: '[1]', color: priorityConfig['[1] ROUTINE (PUMPING)']?.color || '#B4FE73', prefix: '[1]' },
+        { label: '[2] Service', value: '[2]', color: priorityConfig['[2] ROUTINE (SERVICE)']?.color || '#E7A3D3', prefix: '[2]' },
+        { label: '[3] Excavation', value: '[3]', color: priorityConfig['[3] EXCAVATOR (EXCAVATION)']?.color || '#80604d', prefix: '[3]' },
+    ];
+    const activeJobType = JOB_TYPES.find(jt => jt.value === selectedJobType) || JOB_TYPES[0];
+
     const { validWOs, errorWOs, allForTech } = useMemo(() => {
         if (!rawData?.data) return { validWOs: [], errorWOs: [], allForTech: [] };
 
@@ -1000,6 +1024,8 @@ export const InvoiceProficiency = () => {
             if (!wo.assignmentComplete) return false;
             if (fromDate && new Date(wo.completedDate) < fromDate) return false;
             if (toDate && new Date(wo.completedDate) > toDate) return false;
+            // Job type filter
+            if (selectedJobType !== 'All' && !wo.priority?.includes(selectedJobType)) return false;
             return true;
         });
 
@@ -1008,13 +1034,23 @@ export const InvoiceProficiency = () => {
             const compDate = new Date(wo.completedDate);
             const invDate = new Date(wo.invoiceDate);
             const diffDays = Math.abs((compDate - invDate) / (1000 * 60 * 60 * 24));
-            const enhancedWO = { ...wo, dateDiff: diffDays.toFixed(0), dateError: diffDays > 5 };
+            
+            // Calculate proficiency locally to ensure it always matches worked/worth hours
+            const calculatedProf = wo.hoursWorked > 0 ? (wo.worthHours / wo.hoursWorked) : 0;
+            
+            const enhancedWO = { 
+                ...wo, 
+                proficiency: calculatedProf,
+                dateDiff: diffDays.toFixed(0), 
+                dateError: diffDays > 5 
+            };
+            
             if (enhancedWO.dateError) errors.push(enhancedWO);
             else valid.push(enhancedWO);
             all.push(enhancedWO);
         });
         return { validWOs: valid, errorWOs: errors, allForTech: all };
-    }, [rawData, selectedTech, resolvedRange]);
+    }, [rawData, selectedTech, resolvedRange, selectedJobType]);
 
     // Search filtering
     const searchedWOs = useMemo(() => {
@@ -1031,7 +1067,7 @@ export const InvoiceProficiency = () => {
     // Reset page when search or filters change
     React.useEffect(() => {
         setPage(0);
-    }, [search, selectedTech, quickRange, dateFrom, dateTo]);
+    }, [search, selectedTech, quickRange, dateFrom, dateTo, selectedJobType]);
 
     // Paginated data - fixed to show exactly rowsPerPage (10 by default) items
     const paginatedWOs = useMemo(() => {
@@ -1057,13 +1093,20 @@ export const InvoiceProficiency = () => {
             if (!groups[key]) groups[key] = { priority: wo.priority, task: wo.task, invoices: [] };
             groups[key].invoices.push(wo);
         });
-        return Object.values(groups).map(g => ({
-            priority: g.priority,
-            task: g.task,
-            invCount: g.invoices.length,
-            avgProficiency: g.invoices.length ? g.invoices.reduce((a, b) => a + (b.proficiency ?? 0), 0) / g.invoices.length : null,
-            avgDollar: g.invoices.length ? g.invoices.reduce((a, b) => a + (b.invoiceTotal ?? 0), 0) / g.invoices.length : null,
-        })).sort((a, b) => a.priority?.localeCompare(b.priority));
+        return Object.values(groups).map(g => {
+            const invCount = g.invoices.length;
+            const totalWorth = g.invoices.reduce((a, b) => a + (b.worthHours ?? 0), 0);
+            const totalWorked = g.invoices.reduce((a, b) => a + (b.hoursWorked ?? 0), 0);
+            const avgProficiency = totalWorked > 0 ? (totalWorth / totalWorked) : 0;
+            
+            return {
+                priority: g.priority,
+                task: g.task,
+                invCount,
+                avgProficiency,
+                avgDollar: invCount ? g.invoices.reduce((a, b) => a + (b.invoiceTotal ?? 0), 0) / invCount : null,
+            };
+        }).sort((a, b) => a.priority?.localeCompare(b.priority));
     }, [validWOs]);
 
     const pumpingRows = categoryRows.filter(r => r.priority?.includes('[1]'));
@@ -1179,6 +1222,52 @@ export const InvoiceProficiency = () => {
                             </Select>
                         </FormControl>
                     </Grid>
+
+                    <Grid size={{ xs: 12, sm: 4, md: 3 }}>
+                        <FormControl fullWidth size="small">
+                            <InputLabel sx={{ fontSize: '0.78rem', color: selectedJobType !== 'All' ? activeJobType.color : 'inherit' }}>Job Type</InputLabel>
+                            <Select
+                                value={selectedJobType}
+                                label="Job Type"
+                                onChange={e => setSelectedJobType(e.target.value)}
+                                sx={{
+                                    fontSize: '0.78rem',
+                                    borderRadius: '6px',
+                                    color: selectedJobType !== 'All' ? activeJobType.color : P.TEXT,
+                                    fontWeight: selectedJobType !== 'All' ? 700 : 500,
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: selectedJobType !== 'All' ? alpha(activeJobType.color, 0.4) : P.BORDER,
+                                        borderWidth: selectedJobType !== 'All' ? '1.5px' : '1px'
+                                    },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: selectedJobType !== 'All' ? activeJobType.color : P.BLUE
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: activeJobType.color
+                                    }
+                                }}
+                                startAdornment={<FileText size={14} color={activeJobType.color} style={{ marginRight: 6 }} />}
+                                renderValue={(selected) => {
+                                    const jt = JOB_TYPES.find(j => j.value === selected);
+                                    return (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: jt?.color || P.BLUE }} />
+                                            {jt?.label || selected}
+                                        </Box>
+                                    );
+                                }}
+                                MenuProps={{ disableScrollLock: true }}
+                            >
+                                {JOB_TYPES.map(jt => (
+                                    <MenuItem key={jt.value} value={jt.value} sx={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: jt.color }} />
+                                        {jt.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Grid>
+
                     <Grid size={{ xs: 12, sm: 4, md: 3 }}>
                         <FormControl fullWidth size="small">
                             <InputLabel sx={{ fontSize: '0.78rem' }}>Quick Range</InputLabel>
@@ -1194,6 +1283,9 @@ export const InvoiceProficiency = () => {
                             </Select>
                         </FormControl>
                     </Grid>
+
+
+
                     {quickRange === 'Manual Entry' && (
                         <>
                             <Grid size={{ xs: 6, sm: 2, md: 2 }}>
@@ -1230,46 +1322,107 @@ export const InvoiceProficiency = () => {
                     {/* ERROR REPORT */}
                     <ErrorReportPanel errors={errorWOs} />
 
-                    {/* CATEGORY TABLES */}
+                    {/* CATEGORY TABLES – filtered by selected job type */}
                     <Grid container spacing={1.5} sx={{ mb: { xs: 2, sm: 3 } }}>
-                        <Grid size={{ xs: 12, md: 12 }}>
-                            <Paper elevation={0} sx={{ p: 1.5, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE }}>
-                                <CategoryTable title="[1] Pumping" rows={pumpingRows} color={P.BLUE} />
-                            </Paper>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 12 }}>
-                            <Paper elevation={0} sx={{ p: 1.5, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE }}>
-                                <CategoryTable title="[2] Service" rows={serviceRows} color={P.ORANGE} />
-                            </Paper>
-                        </Grid>
-                        <Grid size={{ xs: 12 }}>
-                            <Grid container spacing={1.5}>
-                                <Grid size={{ xs: 12, md: 8 }}>
-                                    <Paper elevation={0} sx={{ p: 1.5, border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE, height: '100%' }}>
-                                        <CategoryTable title="[3] Excavation" rows={excavationRows} color={P.PURPLE} />
-                                    </Paper>
-                                </Grid>
-                                <Grid size={{ xs: 12, md: 4 }}>
-                                    <DrainFieldCard pass={drainFieldStats.pass} fail={drainFieldStats.fail} />
+                        {/* ── PUMPING ── */}
+                        {(selectedJobType === 'All' || selectedJobType === '[1]') && (
+                            <Grid size={{ xs: 12, md: 12 }}>
+                                <Paper
+                                    elevation={0}
+                                    sx={{
+                                        p: 1.5,
+                                        border: `1px solid ${selectedJobType === '[1]' ? alpha(JOB_TYPES[1].color, 0.45) : P.BORDER}`,
+                                        borderRadius: '10px',
+                                        bgcolor: selectedJobType === '[1]' ? alpha(JOB_TYPES[1].color, 0.03) : P.SURFACE,
+                                        transition: 'border-color 0.2s, background-color 0.2s',
+                                    }}
+                                >
+                                    <CategoryTable title="[1] Pumping" rows={pumpingRows} color={JOB_TYPES[1].color} />
+                                </Paper>
+                            </Grid>
+                        )}
+
+                        {/* ── SERVICE ── */}
+                        {(selectedJobType === 'All' || selectedJobType === '[2]') && (
+                            <Grid size={{ xs: 12, md: 12 }}>
+                                <Paper
+                                    elevation={0}
+                                    sx={{
+                                        p: 1.5,
+                                        border: `1px solid ${selectedJobType === '[2]' ? alpha(JOB_TYPES[2].color, 0.45) : P.BORDER}`,
+                                        borderRadius: '10px',
+                                        bgcolor: selectedJobType === '[2]' ? alpha(JOB_TYPES[2].color, 0.03) : P.SURFACE,
+                                        transition: 'border-color 0.2s, background-color 0.2s',
+                                    }}
+                                >
+                                    <CategoryTable title="[2] Service" rows={serviceRows} color={JOB_TYPES[2].color} />
+                                </Paper>
+                            </Grid>
+                        )}
+
+                        {/* ── EXCAVATION + DRAIN FIELD ── */}
+                        {(selectedJobType === 'All' || selectedJobType === '[3]') && (
+                            <Grid size={{ xs: 12 }}>
+                                <Grid container spacing={1.5}>
+                                    <Grid size={{ xs: 12, md: 8 }}>
+                                        <Paper
+                                            elevation={0}
+                                            sx={{
+                                                p: 1.5,
+                                                border: `1px solid ${selectedJobType === '[3]' ? alpha(JOB_TYPES[3].color, 0.45) : P.BORDER}`,
+                                                borderRadius: '10px',
+                                                bgcolor: selectedJobType === '[3]' ? alpha(JOB_TYPES[3].color, 0.03) : P.SURFACE,
+                                                height: '100%',
+                                                transition: 'border-color 0.2s, background-color 0.2s',
+                                            }}
+                                        >
+                                            <CategoryTable title="[3] Excavation" rows={excavationRows} color={JOB_TYPES[3].color} />
+                                        </Paper>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, md: 4 }}>
+                                        <DrainFieldCard pass={drainFieldStats.pass} fail={drainFieldStats.fail} />
+                                    </Grid>
                                 </Grid>
                             </Grid>
-                        </Grid>
+                        )}
                     </Grid>
 
                     {/* WORK ORDERS TABLE */}
-                    <Paper elevation={0} sx={{ border: `1px solid ${P.BORDER}`, borderRadius: '10px', bgcolor: P.SURFACE, overflow: 'hidden' }}>
-                        <Box sx={{ p: { xs: 1, sm: 1.5 }, borderBottom: `1px solid ${P.BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: alpha(P.BLUE, 0.01), flexWrap: 'nowrap', gap: 1 }}>
+                    <Paper
+                        elevation={0}
+                        sx={{
+                            border: `1px solid ${selectedJobType !== 'All' ? alpha(activeJobType.color, 0.4) : P.BORDER}`,
+                            borderRadius: '10px',
+                            bgcolor: P.SURFACE,
+                            overflow: 'hidden',
+                            transition: 'border-color 0.2s',
+                        }}
+                    >
+                        <Box sx={{ p: { xs: 1, sm: 1.5 }, borderBottom: `1px solid ${P.BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: selectedJobType !== 'All' ? alpha(activeJobType.color, 0.03) : alpha(P.BLUE, 0.01), flexWrap: 'nowrap', gap: 1, transition: 'background-color 0.2s' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: P.TEXT }}>Work Orders</Typography>
+                                {selectedJobType !== 'All' && (
+                                    <Chip
+                                        label={activeJobType.label}
+                                        size="small"
+                                        sx={{
+                                            height: 20, fontSize: '0.68rem', fontWeight: 700,
+                                            bgcolor: alpha(activeJobType.color, 0.12),
+                                            color: activeJobType.color,
+                                            border: `1px solid ${alpha(activeJobType.color, 0.3)}`,
+                                            '& .MuiChip-label': { px: 1 },
+                                        }}
+                                    />
+                                )}
                                 <Chip label={searchedWOs.length} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: P.BLUE_SOFT, color: P.BLUE, fontWeight: 600 }} />
                             </Box>
 
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                 {selected.size > 0 ? (
-                                    <OutlineButton 
-                                        color="error" 
-                                        size="small" 
-                                        onClick={handleBulkDeleteClick} 
+                                    <OutlineButton
+                                        color="error"
+                                        size="small"
+                                        onClick={handleBulkDeleteClick}
                                         startIcon={<Trash2 size={14} />}
                                         sx={{ height: '32px', px: 2, borderRadius: '6px' }}
                                     >

@@ -4,7 +4,7 @@ import {
     Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
     TableHead, TableRow, Chip, Stack, LinearProgress,
     IconButton, useTheme, useMediaQuery, Grid, TablePagination,
-    Modal, Tooltip, Checkbox, Button, TextField, CircularProgress,
+    Modal, Tooltip, Checkbox, Button, TextField,
     Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import { styled, alpha } from '@mui/material/styles';
@@ -22,6 +22,7 @@ import { rmeApi } from '../../../../api/services/rmeApi';
 import { timeTrackingApi } from '../../../../api/services/timeTrackingApi';
 import { formatDate } from '../../../../utils/dateFormats';
 import { useGlobalSnackbar } from '../../../../context/GlobalSnackbarContext';
+import DashboardLoader from '../../../../components/Loader/DashboardLoader';
 
 // ─── Palette (matching CustomerCenter) ─────────────────────────────────────
 const PALETTE = {
@@ -565,8 +566,8 @@ const RecycleBinModal = memo(({ open, onClose, items, isLoading, isRestoring, is
                     {/* Table Body */}
                     <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'thin' }}>
                         {isLoading ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-                                <CircularProgress size={24} sx={{ color: PALETTE.PURPLE }} />
+                            <Box sx={{ py: 8 }}>
+                                <DashboardLoader />
                             </Box>
                         ) : items.length === 0 ? (
                             <Box sx={{ textAlign: 'center', py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
@@ -992,11 +993,7 @@ const TimeTracking = () => {
     const someOnPage = paginatedEntries.length > 0 && paginatedEntries.some(i => selected.has(i.id)) && !allOnPage;
 
     if (isLoading && timeEntries.length === 0) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-                <CircularProgress />
-            </Box>
-        );
+        return <DashboardLoader />;
     }
 
     return (

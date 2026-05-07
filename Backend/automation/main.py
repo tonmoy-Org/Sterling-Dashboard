@@ -343,7 +343,7 @@ def start_work_orders_scraper():
 
 async def run_work_orders_and_rme_combined():
     """Execute Work Orders and Online RME scrapers in sequence."""
-    # await run_work_orders_scraper()
+    await run_work_orders_scraper()
     await run_online_rme_scraper()
 
 @track_scraper

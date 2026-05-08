@@ -919,6 +919,17 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
             result["last_report_link"] = last_report_link
             print(f"✅ Last report link: {last_report_link}")
 
+            if last_report_link:
+                try:
+                    def _update_link_instant():
+                        wo = WorkOrderToday.objects.get(pk=work_order_id)
+                        wo.last_report_link = last_report_link
+                        wo.save(update_fields=['last_report_link'])
+                    await sync_to_async(_update_link_instant)()
+                    print(f"⚡ Instantly saved last_report_link to database")
+                except Exception as db_err:
+                    print(f"⚠️ Failed to instantly save last_report_link: {db_err}")
+
             # ── STEP 2: Check ALL service history views ────────────────────
             # Unlocked → Locked → Discarded (single page load, three views)
             print(f"\n📍 STEP 2: Checking ALL service history (Unlocked → Locked → Discarded)...")

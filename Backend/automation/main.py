@@ -152,13 +152,14 @@ async def run_online_rme_scraper():
         work_orders = scraper.api_client.manage_work_orders(
             method_type="GET", params={"is_deleted": "false"}
         )
+        print(f"Total work orders fetched: {len(work_orders) if work_orders else 0}")
 
         work_orders_to_process = [
             wo for wo in work_orders if wo.get("status") not in ["LOCKED", "DELETED"]
         ]
 
         record_count = len(work_orders_to_process)
-        print(f"RME records to process: {record_count}")
+        print(f"RME records to process (filtered): {record_count}")
 
         # Always run the scraper logic to ensure logging and cleanup occur, even if zero records
         await scraper.workorder_address_check_and_get_form(work_orders_to_process)

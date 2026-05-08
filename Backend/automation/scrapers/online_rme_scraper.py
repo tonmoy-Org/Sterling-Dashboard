@@ -152,61 +152,46 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
         return False
 
     async def ensure_authenticated(self):
-        """Ensure user is authenticated and on the search page."""
+        """Ensure user is authenticated to Online RME."""
         try:
-            login_url = self.rules.get("online_RME_url")
-            search_field_xpath = self.rules.get("wait_rme_body")
-            search_tab_xpath = "//*[@id=\"Uc_Header1_rptMenu_ctl00_hypMenuItem\"]"
+            # 1. Domain check - ensure we are on RME site
+            if "onlinerme.com" not in self.page.url:
+                await self.page.goto(self.rules.get("online_RME_url"), wait_until="domcontentloaded")
 
-            # 1. Check if we are already on the search page
+            # 2. Check if logged in by looking for logout button AND main menu
+            is_logged_in = False
             try:
-                if await self.page.locator(search_field_xpath).is_visible(timeout=3000):
-                    print("Already on search page.")
-                    return
-            except:
-                pass
-
-            # 2. Check if logged in but on a different page (e.g. Service History)
-            # We look for the "Site Search" tab which is only visible when logged in
-            try:
-                if await self.page.locator(search_tab_xpath).is_visible(timeout=3000):
-                    print("Logged in but not on search page. Navigating to Site Search...")
-                    await self.perform_actions_by_xpaths(name="rme_search_page_click")
-                    
-                    # Verify we reached the search page
-                    if await self.page.locator(search_field_xpath).is_visible(timeout=5000):
-                        print("Successfully reached search page via menu click.")
-                        return
-            except:
-                pass
-
-            # 3. If not logged in or search tab not found, go to login page
-            print(f"Not confirmed as logged in. Navigating to login page: {login_url}")
-            await self.page.goto(login_url, wait_until="domcontentloaded")
-            
-            # 4. If we are on the login page, perform login
-            if "login.aspx" in self.page.url:
-                print("Performing login...")
-                await self.login_online_rme()
+                # Look for logout link
+                auth_indicator = self.page.locator('a[id*="hypLogout"]')
+                # Look for the "Site Search" menu item to ensure UI is ready
+                menu_xpath = '//*[@id="Uc_Header1_rptMenu_ctl00_hypMenuItem"]'
+                menu_indicator = self.page.locator(menu_xpath)
                 
-                # Wait for natural redirect to search page
-                print("Waiting for automatic redirect to search page...")
-                try:
-                    await self.page.wait_for_selector(search_field_xpath, state="visible", timeout=15000)
-                    print("Successfully landed on search page via redirect.")
-                except:
-                    print(f"Redirection landed on: {self.page.url}")
+                if await auth_indicator.count() > 0 and await menu_indicator.count() > 0:
+                    is_logged_in = True
+            except:
+                pass
+
+            # 3. Perform login if necessary
+            if not is_logged_in:
+                print("Not logged in or UI not ready. Redirecting to login page...")
+                await self.page.goto(self.rules.get("online_RME_url"), wait_until="domcontentloaded")
+                await self.login_online_rme()
+                print("Login successful.")
             else:
-                # Session was already active and we were redirected away from login
-                print(f"Session active, redirected to: {self.page.url}")
-                try:
-                    # Ensure we land on the search page
-                    if not await self.page.locator(search_field_xpath).is_visible(timeout=5000):
-                        print("Not on search page after redirect. Clicking Site Search...")
+                print("Already authenticated to Online RME.")
+
+            # 4. Navigate to search page via menu click if not already there
+            if "ContractorSearchProperty.aspx" not in self.page.url:
+                if self.rules.get("rme_search_page_click"):
+                    try:
+                        # Try to click with a shorter timeout here to fail fast and fallback
                         await self.perform_actions_by_xpaths(name="rme_search_page_click")
-                    print("Confirmed on search page.")
-                except:
-                    pass
+                    except Exception as e:
+                        print(f"⚠️  Could not navigate to search page via menu: {e}")
+                        # If menu click fails, force a refresh of the main page and try again or use direct URL
+                        print("   Attempting direct navigation as fallback...")
+                        await self.page.goto("https://www.onlinerme.com/ContractorSearchProperty.aspx", wait_until="domcontentloaded")
 
         except Exception as e:
             print(f"Error during authentication check: {e}")
@@ -215,25 +200,46 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
     async def search_property(self, street_number: str, street_name: str) -> bool:
         """
         Search for a property by street number and name.
-        Returns False if the search lands on a skip/no-match page.
 
         Args:
             street_number: Street number
             street_name: Street name
+
+        Returns:
+            True if search performed and no 'No match' error found, False if 'No match' found
         """
         try:
             await self.perform_actions_by_xpaths(name="street_number", value=street_number)
             await self.perform_actions_by_xpaths(name="street_name", value=street_name)
             await self.perform_actions_by_xpaths(name="submit_search_rme")
+
+            # Check for "No property match" message
+            no_match_xpath = self.rules.get("rme_no_property_match_xpath")
+            if no_match_xpath:
+                no_match_indicator = self.page.locator(no_match_xpath)
+                try:
+                    if await no_match_indicator.is_visible(timeout=3000):
+                        content = await no_match_indicator.inner_text()
+                        if "No property match in Accela" in content or "No records found" in content:
+                            print(f"⚠️  No property match or records found for: {street_number} {street_name}")
+                            return False
+                except:
+                    pass
+
+            # Check for Multi-Match Site Select page
+            multi_match_xpath = self.rules.get("rme_multi_match_xpath")
+            if multi_match_xpath:
+                multi_match_table = self.page.locator('table[id$="DataGrid_Accela"]')
+                try:
+                    if await multi_match_table.is_visible(timeout=3000):
+                        print("⚠️  Multi-match page detected. Selecting first result...")
+                        first_result = self.page.locator(multi_match_xpath).first
+                        await first_result.click()
+                        await self.page.wait_for_load_state("domcontentloaded")
+                except:
+                    pass
+
             print(f"✅ Searched for: {street_number} {street_name}")
-
-            # Check for skip legend (no matches or ambiguous page)
-            skip_legend_xpath = self.rules.get("rme_skip_legend_xpath")
-            if await self.page.locator(skip_legend_xpath).is_visible(timeout=3000):
-                legend_text = (await self.page.locator(skip_legend_xpath).inner_text() or "").strip()
-                print(f"⚠️  Search resulted in a skip page: '{legend_text}'")
-                return False
-
             return True
         except Exception as e:
             print(f"❌ Error searching property: {e}")
@@ -249,11 +255,9 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
         """
         try:
             print("\n🔍 Fetching last report link from Service History...")
-            history_url = self.page.url
 
             # Navigate to service history page via menu clicks
             await self.perform_actions_by_xpaths(name="rme_service_history")
-            history_url = self.page.url
 
             # Wait for table to load
             try:
@@ -264,7 +268,7 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
                 )
             except:
                 print("⚠️  Service History table did not load")
-                return history_url
+                return self.rules.get("online_RME_url")
 
             # Find the first data row (skip header rows)
             # Table structure: pagination row, header row, then data rows
@@ -272,7 +276,7 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
 
             if len(rows) < 3:
                 print("⚠️  No data rows found in Service History table")
-                return history_url
+                return self.rules.get("online_RME_url")
 
             # First data row is at index 2 (0=pagination, 1=header, 2=first data)
             first_data_row = rows[2]
@@ -307,13 +311,13 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
             except Exception as e:
                 print(f"⚠️  Could not click report icon: {e}")
 
-            # Fallback: return service history URL
-            print(f"⚠️  Using fallback service history URL")
-            return history_url
+            # Fallback: return search page URL
+            print(f"⚠️  Using fallback search page URL")
+            return self.rules.get("online_RME_url")
 
         except Exception as e:
             print(f"❌ Error fetching last report link: {e}")
-            return self.page.url
+            return self.rules.get("online_RME_url")
 
     # ─────────────────────────────────────────────────────────────────────────
     # UNIFIED SERVICE HISTORY CHECKER
@@ -754,7 +758,6 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
         """
         try:
             print("\n🔍 Checking WORK HISTORY (Unlocked Reports) [legacy]...")
-            # Navigate via menu clicks
             await self.perform_actions_by_xpaths(name="rme_work_history_url")
             return await self._check_unlocked_reports(full_address)
         except Exception as e:
@@ -877,10 +880,14 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
                         
                         # Search and check service history to get accurate status
                         print(f"   Checking service history to verify current status...")
-                        if not await self.search_property(street_number, street_name):
-                            print(f"   ⏭️  Skipping status check: Address not found/skip page reached.")
+                        match_found = await self.search_property(street_number, street_name)
+                        
+                        if not match_found:
+                            print(f"   ⚠️  Property not found during status verification.")
                             result["status"] = "NOT_FOUND"
+                            result["rme_completed"] = True
                             return result
+
                         history_result = await self.check_all_service_history(full_address)
                         
                         if history_result and history_result.get("found"):
@@ -939,27 +946,19 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
 
             # ── STEP 1: Fetch last report PDF link ─────────────────────────
             print(f"\n📍 STEP 1: Fetching last report PDF link for: {full_address}")
-            if not await self.search_property(street_number, street_name):
-                print(f"⏭️  Skipping: Address not found/skip page reached.")
+            match_found = await self.search_property(street_number, street_name)
+            
+            if not match_found:
+                print(f"⏭️  Skipping: No property match found on Online RME.")
                 result["status"] = "NOT_FOUND"
                 result["finalized_by"] = "Automation"
                 result["finalized_by_email"] = "automation@sterling-septic.com"
                 result["finalized_date"] = timezone.now()
                 return result
+
             last_report_link = await self.fetch_last_report_link_from_service_history()
             result["last_report_link"] = last_report_link
             print(f"✅ Last report link: {last_report_link}")
-
-            if last_report_link:
-                try:
-                    def _update_link_instant():
-                        wo = WorkOrderToday.objects.get(pk=work_order_id)
-                        wo.last_report_link = last_report_link
-                        wo.save(update_fields=['last_report_link'])
-                    await sync_to_async(_update_link_instant)()
-                    print(f"⚡ Instantly saved last_report_link to database")
-                except Exception as db_err:
-                    print(f"⚠️ Failed to instantly save last_report_link: {db_err}")
 
             # ── STEP 2: Check ALL service history views ────────────────────
             # Unlocked → Locked → Discarded (single page load, three views)

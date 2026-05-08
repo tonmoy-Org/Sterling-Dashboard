@@ -888,6 +888,11 @@ class OnlineRMEScraper(BaseScraper, OnlineRMEEditTaskHelper):
                             result["rme_completed"] = True
                             return result
 
+                        # Fetch last report link even if already completed
+                        last_report_link = await self.fetch_last_report_link_from_service_history()
+                        result["last_report_link"] = last_report_link
+                        print(f"   ✅ Refreshed last report link: {last_report_link}")
+
                         history_result = await self.check_all_service_history(full_address)
                         
                         if history_result and history_result.get("found"):

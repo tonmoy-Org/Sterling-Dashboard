@@ -358,7 +358,6 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                                 {wo.workOrderNumber}
                             </Typography>
                             {hasError && <AlertTriangle size={12} color={P.RED} />}
-                            {wo.is_seen === false && <Badge color="primary" variant="dot" sx={{ ml: 1 }} />}
                         </Box>
                         <IconButton size="small" onClick={() => setOpen(!open)} sx={{ p: 0.5 }}>
                             {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -494,9 +493,6 @@ const WorkOrderRow = ({ wo, isSelected, onToggle, onDelete, showTech }) => {
                             <Tooltip title={`Date mismatch: WO completed ${formatDate(wo.completedDate)}, Invoice dated ${formatDate(wo.invoiceDate)} (>${wo.dateDiff}d apart)`}>
                                 <AlertTriangle size={10} color={P.RED} />
                             </Tooltip>
-                        )}
-                        {wo.is_seen === false && (
-                            <Badge color="primary" variant="dot" sx={{ '& .MuiBadge-dot': { width: 6, height: 6 } }} />
                         )}
                     </Box>
                     <Typography sx={{ fontSize: '0.7rem', color: P.MUTED, lineHeight: 1.2 }}>{wo.customerName}</Typography>

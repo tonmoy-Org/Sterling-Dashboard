@@ -14,6 +14,7 @@ import sys
 import os
 import django
 import re
+import time as _time
 from datetime import datetime, date
 from asgiref.sync import sync_to_async
 
@@ -39,6 +40,9 @@ class TimeTrackingScraper(BaseScraper):
         super().__init__()
 
     async def run(self):
+        _start_time = _time.time()
+        _error_occurred = None
+        pending_records = []
         print("\n=== Starting Time Tracking Scraper ===")
 
         try:
@@ -189,10 +193,55 @@ class TimeTrackingScraper(BaseScraper):
         except Exception as e:
             print(f"Fatal scraper error: {e}")
             import traceback
+            _error_occurred = f"{str(e)}\n{traceback.format_exc()}"
             traceback.print_exc()
             return None
         finally:
             await self.cleanup()
+            
+            # ── Log execution result to ScraperExecutionLog and Incident ──
+            _elapsed = _time.time() - _start_time
+            try:
+                from status.models import ScraperExecutionLog, Incident
+                from django.utils import timezone
+                
+                def _log_execution():
+                    ScraperExecutionLog.objects.create(
+                        scraper_name="fleetmatics-time-tracking-scraper",
+                        status="error" if _error_occurred else "success",
+                        error_message=_error_occurred,
+                        records_processed=len(pending_records) if pending_records else 0,
+                        execution_time_seconds=round(_elapsed, 2),
+                    )
+                    
+                    if _error_occurred:
+                        incident, created = Incident.objects.get_or_create(
+                            service_name="fleetmatics-time-tracking-scraper",
+                            status="active",
+                            defaults={
+                                "title": "Fleetmatics Time Tracking Scraper Error",
+                                "description": _error_occurred
+                            }
+                        )
+                        if not created:
+                            incident.description = _error_occurred
+                            incident.save()
+                    else:
+                        active_incidents = Incident.objects.filter(
+                            service_name="fleetmatics-time-tracking-scraper",
+                            status="active"
+                        )
+                        if active_incidents.exists():
+                            for incident in active_incidents:
+                                incident.status = "resolved"
+                                incident.resolved_at = timezone.now()
+                                incident.resolution_description = "Automation started properly and automatically resolved the incident."
+                                incident.save()
+                                
+                await sync_to_async(_log_execution)()
+                print(f"📝 Execution logged: {'ERROR' if _error_occurred else 'SUCCESS'} ({round(_elapsed, 1)}s)")
+            except Exception as log_err:
+                print(f"⚠️ Failed to log execution: {log_err}")
 
     # ─────────────────────────────────────────────────────
     # Helpers

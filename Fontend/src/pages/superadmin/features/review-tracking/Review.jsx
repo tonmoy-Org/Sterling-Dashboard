@@ -5,6 +5,7 @@ import {
   TableHead, TableRow, Chip, Stack, Button, Tooltip, IconButton,
   TablePagination, ToggleButtonGroup, ToggleButton, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, Modal, CircularProgress, Checkbox,
+  FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -898,21 +899,6 @@ const AllReviewsTable = memo(({ reviews, onView, selected, onToggle, onToggleAll
                       <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem', color: PALETTE.TEXT }}>
                         {r.reviewer}
                       </Typography>
-                      {!r.isSeen && (
-                        <Chip
-                          label="NEW"
-                          size="small"
-                          sx={{
-                            height: 16,
-                            fontSize: '0.65rem',
-                            fontWeight: 700,
-                            bgcolor: PALETTE.ORANGE,
-                            color: 'white',
-                            borderRadius: '4px',
-                            '& .MuiChip-label': { px: 0.5 }
-                          }}
-                        />
-                      )}
                     </Box>
                     {r.business && (
                       <Typography variant="caption" sx={{ fontSize: '0.75rem', color: PALETTE.BLUE, display: 'block', mt: 0.25 }}>
@@ -1331,18 +1317,24 @@ export default function Review() {
 
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
         <PeriodToggle value={period} onChange={setPeriod} />
-        <Box sx={{ position: 'relative', minWidth: 220 }}>
-          <Box sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><Search size={13} color={alpha(PALETTE.BLUE, 0.5)} /></Box>
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter all data…"
-            style={{ width: '100%', padding: '6px 28px', borderRadius: '6px', border: `1.5px solid ${alpha(PALETTE.BLUE, 0.15)}`, fontSize: '0.78rem', outline: 'none' }} />
-        </Box>
-        <Box sx={{ minWidth: 200 }}>
-          <select value={empFilter} onChange={e => setEmpFilter(e.target.value)}
-            style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: `1.5px solid ${alpha(PALETTE.PURPLE, 0.15)}`, fontSize: '0.78rem', outline: 'none', background: 'white' }}>
-            <option value="all">All specific employees</option>
-            {EMPLOYEES.map(e => <option key={e.id} value={e.name}>{e.name} ({e.role})</option>)}
-          </select>
-        </Box>
+        <FormControl size="small" sx={{ minWidth: 220 }}>
+          {/* <InputLabel sx={{ fontSize: '0.78rem' }}>Employee</InputLabel> */}
+          <Select
+            value={empFilter}
+            // label="Employee"
+            onChange={e => setEmpFilter(e.target.value)}
+            sx={{ fontSize: '0.78rem', borderRadius: '6px' }}
+            startAdornment={<Users size={14} color={alpha(PALETTE.PURPLE, 0.6)} style={{ marginRight: 6 }} />}
+            MenuProps={{ disableScrollLock: true }}
+          >
+            <MenuItem value="all" sx={{ fontSize: '0.78rem' }}>All Employees</MenuItem>
+            {EMPLOYEES.map(e => (
+              <MenuItem key={e.id} value={e.name} sx={{ fontSize: '0.78rem' }}>
+                {e.name} · <span style={{ color: PALETTE.GRAY, fontSize: '0.72rem', marginLeft: 4 }}>{e.role}</span>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       <Stack direction="row" spacing={1.5} sx={{ mb: 3, flexWrap: 'wrap' }} useFlexGap>

@@ -148,6 +148,28 @@
         "xpath": "//button[not(@disabled) and .//span[normalize-space()='Select']]"
       }
     ],
+    "tags_scheduled_date_filter_xpath": [
+      {
+        "action": "click",
+        "xpath": "//div[@class='filter-name' and normalize-space(text())='Scheduled Date']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//li[@id='vs2__option-2']"
+      },
+      {
+        "action": "wait",
+        "timeout": 500
+      },
+      {
+        "action": "click",
+        "xpath": "//button[not(@disabled) and .//span[normalize-space()='Select']]"
+      }
+    ],
     "time_entry_scraper_scheduled_date_filter_xpath": [
       {
         "action": "click",

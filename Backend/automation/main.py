@@ -314,6 +314,7 @@ async def main():
     await run_work_orders_tags_scraper()
     await run_dispatcher_booked_scraper()
     await run_review_tracker_scraper()
+    await run_yelp_review_scraper()
     await run_invoice_proficiency_scraper()
     await work_orders_time_tracking_scraper()
     await run_fleetmatics_time_tracking_scraper()

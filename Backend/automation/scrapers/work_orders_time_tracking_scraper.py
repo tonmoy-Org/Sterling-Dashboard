@@ -491,7 +491,7 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
 
                 def _log_execution():
                     ScraperExecutionLog.objects.create(
-                        scraper_name="work-orders-time-tracking",
+                        scraper_name="work-orders-time-tracking-scraper",
                         status="error" if _error_occurred else "success",
                         error_message=_error_occurred,
                         records_processed=_records_processed,
@@ -499,7 +499,7 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                     )
                     if _error_occurred:
                         incident, created = Incident.objects.get_or_create(
-                            service_name="work-orders-time-tracking",
+                            service_name="work-orders-time-tracking-scraper",
                             status="active",
                             defaults={
                                 "title": "Work Orders Time Tracking Scraper Error",
@@ -512,7 +512,7 @@ class WorkOrdersTimeTrackingScraper(BaseScraper):
                     else:
                         # Resolve existing active incidents if successful
                         for incident in Incident.objects.filter(
-                            service_name="work-orders-time-tracking",
+                            service_name="work-orders-time-tracking-scraper",
                             status="active"
                         ):
                             incident.status = "resolved"

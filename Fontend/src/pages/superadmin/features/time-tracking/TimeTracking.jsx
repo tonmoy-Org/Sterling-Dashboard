@@ -12,7 +12,7 @@ import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Clock, MapPin, Briefcase, ChevronRight, Calendar,
-    DollarSign, Truck, History, Trash2, RotateCcw, X, AlertCircle, Search,
+    Truck, History, Trash2, RotateCcw, X, AlertCircle, Search,
     ChevronDown, ChevronUp, FileText, Eye
 } from 'lucide-react';
 import RefreshButton from '../../../../components/ui/RefreshButton';
@@ -114,7 +114,6 @@ const THead = memo(({ color, allOnPage, someOnPage, onToggleAll, extraCols }) =>
                 { label: 'Duration (min)', width: 130 },
                 { label: 'Travel', width: 100 },
                 { label: 'Work', width: 100 },
-                { label: 'Billing', width: 100 },
             ].map(col => (
                 <TableCell key={col.label} sx={{ color: PALETTE.TEXT, fontSize: '0.8rem', fontWeight: 600, py: 1.5, width: col.width, minWidth: col.minWidth, whiteSpace: 'nowrap' }}>
                     {col.label}
@@ -167,7 +166,6 @@ ProficiencyChip.displayName = 'ProficiencyChip';
 const TimeEntryRow = memo(({ entry, expanded, onToggle, onDelete, onRestore, isSelected, onSelect }) => {
     const travelProficiencyColor = entry.travel?.proficiency >= 80 ? PALETTE.GREEN : entry.travel?.proficiency >= 70 ? PALETTE.AMBER : PALETTE.RED;
     const workProficiencyColor = entry.workingTime?.proficiency >= 90 ? PALETTE.GREEN : entry.workingTime?.proficiency >= 80 ? PALETTE.AMBER : PALETTE.RED;
-    const billingProficiencyColor = (entry.billing?.proficiency || 0) >= 120 ? PALETTE.GREEN : PALETTE.AMBER;
 
     return (
         <>
@@ -196,17 +194,6 @@ const TimeEntryRow = memo(({ entry, expanded, onToggle, onDelete, onRestore, isS
                         <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.85rem', color: PALETTE.TEXT }}>
                             {entry.employeeName}
                         </Typography>
-                        {!entry.is_seen && (
-                            <Chip 
-                                label="NEW" 
-                                size="small" 
-                                sx={{ 
-                                    height: 16, fontSize: '0.65rem', fontWeight: 700, 
-                                    bgcolor: PALETTE.BLUE, color: 'white', borderRadius: '4px',
-                                    '& .MuiChip-label': { px: 0.5 }
-                                }} 
-                            />
-                        )}
                     </Box>
                     {entry.workOrder && (
                         <Typography variant="caption" sx={{ fontSize: '0.72rem', color: PALETTE.GRAY, display: 'block', mt: 0.25 }}>
@@ -225,9 +212,6 @@ const TimeEntryRow = memo(({ entry, expanded, onToggle, onDelete, onRestore, isS
                         <Typography variant="body2" sx={{ fontSize: '0.82rem', fontWeight: 500, color: PALETTE.TEXT }}>
                             {entry.workingTime?.marked?.minutes || 0}m
                         </Typography>
-                        <Typography variant="caption" sx={{ fontSize: '0.7rem', color: PALETTE.GRAY }}>
-                            / {entry.workingTime?.actual?.minutes || 0}m
-                        </Typography>
                     </Box>
                 </TableCell>
                 <TableCell sx={{ py: 1.5 }}>
@@ -235,9 +219,6 @@ const TimeEntryRow = memo(({ entry, expanded, onToggle, onDelete, onRestore, isS
                 </TableCell>
                 <TableCell sx={{ py: 1.5 }}>
                     <ProficiencyChip value={entry.workingTime?.proficiency || 0} color={workProficiencyColor} />
-                </TableCell>
-                <TableCell sx={{ py: 1.5 }}>
-                    <ProficiencyChip value={entry.billing?.proficiency || 0} color={billingProficiencyColor} />
                 </TableCell>
                 <TableCell sx={{ py: 1.5, pr: 2.5 }}>
                     <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
@@ -272,7 +253,7 @@ const TimeEntryRow = memo(({ entry, expanded, onToggle, onDelete, onRestore, isS
             {/* Expanded Details Row - styled to match CustomerCenter */}
             {expanded && (
                 <TableRow>
-                    <TableCell colSpan={8} sx={{ p: 0, bgcolor: alpha(PALETTE.BLUE, 0.02), borderBottom: 'none' }}>
+                    <TableCell colSpan={7} sx={{ p: 0, bgcolor: alpha(PALETTE.BLUE, 0.02), borderBottom: 'none' }}>
                         <Box sx={{ p: 2.5 }}>
                             <Grid container spacing={2}>
                                 {/* Travel Section */}
@@ -327,29 +308,6 @@ const TimeEntryRow = memo(({ entry, expanded, onToggle, onDelete, onRestore, isS
                                                 </Typography>
                                                 <Typography variant="caption" sx={{ fontSize: '0.75rem', color: PALETTE.GREEN, fontWeight: 500 }}>
                                                     {entry.workingTime?.actual?.minutes || 0} MIN
-                                                </Typography>
-                                            </Box>
-                                        </Stack>
-                                    </Paper>
-                                </Grid>
-
-                                {/* Billing Section */}
-                                <Grid size={{ xs: 12, md: 4 }}>
-                                    <Paper elevation={0} sx={{ p: 1.5, borderRadius: '6px', bgcolor: 'white', border: `1px solid ${alpha(PALETTE.TEXT, 0.08)}`, height: '100%' }}>
-                                        <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 600, color: PALETTE.GRAY, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
-                                            <DollarSign size={12} /> Billing
-                                        </Typography>
-                                        <Stack spacing={1.5}>
-                                            <Box>
-                                                <Typography variant="caption" sx={{ fontSize: '0.7rem', color: PALETTE.GRAY }}>Variant Time Billed (FieldEdge)</Typography>
-                                                <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 600, color: PALETTE.ORANGE }}>
-                                                    {entry.billing?.variant?.minutes || 0} MIN
-                                                </Typography>
-                                            </Box>
-                                            <Box>
-                                                <Typography variant="caption" sx={{ fontSize: '0.7rem', color: PALETTE.GRAY }}>Actual Worked (Fleetmatics)</Typography>
-                                                <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 600, color: PALETTE.GREEN }}>
-                                                    {entry.billing?.actual?.minutes || 0} MIN
                                                 </Typography>
                                             </Box>
                                         </Stack>
@@ -418,17 +376,17 @@ const TimeEntryRow = memo(({ entry, expanded, onToggle, onDelete, onRestore, isS
                                                             alignItems: 'center',
                                                             p: 1,
                                                             borderRadius: '4px',
-                                                            bgcolor: alpha(activity.category?.toLowerCase().includes('idle') ? PALETTE.AMBER : PALETTE.GREEN, 0.05),
-                                                            border: `1px solid ${alpha(activity.category?.toLowerCase().includes('idle') ? PALETTE.AMBER : PALETTE.GREEN, 0.1)}`
+                                                            bgcolor: alpha(activity.category?.toLowerCase().includes('idle') ? PALETTE.AMBER : activity.category?.toLowerCase().includes('stopped') ? PALETTE.RED : PALETTE.GREEN, 0.05),
+                                                            border: `1px solid ${alpha(activity.category?.toLowerCase().includes('idle') ? PALETTE.AMBER : activity.category?.toLowerCase().includes('stopped') ? PALETTE.RED : PALETTE.GREEN, 0.1)}`
                                                         }}>
                                                             <Stack direction="row" spacing={1.5} alignItems="center">
                                                                 <Box sx={{ 
                                                                     px: 1, py: 0.25, borderRadius: '12px', 
-                                                                    bgcolor: activity.category?.toLowerCase().includes('idle') ? alpha(PALETTE.AMBER, 0.15) : alpha(PALETTE.GREEN, 0.15),
-                                                                    color: activity.category?.toLowerCase().includes('idle') ? PALETTE.AMBER : PALETTE.GREEN,
+                                                                    bgcolor: activity.category?.toLowerCase().includes('idle') ? alpha(PALETTE.AMBER, 0.15) : activity.category?.toLowerCase().includes('stopped') ? alpha(PALETTE.RED, 0.15) : alpha(PALETTE.GREEN, 0.15),
+                                                                    color: activity.category?.toLowerCase().includes('idle') ? PALETTE.AMBER : activity.category?.toLowerCase().includes('stopped') ? PALETTE.RED : PALETTE.GREEN,
                                                                     fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase'
                                                                 }}>
-                                                                    {activity.category}
+                                                                    {activity.category?.replace(/\bvs\b/gi, '')?.trim()}
                                                                 </Box>
                                                                 <Box>
                                                                     <Typography variant="body2" sx={{ fontSize: '0.78rem', fontWeight: 500 }}>
@@ -1057,7 +1015,7 @@ const TimeTracking = () => {
                         />
                         <TableBody>
                             {paginatedEntries.length === 0 ? (
-                                <EmptyRow colSpan={8} isFiltered={filteredEntries.length === 0 && search !== ''} />
+                                <EmptyRow colSpan={7} isFiltered={filteredEntries.length === 0 && search !== ''} />
                             ) : (
                                 paginatedEntries.map(entry => (
                                     <TimeEntryRow

@@ -479,7 +479,7 @@ class WorkOrdersTagsScraper(BaseScraper):
             await self.perform_actions_by_xpaths(name="tags_edit_filter_xpath")
             await self.perform_actions_by_xpaths(name="workorder_tags_status_xpath")
             await self.perform_actions_by_xpaths(name="tags_select_all_xpath")
-            await self.perform_actions_by_xpaths(name="scheduled_date_filter_xpath")
+            await self.perform_actions_by_xpaths(name="tags_scheduled_date_filter_xpath")
             # await self.perform_actions_by_xpaths(name="completed_date_filter_xpath")
             await self.perform_actions_by_xpaths(name="submit_filter")
 

@@ -187,19 +187,15 @@ export const SuperAdminDashboard = () => {
                 color: 'white',
                 animation: 'pulse 1.5s ease-in-out infinite',
                 '@keyframes pulse': {
-                  '0%': {
-                    transform: 'scale(1)',
-                  },
-                  '50%': {
-                    transform: 'scale(1.1)',
-                  },
-                  '100%': {
-                    transform: 'scale(1)',
-                  },
+                  '0%': { transform: 'scale(1)' },
+                  '50%': { transform: 'scale(1.1)' },
+                  '100%': { transform: 'scale(1)' },
                 },
               },
             }}
-          />
+          >
+            <Box sx={{ width: 0, height: 0 }} />
+          </Badge>
         )}
 
         {card.image && (

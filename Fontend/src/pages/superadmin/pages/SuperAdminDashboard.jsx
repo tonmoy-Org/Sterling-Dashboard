@@ -12,7 +12,8 @@ import h6 from '../../../assets/homepage/h6.jpeg';
 import h7 from '../../../assets/homepage/h7.jpeg';
 import h8 from '../../../assets/homepage/h8.jpeg';
 import h9 from '../../../assets/homepage/h9.jpeg';
-import callrailImg from '../../../assets/homepage/callrail.png';
+import h10 from '../../../assets/homepage/h10.jpeg';
+
 import { useNotifications } from '../../../hooks/useNotifications';
 
 const getOneMonthAgo = () => {
@@ -37,7 +38,7 @@ const dashboardCards = [
   { label: 'Dispatch KPI', route: '/super-admin-dashboard/dispatch-kpi', handwritten: true, image: h7, notificationPath: '/super-admin-dashboard/dispatch-kpi' },
   { label: 'Review Tracking', route: '/super-admin-dashboard/review-tracking', handwritten: true, image: h8, notificationPath: '/super-admin-dashboard/review-tracking' },
   { label: 'Time Tracking', route: '/super-admin-dashboard/time-tracking', handwritten: true, image: h9, notificationPath: '/super-admin-dashboard/time-tracking' },
-  { label: 'Callrail', route: '/super-admin-dashboard/callrail', handwritten: true, image: callrailImg, notificationPath: null },
+  { label: 'Callrail', route: '/super-admin-dashboard/callrail', handwritten: true, image: h10, notificationPath: null },
 ];
 
 const getGreeting = () => {

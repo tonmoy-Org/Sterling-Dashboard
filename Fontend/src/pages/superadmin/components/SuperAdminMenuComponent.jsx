@@ -11,6 +11,7 @@ import {
     Star,
     FileText,
     Clock,
+    PhoneCall,
 } from 'lucide-react';
 
 import { useNotifications } from '../../../hooks/useNotifications';
@@ -455,6 +456,12 @@ export const SuperAdminMenuComponent = ({ onMenuItemClick }) => {
             path: '/super-admin-dashboard/repairs',
             parent: 'Work Orders',
             indent: 1,
+            section: 'OPERATIONS',
+        },
+        {
+            text: 'Callrail',
+            icon: <PhoneCall size={18} />,
+            path: '/super-admin-dashboard/callrail',
             section: 'OPERATIONS',
         },
 

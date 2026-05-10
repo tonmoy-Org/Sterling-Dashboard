@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'reviews',
     'invoice_proficiency',
     'time_tracking',
+    'callrail',
 ]
 
 MIDDLEWARE = [

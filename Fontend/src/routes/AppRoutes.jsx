@@ -64,6 +64,7 @@ import CustomerCenter from '../pages/superadmin/features/customer-center/Custome
 import DispatchKpi from '../pages/superadmin/features/dispatch_kpi/DispatchKpi';
 import { InvoiceProficiency } from '../pages/superadmin/features/invoice_proficiency/InvoiceProficiency';
 import TimeTracking from '../pages/superadmin/features/time-tracking/TimeTracking';
+import Callrail from '../pages/superadmin/features/callrail/Callrail';
 
 export const AppRoutes = () => {
   const { user } = useAuth();
@@ -153,6 +154,7 @@ export const AppRoutes = () => {
           <Route path="dispatch-kpi" element={<DispatchKpi />} />
           <Route path="invoice-proficiency" element={<InvoiceProficiency />} />
           <Route path="time-tracking" element={<TimeTracking />} />
+          <Route path="callrail" element={<Callrail />} />
         </Route>
 
         {/* Manager */}
